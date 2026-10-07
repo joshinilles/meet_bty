@@ -124,20 +124,25 @@ button{font:inherit;color:inherit}
 .sender{height:16px;width:auto;opacity:.9;transition:opacity .2s}
 .sender-link:hover .sender,.sender-link:focus-visible .sender{opacity:1}
 
-/* ---- Intro: Logo erscheint mittig und fliegt an seinen Platz ---- */
+/* ---- Intro: Signet M_ erscheint mittig, wird beim Rauszoomen zur Wortmarke MEET_ ---- */
 .splash{display:none;position:fixed;inset:0;z-index:20;pointer-events:none}
 html.intro .splash{display:block}
-.splash-logo{position:fixed;left:50%;top:42%;height:64px;width:auto;transform:translate(-50%,-50%);will-change:transform}
-html.intro .topbar-in{opacity:0}
-html.intro .frame>*{opacity:0}
-html.ready .topbar-in{opacity:1;transition:opacity .35s ease}
+.splash-stack{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);display:grid;place-items:center;will-change:transform}
+.splash-stack>*{grid-area:1/1}
+.splash-signet{height:112px;width:112px;transform-origin:center}
+.splash-signet circle{stroke:rgba(255,255,255,.22);stroke-width:24}
+.splash-logo{height:64px;width:auto;opacity:0;filter:blur(10px);transform:scale(.82);transform-origin:center}
+html.intro .page{opacity:0}
+html.ready .page{opacity:1;animation:zoomOut .85s cubic-bezier(.2,.8,.2,1) backwards}
+@keyframes zoomOut{from{opacity:0;transform:scale(1.06)}to{opacity:1;transform:scale(1)}}
+html.intro .logo{opacity:0}
 html.ready .frame>*{animation:rise .6s var(--spring) both}
-html.ready .frame>*:nth-child(1){animation-delay:.04s}
-html.ready .frame>*:nth-child(2){animation-delay:.12s}
-html.ready .frame>*:nth-child(3){animation-delay:.20s}
-html.ready .frame>*:nth-child(4){animation-delay:.28s}
+html.ready .frame>*:nth-child(1){animation-delay:.10s}
+html.ready .frame>*:nth-child(2){animation-delay:.18s}
+html.ready .frame>*:nth-child(3){animation-delay:.26s}
+html.ready .frame>*:nth-child(4){animation-delay:.34s}
 html.intro .ul{background-size:0 3px}
-html.ready .ul{background-size:100% 3px;transition:background-size .7s cubic-bezier(.2,.8,.2,1) .55s}
+html.ready .ul{background-size:100% 3px;transition:background-size .7s cubic-bezier(.2,.8,.2,1) .6s}
 
 /* ---- Typo-Bausteine ---- */
 .label{
