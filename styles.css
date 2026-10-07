@@ -80,7 +80,9 @@ button{font:inherit;color:inherit}
 .wordmark{height:38px;width:auto;overflow:visible}
 .cursor{animation:meetCursor 1.8s ease-in-out infinite}
 @keyframes meetCursor{0%,35%{opacity:1}50%,85%{opacity:0}100%{opacity:1}}
-.sender{height:16px;width:auto;opacity:.9;margin-top:4px}
+.sender-link{display:block;margin-top:4px;padding:6px;margin-right:-6px;border-radius:8px}
+.sender{height:16px;width:auto;opacity:.9;transition:opacity .2s}
+.sender-link:hover .sender,.sender-link:focus-visible .sender{opacity:1}
 
 /* ---- Typo-Bausteine ---- */
 .label{
