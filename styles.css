@@ -67,7 +67,7 @@ button{font:inherit;color:inherit}
 .frame{
   width:100%;
   max-width:430px;
-  padding:22px 22px 36px;
+  padding:8px 22px 36px;
   padding-left:max(22px,env(safe-area-inset-left));
   padding-right:max(22px,env(safe-area-inset-right));
   padding-bottom:max(36px,env(safe-area-inset-bottom));
@@ -76,15 +76,68 @@ button{font:inherit;color:inherit}
   gap:22px;
 }
 
-/* ---- Kopf: MEET_ links, YOUTH b+ rechts ---- */
-.top{display:flex;justify-content:space-between;align-items:flex-start}
+/* ---- Kopf: MEET_ links, YOUTH b+ rechts – bleibt oben kleben ---- */
+.topbar{
+  position:sticky;
+  top:0;
+  z-index:10;
+  width:100%;
+  display:flex;
+  justify-content:center;
+  background:rgba(47,16,65,0);
+  transition:background .5s ease,box-shadow .5s ease;
+}
+.topbar.is-compact{
+  background:rgba(47,16,65,.82);
+  -webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(14px);
+  box-shadow:0 1px 0 rgba(255,255,255,.06);
+}
+.topbar-in{
+  width:100%;
+  max-width:430px;
+  padding:22px 22px 12px;
+  padding-left:max(22px,env(safe-area-inset-left));
+  padding-right:max(22px,env(safe-area-inset-right));
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  transition:padding .5s cubic-bezier(.2,.8,.2,1);
+}
+.topbar.is-compact .topbar-in{padding-top:10px;padding-bottom:10px;align-items:center}
 .logo{display:block;color:inherit}
-.wordmark{height:38px;width:auto;overflow:visible}
+.logo-stack{display:grid;height:38px;transition:height .5s cubic-bezier(.2,.8,.2,1)}
+.topbar.is-compact .logo-stack{height:34px}
+.logo-stack>*{grid-area:1/1;align-self:center}
+.wordmark{height:38px;width:auto;overflow:visible;transform-origin:left center;
+  transition:opacity .55s ease,filter .55s ease,transform .55s cubic-bezier(.2,.8,.2,1)}
+.topbar.is-compact .wordmark{opacity:0;filter:blur(8px);transform:scale(.62);pointer-events:none}
+.signet-mini{height:34px;width:34px;opacity:0;filter:blur(8px);transform:scale(.62);transform-origin:left center;
+  transition:opacity .55s ease .05s,filter .55s ease .05s,transform .55s cubic-bezier(.2,.8,.2,1) .05s}
+.signet-mini circle{stroke:rgba(255,255,255,.28);stroke-width:28}
+.topbar.is-compact .signet-mini{opacity:1;filter:blur(0);transform:scale(1)}
 .cursor{animation:meetCursor 1.8s ease-in-out infinite}
+.logo-stack.is-solid .cursor{animation:none;opacity:1}
 @keyframes meetCursor{0%,35%{opacity:1}50%,85%{opacity:0}100%{opacity:1}}
-.sender-link{display:block;margin-top:4px;padding:6px;margin-right:-6px;border-radius:8px}
+.sender-link{display:block;padding:6px;margin:-2px -6px 0 0;border-radius:8px}
+.topbar.is-compact .sender-link{margin-top:0}
 .sender{height:16px;width:auto;opacity:.9;transition:opacity .2s}
 .sender-link:hover .sender,.sender-link:focus-visible .sender{opacity:1}
+
+/* ---- Intro: Logo erscheint mittig und fliegt an seinen Platz ---- */
+.splash{display:none;position:fixed;inset:0;z-index:20;pointer-events:none}
+html.intro .splash{display:block}
+.splash-logo{position:fixed;left:50%;top:42%;height:64px;width:auto;transform:translate(-50%,-50%);will-change:transform}
+html.intro .topbar-in{opacity:0}
+html.intro .frame>*{opacity:0}
+html.ready .topbar-in{opacity:1;transition:opacity .35s ease}
+html.ready .frame>*{animation:rise .6s var(--spring) both}
+html.ready .frame>*:nth-child(1){animation-delay:.04s}
+html.ready .frame>*:nth-child(2){animation-delay:.12s}
+html.ready .frame>*:nth-child(3){animation-delay:.20s}
+html.ready .frame>*:nth-child(4){animation-delay:.28s}
+html.intro .ul{background-size:0 3px}
+html.ready .ul{background-size:100% 3px;transition:background-size .7s cubic-bezier(.2,.8,.2,1) .55s}
 
 /* ---- Typo-Bausteine ---- */
 .label{
@@ -200,7 +253,9 @@ h2{
 @media (hover:hover){
   .card--form:hover{transform:scale(1.025);box-shadow:0 18px 44px rgba(0,0,0,.4)}
 }
-.card-head{display:flex;flex-direction:column;gap:4px}
+.card-head{display:flex;flex-direction:column;gap:4px;transition:opacity .18s ease,transform .18s ease}
+.card--form.is-switching .card-head,.card--form.is-switching textarea{opacity:0;transform:translateY(4px)}
+textarea{transition:border-color .2s,opacity .18s ease,transform .18s ease}
 
 textarea,input[type="text"]{
   width:100%;
