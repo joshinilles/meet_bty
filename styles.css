@@ -290,6 +290,47 @@ textarea:focus,input:focus{outline:none;border-color:var(--lime)}
 .foot-legal a{color:var(--muted);text-decoration:underline;text-decoration-color:rgba(185,166,204,.4);text-underline-offset:.2em}
 .foot-legal a:hover{color:#fff}
 
+/* ---- Hinweis: MEET auf den Home-Bildschirm (nur Handy, siehe homescreen.js) ---- */
+.a2hs{
+  position:fixed;
+  left:12px;
+  right:12px;
+  bottom:max(12px,env(safe-area-inset-bottom));
+  z-index:20;
+  max-width:406px;
+  margin:0 auto;
+  display:flex;
+  gap:14px;
+  align-items:flex-start;
+  padding:16px 48px 16px 16px;
+  background:var(--night3);
+  border:1px solid rgba(212,246,90,.35);
+  border-radius:16px;
+  box-shadow:0 18px 44px rgba(0,0,0,.45);
+  animation:rise .45s var(--spring) both;
+}
+.a2hs-icon{width:52px;height:52px;border-radius:12px;flex:none}
+.a2hs-text{display:flex;flex-direction:column;gap:6px;min-width:0}
+.a2hs h2{font-size:17px;line-height:1.2}
+.a2hs .hint b{color:#fff;font-weight:600}
+.a2hs-share{display:inline-block;width:1.05em;height:1.05em;vertical-align:-.18em;margin-right:.15em;color:#fff}
+.a2hs-close{
+  position:absolute;
+  top:4px;
+  right:4px;
+  width:44px;
+  height:44px;
+  border:0;
+  border-radius:22px;
+  background:transparent;
+  color:var(--soft);
+  cursor:pointer;
+  display:grid;
+  place-items:center;
+}
+.a2hs-close:hover{color:#fff;background:rgba(255,255,255,.08)}
+.btn--sm{min-height:40px;padding:0 18px;border-radius:20px;font-size:15px;align-self:flex-start;margin-top:4px}
+
 /* ---- Grössere Screens: Bühne bleibt schmal, Rand atmet ---- */
 @media (min-width:700px){
   .frame{padding-top:48px;padding-bottom:56px}

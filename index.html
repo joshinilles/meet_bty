@@ -14,13 +14,17 @@
 <meta property="og:image" content="https://meet-bty.com/assets/app-icon-1024.png">
 <meta property="og:locale" content="de_DE">
 <link rel="icon" type="image/png" sizes="512x512" href="assets/favicon-512.png">
-<link rel="apple-touch-icon" href="assets/app-icon-1024.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="MEET">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preload" href="assets/fonts/SpaceGrotesk.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="preload" href="assets/fonts/Geist.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="styles.css">
 <script src="config.js" defer></script>
 <script src="app.js" defer></script>
+<script src="homescreen.js" defer></script>
 </head>
 <body>
 <main class="page">
@@ -115,5 +119,18 @@
 
 </div>
 </main>
+
+<aside class="a2hs" id="a2hs" aria-labelledby="a2hsTitle" hidden>
+  <img src="assets/apple-touch-icon.png" alt="" class="a2hs-icon" width="52" height="52">
+  <div class="a2hs-text">
+    <div class="kicker">MEET als App</div>
+    <h2 id="a2hsTitle">Leg MEET auf deinen Home-Bildschirm.</h2>
+    <p class="hint" id="a2hsHow"></p>
+    <button type="button" class="btn btn--primary btn--sm" id="a2hsAdd" hidden>Hinzufügen</button>
+  </div>
+  <button type="button" class="a2hs-close" id="a2hsClose" aria-label="Hinweis schliessen">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
+</aside>
 </body>
 </html>

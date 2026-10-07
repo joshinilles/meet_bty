@@ -13,8 +13,9 @@ Gestaltung nach dem Claude-Design-Entwurf „MEET Impuls“ und dem MEET-Brand-K
 | `index.html` | Die Seite: Kopf (MEET_ links, YOUTH b+ rechts), Intro, Tabs, Formular, Erfolgskarte, MEET2gether-Hinweis, Fuss |
 | `styles.css` | Design-Tokens und Styles |
 | `app.js` | Tab-Wechsel, Zähler, Versand, Erfolgskarte |
+| `homescreen.js` | Hinweis „Leg MEET auf deinen Home-Bildschirm“ – nur auf dem Handy, nicht in der hinzugefügten App; Wegklicken merkt sich das Gerät (`localStorage`, Schlüssel `meet:homescreen-hint`) |
 | `config.js` | **Hier täglich die Bibelstelle ändern** (`passage`), Standard-Tab, Zeichenlimit |
-| `manifest.webmanifest` | Web-App auf dem Home-Bildschirm (Icon = Signet) |
+| `manifest.webmanifest` | Web-App auf dem Home-Bildschirm (Icon = Signet; `assets/apple-touch-icon.png`, `icon-192.png`, `icon-maskable-512.png` sind vollflächig violett, weil iPhone und Android durchsichtige Ecken sonst schwarz oder weiss füllen) |
 | `netlify.toml` | Hosting-Header (Cache, Sicherheit) |
 | `assets/` | Logos, Signets, Verläufe, Schriften (SIL Open Font License 1.1) |
 
