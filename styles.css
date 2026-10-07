@@ -113,18 +113,19 @@ button{font:inherit;color:inherit}
    der Kreis löst sich auf. Gleicher Übergang im Intro und beim Scrollen. ---- */
 .morph{height:38px;width:auto;overflow:visible;display:block}
 .morph *{transform-box:view-box}
-.m-root{transform-origin:402px 559px;transition:transform .65s cubic-bezier(.2,.8,.2,1)}
-.m-circle{fill:#2F1041;stroke:rgba(255,255,255,.3);stroke-width:56;opacity:0;transform:scale(1.12);transform-origin:860px 596px;
-  transition:opacity .4s ease,transform .65s cubic-bezier(.2,.8,.2,1)}
-.m-E1,.m-E2,.m-T{opacity:1;transition:transform .6s cubic-bezier(.2,.8,.2,1),opacity .4s ease}
-.m-E1{transition-delay:.02s}.m-E2{transition-delay:.08s}.m-T{transition-delay:.14s}
-.m-bar{transition:transform .65s cubic-bezier(.2,.8,.2,1)}
+.m-root{transform-origin:402px 559px;transition:transform 1.05s cubic-bezier(.3,.9,.25,1)}
+.m-circle{fill:#2F1041;stroke:rgba(255,255,255,.3);stroke-width:56;opacity:0;transform:scale(1.18);transform-origin:860px 596px;
+  transition:opacity .75s ease-in-out,transform 1.05s cubic-bezier(.3,.9,.25,1)}
+.m-E1,.m-E2,.m-T{opacity:1;filter:blur(0px);
+  transition:transform 1.05s cubic-bezier(.3,.9,.25,1),opacity .8s ease-in-out,filter .8s ease-in-out}
+.m-E1{transition-delay:.06s}.m-E2{transition-delay:.18s}.m-T{transition-delay:.30s}
+.m-bar{transition:transform 1.05s cubic-bezier(.3,.9,.25,1) .08s}
 .is-signet .m-root{transform:scale(.373)}
 .is-signet .m-circle{opacity:1;transform:scale(1)}
-.is-signet .m-E1{transform:translateX(-800px);opacity:0;transition-delay:.12s}
-.is-signet .m-E2{transform:translateX(-1306px);opacity:0;transition-delay:.06s}
-.is-signet .m-T{transform:translateX(-1813px);opacity:0;transition-delay:0s}
-.is-signet .m-bar{transform:translate(-1569px,-4px)}
+.is-signet .m-E1{transform:translateX(-800px);opacity:0;filter:blur(14px);transition-delay:.24s}
+.is-signet .m-E2{transform:translateX(-1306px);opacity:0;filter:blur(14px);transition-delay:.12s}
+.is-signet .m-T{transform:translateX(-1813px);opacity:0;filter:blur(14px);transition-delay:0s}
+.is-signet .m-bar{transform:translate(-1569px,-4px);transition-delay:0s}
 .cursor{animation:meetCursor 1.8s ease-in-out infinite}
 .logo-stack.is-solid .cursor{animation:none;opacity:1}
 @keyframes meetCursor{0%,35%{opacity:1}50%,85%{opacity:0}100%{opacity:1}}
@@ -138,16 +139,16 @@ button{font:inherit;color:inherit}
 html.intro .splash{display:block}
 .splash-logo{position:fixed;left:50%;top:42%;height:112px;transform:translate(-56px,-50%);will-change:transform}
 html.intro .page{opacity:0}
-html.ready .page{opacity:1;animation:zoomOut .85s cubic-bezier(.2,.8,.2,1) backwards}
+html.ready .page{opacity:1;animation:zoomOut 1.1s cubic-bezier(.3,.9,.25,1) backwards}
 @keyframes zoomOut{from{opacity:0;transform:scale(1.06)}to{opacity:1;transform:scale(1)}}
 html.intro .logo{opacity:0}
 html.ready .frame>*{animation:rise .6s var(--spring) both}
-html.ready .frame>*:nth-child(1){animation-delay:.10s}
-html.ready .frame>*:nth-child(2){animation-delay:.18s}
-html.ready .frame>*:nth-child(3){animation-delay:.26s}
-html.ready .frame>*:nth-child(4){animation-delay:.34s}
+html.ready .frame>*:nth-child(1){animation-delay:.18s}
+html.ready .frame>*:nth-child(2){animation-delay:.28s}
+html.ready .frame>*:nth-child(3){animation-delay:.38s}
+html.ready .frame>*:nth-child(4){animation-delay:.48s}
 html.intro .ul{background-size:0 3px}
-html.ready .ul{background-size:100% 3px;transition:background-size .7s cubic-bezier(.2,.8,.2,1) .6s}
+html.ready .ul{background-size:100% 3px;transition:background-size .8s cubic-bezier(.3,.9,.25,1) .9s}
 
 /* ---- Typo-Bausteine ---- */
 .label{

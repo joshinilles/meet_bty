@@ -43,13 +43,13 @@
       var fly = splash.animate(
         [{ transform: "translate(0,0) scale(1)" },
          { transform: "translate(" + dx + "px," + dy + "px) scale(" + s + ")" }],
-        { duration: 820, easing: "cubic-bezier(.22,1,.36,1)", fill: "forwards" }
+        { duration: 1150, easing: "cubic-bezier(.3,.9,.25,1)", fill: "forwards" }
       );
       var done = false;
       var end = function () { if (done) return; done = true; landed(); };
-      fly.onfinish = end;
+      // Erst umschalten, wenn Flug und Buchstaben-Morph (bis ~1,35 s) beide fertig sind
       fly.oncancel = end;
-      setTimeout(end, 1400);
+      setTimeout(end, 1420);
     });
   }
 
