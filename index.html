@@ -1,28 +1,119 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MEET_ – bibletunes youth</title>
-  <meta name="robots" content="noindex">
-  <style>
-    html, body { height: 100%; margin: 0; }
-    body {
-      display: grid;
-      place-items: center;
-      background: linear-gradient(160deg, #2F1041, #602184);
-      color: #EEDEF7;
-      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-      text-align: center;
-    }
-    h1 { font-size: clamp(3rem, 12vw, 7rem); margin: 0; letter-spacing: 0.02em; }
-    p  { margin: 1rem 0 0; opacity: 0.8; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MEET – Teile deine Gedanken · bibletunes youth</title>
+<meta name="description" content="Du hast den MEET DAILY Impuls gesehen. Teile deinen MEET-Moment oder stell deine Frage zum Bibeltext – anonym, in einem Satz.">
+<meta name="theme-color" content="#2F1041">
+<meta name="color-scheme" content="dark">
+<meta property="og:title" content="MEET – Teile deine Gedanken">
+<meta property="og:description" content="Wie ist Gott dir heute Morgen begegnet? Teile deinen MEET-Moment oder stell deine Frage zum Text.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://meet-bty.com/">
+<meta property="og:image" content="https://meet-bty.com/assets/app-icon-1024.png">
+<meta property="og:locale" content="de_DE">
+<link rel="icon" type="image/png" sizes="512x512" href="assets/favicon-512.png">
+<link rel="apple-touch-icon" href="assets/app-icon-1024.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preload" href="assets/fonts/SpaceGrotesk.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="preload" href="assets/fonts/Geist.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="styles.css">
+<script src="config.js" defer></script>
+<script src="app.js" defer></script>
 </head>
 <body>
-  <main>
-    <h1>Hallo Welt</h1>
-    <p>MEET_ · bibletunes youth – hier entsteht die Landingpage.</p>
-  </main>
+<main class="page">
+<div class="frame">
+
+<header class="top">
+  <a href="/" class="logo" aria-label="MEET – zur Startseite">
+    <svg viewBox="200 200 3005.02 746" role="img" aria-label="MEET" class="wordmark">
+      <path fill="#FFFFFF" d="M200 946V246H445L566 856H584L705 246H950V946H822V343H804L684 946H466L346 343H328V946Z"/>
+      <path fill="#FFFFFF" d="M1000.31 946V246H1450.31V366H1132.31V533H1422.31V653H1132.31V826H1456.31V946Z"/>
+      <path fill="#FFFFFF" d="M1506.02 946V246H1956.02V366H1638.02V533H1928.02V653H1638.02V826H1962.02V946Z"/>
+      <path fill="#FFFFFF" d="M2217.02 946V366H2013.02V246H2553.02V366H2349.02V946Z"/>
+      <rect class="cursor" x="2605.02" y="819" width="600" height="127" fill="#D4F65A"/>
+    </svg>
+  </a>
+  <img src="assets/youth-bplus-weiss.svg" alt="YOUTH b+ – bibletunes youth" class="sender">
+</header>
+
+<section class="intro">
+  <div class="meta">
+    <span class="pill pill--lime">Heute · <span id="dateLabel">heute</span></span>
+    <span class="label" id="passage">Johannes 4,1–26</span>
+  </div>
+  <h1>Mit Gott Leben leben.</h1>
+  <p class="lead">Du hast den Impuls gesehen.<br>Wie ist Gott dir heute Morgen begegnet?<br>Gibt es etwas, das du nicht verstehst?</p>
+  <p class="cta"><span class="ul">Teile hier deine Gedanken.</span></p>
+</section>
+
+<section id="composer" class="composer">
+  <div class="tabs" role="tablist" aria-label="Was möchtest du teilen?">
+    <button type="button" class="tab is-on" role="tab" id="tab-moment" aria-selected="true" aria-controls="panel" data-mode="moment">MEET-Moment</button>
+    <button type="button" class="tab" role="tab" id="tab-question" aria-selected="false" aria-controls="panel" data-mode="question">Frage zum Text</button>
+  </div>
+
+  <form id="panel" class="card card--form" name="meet-impuls" method="POST" action="/" data-netlify="true" netlify-honeypot="bot-field" role="tabpanel" aria-labelledby="tab-moment" novalidate>
+    <input type="hidden" name="form-name" value="meet-impuls">
+    <input type="hidden" name="art" id="fArt" value="MEET-Moment">
+    <input type="hidden" name="bibelstelle" id="fPassage" value="">
+    <input type="hidden" name="datum" id="fDate" value="">
+    <p class="hp" aria-hidden="true"><label>Nicht ausfüllen: <input name="bot-field" tabindex="-1" autocomplete="off"></label></p>
+
+    <div class="card-head">
+      <div class="kicker" id="kicker">Dein MEET-Moment</div>
+      <h2 id="heading">Wie ist Gott dir im Text begegnet?</h2>
+      <p class="hint" id="hint">Ein Satz reicht. Ein Wort, das hängen bleibt, ein Gedanke, ein Gefühl.</p>
+    </div>
+
+    <label class="sr-only" for="text">Dein Text</label>
+    <textarea id="text" name="nachricht" rows="5" placeholder="Mir ist aufgefallen, dass …" maxlength="500" required></textarea>
+
+    <label class="sr-only" for="name">Dein Vorname (optional)</label>
+    <input type="text" id="name" name="vorname" placeholder="Dein Vorname (optional)" autocomplete="given-name" maxlength="40">
+
+    <p class="error" id="error" hidden>Das hat gerade nicht geklappt. Bitte probier es gleich noch einmal.</p>
+
+    <div class="actions">
+      <span class="counter" id="counter">0 / 500</span>
+      <button type="submit" class="btn btn--primary" id="send" disabled>Moment teilen</button>
+    </div>
+  </form>
+
+  <div class="card card--sent" id="sent" hidden>
+    <img src="assets/signet-meet.svg" alt="" class="signet">
+    <div class="kicker" id="sentKicker">Moment geteilt</div>
+    <h2 id="sentHeading">Danke – schön, dass du dabei bist.</h2>
+    <p class="hint hint--lg" id="sentBody">Dein MEET-Moment ist beim Team angekommen. Vielleicht taucht er morgen im Kanal auf.</p>
+    <button type="button" class="btn btn--ghost" id="reset">Noch etwas schreiben</button>
+  </div>
+</section>
+
+<section class="card card--soon">
+  <div class="soon-head">
+    <img src="assets/meet-2gether-weiss.svg" alt="MEET2gether" class="format">
+    <span class="pill pill--sun">Bald</span>
+  </div>
+  <p class="hint">Hier kannst du bald einer MEET2gether-Gruppe beitreten – Kleingruppen, die den Text gemeinsam lesen. Wir melden uns im Kanal, sobald es losgeht.</p>
+</section>
+
+<footer class="foot">
+  <div class="foot-row">
+    <span class="claim">Mit Gott Leben leben.</span>
+    <span class="label label--sm">meet-bty.com · bibletunes youth</span>
+  </div>
+  <div class="foot-legal">
+    <span>Ein Angebot der bibletunes gGmbH, Lörrach</span>
+    <nav aria-label="Rechtliches">
+      <a href="https://bibletunes.com/impressum/" rel="noopener">Impressum</a>
+      <a href="https://bibletunes.com/datenschutz/" rel="noopener">Datenschutz</a>
+    </nav>
+  </div>
+</footer>
+
+</div>
+</main>
 </body>
 </html>

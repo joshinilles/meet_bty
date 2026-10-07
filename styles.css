@@ -1,0 +1,296 @@
+/* MEET · meet-bty.com · nach CI-Entwurf v0.5 (7. Oktober 2026)
+   Nachtviolett trägt, Lime macht jung. Space Grotesk für Logo & Headlines,
+   Geist für Fliesstext, Geist Mono für Labels. */
+
+@font-face{font-family:"Space Grotesk";src:url("assets/fonts/SpaceGrotesk.ttf") format("truetype");font-weight:300 700;font-display:swap}
+@font-face{font-family:"Geist";src:url("assets/fonts/Geist.ttf") format("truetype");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Geist Mono";src:url("assets/fonts/GeistMono.ttf") format("truetype");font-weight:100 900;font-display:swap}
+
+:root{
+  --night:#2F1041;
+  --night2:#3D1B55;
+  --night3:#4A2466;
+  --lime:#D4F65A;
+  --paper:#F7F4EF;
+  --lilac:#EEDEF7;
+  --violet:#602184;
+  --sun:#FF8A3D;
+  --sunl:#FFC49B;
+  --pink:#FF5FA8;
+  --muted:#B9A6CC;      /* Labels auf Dunkel */
+  --soft:#CDBEDD;       /* Fliesstext gedämpft auf Dunkel */
+  --field-line:#6D5684;
+  --head:"Space Grotesk",system-ui,sans-serif;
+  --body:"Geist",system-ui,sans-serif;
+  --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --r-card:12px;
+  --r-field:10px;
+  --spring:cubic-bezier(.34,1.56,.64,1);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+html,body{margin:0;padding:0;background:var(--night)}
+body{
+  font-family:var(--body);
+  color:#fff;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  min-height:100vh;
+  min-height:100dvh;
+}
+a{color:var(--lime);text-decoration:none}
+a:hover,a:focus-visible{color:#fff}
+img,svg{display:block}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--lime);outline-offset:3px}
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.hp{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden}
+
+/* ---- Bühne: körniger Verlauf ---- */
+.page{
+  min-height:100vh;
+  min-height:100dvh;
+  background:var(--night) url("assets/verlauf-9x16.png") center top / cover no-repeat;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  position:relative;
+  isolation:isolate;
+}
+@media (min-aspect-ratio: 1/1){
+  .page{background-image:url("assets/verlauf-16x9.png")}
+}
+.frame{
+  width:100%;
+  max-width:430px;
+  padding:22px 22px 36px;
+  padding-left:max(22px,env(safe-area-inset-left));
+  padding-right:max(22px,env(safe-area-inset-right));
+  padding-bottom:max(36px,env(safe-area-inset-bottom));
+  display:flex;
+  flex-direction:column;
+  gap:22px;
+}
+
+/* ---- Kopf: MEET_ links, YOUTH b+ rechts ---- */
+.top{display:flex;justify-content:space-between;align-items:flex-start}
+.logo{display:block;color:inherit}
+.wordmark{height:38px;width:auto;overflow:visible}
+.cursor{animation:meetCursor 1.8s ease-in-out infinite}
+@keyframes meetCursor{0%,35%{opacity:1}50%,85%{opacity:0}100%{opacity:1}}
+.sender{height:16px;width:auto;opacity:.9;margin-top:4px}
+
+/* ---- Typo-Bausteine ---- */
+.label{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.label--sm{font-size:10px;letter-spacing:.08em;text-transform:none}
+.pill{
+  display:inline-block;
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  padding:4px 10px;
+  border-radius:20px;
+  white-space:nowrap;
+}
+.pill--lime{background:var(--lime);color:var(--night)}
+.pill--sun{background:var(--sunl);color:var(--night);font-size:10px}
+.kicker{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--lime);
+}
+h1{
+  font-family:var(--head);
+  font-weight:700;
+  font-size:clamp(30px,9.6vw,38px);
+  line-height:1.02;
+  letter-spacing:-.02em;
+  margin:0;
+  text-wrap:pretty;
+}
+h2{
+  font-family:var(--head);
+  font-weight:700;
+  font-size:22px;
+  line-height:1.15;
+  letter-spacing:-.01em;
+  margin:0;
+  text-wrap:pretty;
+}
+.lead{font-size:16px;line-height:1.45;color:var(--soft);margin:0;text-wrap:pretty}
+.hint{font-size:14px;line-height:1.45;color:var(--soft);margin:0;text-wrap:pretty}
+.hint--lg{font-size:15px}
+.cta{
+  font-family:var(--head);
+  font-weight:700;
+  font-size:18px;
+  letter-spacing:-.01em;
+  line-height:1.3;
+  margin:4px 0 0;
+  color:#fff;
+}
+.ul{
+  background:linear-gradient(var(--lime),var(--lime)) left 100% / 100% 3px no-repeat;
+  padding-bottom:3px;
+}
+
+/* ---- Intro ---- */
+.intro{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* ---- Tabs ---- */
+.composer{display:flex;flex-direction:column;gap:22px}
+.tabs{
+  display:flex;
+  gap:6px;
+  padding:5px;
+  border-radius:14px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);
+}
+.tab{
+  flex:1;
+  min-height:48px;
+  border:0;
+  border-radius:10px;
+  cursor:pointer;
+  font-family:var(--head);
+  font-weight:700;
+  font-size:15px;
+  letter-spacing:-.01em;
+  background:transparent;
+  color:#fff;
+  position:relative;
+  transform:scale(1);
+  transition:background .2s,color .2s,transform .35s var(--spring),box-shadow .35s;
+}
+.tab.is-on{background:var(--lime);color:var(--night)}
+@media (hover:hover){
+  .tab:hover{transform:scale(1.07);box-shadow:0 10px 28px rgba(0,0,0,.35);z-index:1}
+}
+
+/* ---- Karten ---- */
+.card{
+  background:var(--night2);
+  border-radius:var(--r-card);
+  padding:18px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.card--form{
+  transform:scale(1);
+  transition:transform .4s cubic-bezier(.34,1.3,.64,1),box-shadow .4s;
+}
+@media (hover:hover){
+  .card--form:hover{transform:scale(1.025);box-shadow:0 18px 44px rgba(0,0,0,.4)}
+}
+.card-head{display:flex;flex-direction:column;gap:4px}
+
+textarea,input[type="text"]{
+  width:100%;
+  border-radius:var(--r-field);
+  border:1.2px solid var(--field-line);
+  background:var(--night);
+  color:#fff;
+  font-family:var(--body);
+  transition:border-color .2s;
+}
+textarea{resize:none;font-size:17px;line-height:1.45;padding:14px}
+input[type="text"]{min-height:48px;font-size:16px;padding:0 14px}
+textarea::placeholder,input::placeholder{color:var(--muted);opacity:1}
+textarea:focus,input:focus{outline:none;border-color:var(--lime)}
+
+.actions{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.counter{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--muted)}
+.counter.is-max{color:var(--sunl)}
+
+.btn{
+  border:0;
+  cursor:pointer;
+  font-family:var(--head);
+  font-weight:700;
+  letter-spacing:-.01em;
+  transition:opacity .2s,transform .2s;
+}
+.btn--primary{
+  min-height:50px;
+  padding:0 22px;
+  border-radius:25px;
+  font-size:16px;
+  background:var(--lime);
+  color:var(--night);
+}
+.btn--primary:disabled{opacity:.45;cursor:not-allowed}
+.btn--primary.is-busy{opacity:.7;cursor:progress}
+.btn--ghost{
+  margin-top:6px;
+  min-height:46px;
+  padding:0 20px;
+  border:1.2px solid var(--lime);
+  border-radius:23px;
+  background:transparent;
+  color:var(--lime);
+  font-size:15px;
+}
+.btn--ghost:hover{color:var(--night);background:var(--lime)}
+.error{
+  margin:0;
+  font-size:14px;
+  line-height:1.45;
+  color:var(--sunl);
+}
+
+/* Erfolgskarte */
+.card--sent{padding:26px 20px;align-items:flex-start}
+.card--sent h2{font-size:26px;line-height:1.1;letter-spacing:-.02em}
+.signet{width:56px;height:56px}
+.card--sent:not([hidden]){animation:rise .45s var(--spring) both}
+@keyframes rise{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+
+/* MEET2gether – bald */
+.card--soon{
+  background:transparent;
+  border:1.2px solid rgba(255,196,155,.45);
+  gap:10px;
+  margin-top:8px;
+}
+.soon-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.format{height:26px;width:auto}
+
+/* ---- Fuss ---- */
+.foot{display:flex;flex-direction:column;gap:14px;padding-top:4px}
+.foot-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.claim{font-family:var(--head);font-weight:700;font-size:14px;letter-spacing:-.01em;color:#fff}
+.foot-legal{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  font-size:12px;
+  color:var(--muted);
+}
+.foot-legal nav{display:flex;gap:14px}
+.foot-legal a{color:var(--muted);text-decoration:underline;text-decoration-color:rgba(185,166,204,.4);text-underline-offset:.2em}
+.foot-legal a:hover{color:#fff}
+
+/* ---- Grössere Screens: Bühne bleibt schmal, Rand atmet ---- */
+@media (min-width:700px){
+  .frame{padding-top:48px;padding-bottom:56px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none !important;transition:none !important}
+}
