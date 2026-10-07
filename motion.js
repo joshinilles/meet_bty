@@ -8,14 +8,12 @@
   var reduce = false;
   try { reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
 
-  // ---- 1) Intro: Signet M_ mittig, dann Morph zur Wortmarke beim Rauszoomen ----
+  // ---- 1) Intro: Signet M_ mittig, beim Rauszoomen wandern E, E, T heraus ----
   function landed() {
     root.classList.add("landed");
     root.classList.remove("intro");
   }
   if (root.classList.contains("intro")) {
-    var stackEl = document.getElementById("splashStack");
-    var sig = document.getElementById("splashSignet");
     var splash = document.getElementById("splashLogo");
     var target = document.getElementById("wordmark");
     var minDelay = new Promise(function (r) { setTimeout(r, 800); });
@@ -26,40 +24,27 @@
     var safety = new Promise(function (r) { setTimeout(r, 2800); });
 
     Promise.race([Promise.all([minDelay, loaded, fonts]), safety]).then(function () {
-      if (!stackEl || !sig || !splash || !target || !stackEl.animate) { root.classList.add("ready"); landed(); return; }
-      var stackFrom = stackEl.getBoundingClientRect();
-      var wmFrom = splash.getBoundingClientRect();
+      if (!splash || !target || !splash.animate) { root.classList.add("ready"); landed(); return; }
+      var from = splash.getBoundingClientRect();
       var to = target.getBoundingClientRect();
-      if (!wmFrom.width || !to.width) { root.classList.add("ready"); landed(); return; }
+      if (!from.width || !to.width) { root.classList.add("ready"); landed(); return; }
 
-      // Stapel an Ort und Stelle einfrieren; Drehpunkt = linke obere Ecke der Wortmarke
-      stackEl.style.transform = "none";
-      stackEl.style.left = stackFrom.left + "px";
-      stackEl.style.top = stackFrom.top + "px";
-      stackEl.style.transformOrigin = (wmFrom.left - stackFrom.left) + "px " + (wmFrom.top - stackFrom.top) + "px";
-      var s = to.height / wmFrom.height;
-      var dx = to.left - wmFrom.left, dy = to.top - wmFrom.top;
+      // Box einfrieren, dann per Transform (linke obere Ecke) zur Kopfposition fliegen
+      splash.style.transform = "none";
+      splash.style.left = from.left + "px";
+      splash.style.top = from.top + "px";
+      splash.style.transformOrigin = "top left";
+      var s = to.height / from.height;
+      var dx = to.left - from.left, dy = to.top - from.top;
 
-      // Seite zoomt heraus, Inhalt kommt – parallel zum Flug
-      root.classList.add("ready");
+      root.classList.add("ready");                 // Seite zoomt heraus, Inhalt folgt
+      splash.classList.remove("is-signet");        // Signet -> Wortmarke, Buchstaben wandern heraus
 
-      var ease = "cubic-bezier(.22,1,.36,1)";
-      var fly = stackEl.animate(
+      var fly = splash.animate(
         [{ transform: "translate(0,0) scale(1)" },
          { transform: "translate(" + dx + "px," + dy + "px) scale(" + s + ")" }],
-        { duration: 820, easing: ease, fill: "forwards" }
+        { duration: 820, easing: "cubic-bezier(.22,1,.36,1)", fill: "forwards" }
       );
-      sig.animate(
-        [{ opacity: 1, filter: "blur(0px)", transform: "scale(1)" },
-         { opacity: 0, filter: "blur(10px)", transform: "scale(.55)" }],
-        { duration: 520, easing: "ease-in-out", fill: "forwards" }
-      );
-      splash.animate(
-        [{ opacity: 0, filter: "blur(10px)", transform: "scale(.82)" },
-         { opacity: 1, filter: "blur(0px)", transform: "scale(1)" }],
-        { duration: 620, delay: 90, easing: "ease-out", fill: "forwards" }
-      );
-
       var done = false;
       var end = function () { if (done) return; done = true; landed(); };
       fly.onfinish = end;
@@ -70,11 +55,12 @@
 
   // ---- 2) Sticky-Kopf & Morph ----
   var topbar = document.getElementById("topbar");
+  var headerLogo = document.getElementById("wordmark");
   var compact = false, ticking = false;
   function applyScroll() {
     var y = window.scrollY || window.pageYOffset || 0;
-    if (!compact && y > 60) { compact = true; topbar.classList.add("is-compact"); }
-    else if (compact && y < 12) { compact = false; topbar.classList.remove("is-compact"); }
+    if (!compact && y > 60) { compact = true; topbar.classList.add("is-compact"); if (headerLogo) headerLogo.classList.add("is-signet"); }
+    else if (compact && y < 12) { compact = false; topbar.classList.remove("is-compact"); if (headerLogo) headerLogo.classList.remove("is-signet"); }
     ticking = false;
   }
   if (topbar) {

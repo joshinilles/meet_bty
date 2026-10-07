@@ -106,16 +106,25 @@ button{font:inherit;color:inherit}
 }
 .topbar.is-compact .topbar-in{padding-top:10px;padding-bottom:10px;align-items:center}
 .logo{display:block;color:inherit}
-.logo-stack{display:grid;height:38px;transition:height .5s cubic-bezier(.2,.8,.2,1)}
-.topbar.is-compact .logo-stack{height:34px}
-.logo-stack>*{grid-area:1/1;align-self:center}
-.wordmark{height:38px;width:auto;overflow:visible;transform-origin:left center;
-  transition:opacity .55s ease,filter .55s ease,transform .55s cubic-bezier(.2,.8,.2,1)}
-.topbar.is-compact .wordmark{opacity:0;filter:blur(8px);transform:scale(.62);pointer-events:none}
-.signet-mini{height:34px;width:34px;opacity:0;filter:blur(8px);transform:scale(.62);transform-origin:left center;
-  transition:opacity .55s ease .05s,filter .55s ease .05s,transform .55s cubic-bezier(.2,.8,.2,1) .05s}
-.signet-mini circle{stroke:rgba(255,255,255,.28);stroke-width:28}
-.topbar.is-compact .signet-mini{opacity:1;filter:blur(0);transform:scale(1)}
+.logo-stack{display:block;height:38px}
+
+/* ---- Ein Logo, zwei Zustände: Signet M_ (klein) und Wortmarke MEET_ (gross).
+   Die Buchstaben E, E, T wandern aus dem M heraus, der Balken schiebt nach rechts,
+   der Kreis löst sich auf. Gleicher Übergang im Intro und beim Scrollen. ---- */
+.morph{height:38px;width:auto;overflow:visible;display:block}
+.morph *{transform-box:view-box}
+.m-root{transform-origin:402px 559px;transition:transform .65s cubic-bezier(.2,.8,.2,1)}
+.m-circle{fill:#2F1041;stroke:rgba(255,255,255,.3);stroke-width:56;opacity:0;transform:scale(1.12);transform-origin:860px 596px;
+  transition:opacity .4s ease,transform .65s cubic-bezier(.2,.8,.2,1)}
+.m-E1,.m-E2,.m-T{opacity:1;transition:transform .6s cubic-bezier(.2,.8,.2,1),opacity .4s ease}
+.m-E1{transition-delay:.02s}.m-E2{transition-delay:.08s}.m-T{transition-delay:.14s}
+.m-bar{transition:transform .65s cubic-bezier(.2,.8,.2,1)}
+.is-signet .m-root{transform:scale(.373)}
+.is-signet .m-circle{opacity:1;transform:scale(1)}
+.is-signet .m-E1{transform:translateX(-800px);opacity:0;transition-delay:.12s}
+.is-signet .m-E2{transform:translateX(-1306px);opacity:0;transition-delay:.06s}
+.is-signet .m-T{transform:translateX(-1813px);opacity:0;transition-delay:0s}
+.is-signet .m-bar{transform:translate(-1569px,-4px)}
 .cursor{animation:meetCursor 1.8s ease-in-out infinite}
 .logo-stack.is-solid .cursor{animation:none;opacity:1}
 @keyframes meetCursor{0%,35%{opacity:1}50%,85%{opacity:0}100%{opacity:1}}
@@ -127,11 +136,7 @@ button{font:inherit;color:inherit}
 /* ---- Intro: Signet M_ erscheint mittig, wird beim Rauszoomen zur Wortmarke MEET_ ---- */
 .splash{display:none;position:fixed;inset:0;z-index:20;pointer-events:none}
 html.intro .splash{display:block}
-.splash-stack{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);display:grid;place-items:center;will-change:transform}
-.splash-stack>*{grid-area:1/1}
-.splash-signet{height:112px;width:112px;transform-origin:center}
-.splash-signet circle{stroke:rgba(255,255,255,.22);stroke-width:24}
-.splash-logo{height:64px;width:auto;opacity:0;filter:blur(10px);transform:scale(.82);transform-origin:center}
+.splash-logo{position:fixed;left:50%;top:42%;height:112px;transform:translate(-56px,-50%);will-change:transform}
 html.intro .page{opacity:0}
 html.ready .page{opacity:1;animation:zoomOut .85s cubic-bezier(.2,.8,.2,1) backwards}
 @keyframes zoomOut{from{opacity:0;transform:scale(1.06)}to{opacity:1;transform:scale(1)}}
