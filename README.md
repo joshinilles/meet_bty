@@ -3,6 +3,10 @@
 Landingpage mit anonymem Formular für MEET DAILY (Phase 1 laut CI-Entwurf v0.5).
 Statische Seite ohne Build-Schritt: HTML, CSS, ein wenig JavaScript, Brand-Assets.
 
+Version 2 (ab 9. Oktober 2026): drei Screens statt einer langen Seite, inspiriert von der fraenk-App.
+Heute (Bibelstelle, eine Frage, ein Button), Schreiben (nur das Textfeld), Danke.
+Die alte Version 1 liegt als Tag `v1.0` und Branch `v1-langseite` im Repo.
+
 Gestaltung nach dem Claude-Design-Entwurf „MEET Impuls“ und dem MEET-Brand-Kit
 (Nachtviolett `#2F1041`, Lime `#D4F65A`, körniger Verlauf, Space Grotesk / Geist / Geist Mono).
 
@@ -10,11 +14,13 @@ Gestaltung nach dem Claude-Design-Entwurf „MEET Impuls“ und dem MEET-Brand-K
 
 | Datei | Zweck |
 | --- | --- |
-| `index.html` | Die Seite: Kopf (MEET_ links, YOUTH b+ rechts), Intro, Tabs, Formular, Erfolgskarte, MEET2gether-Hinweis, Fuss |
+| `index.html` | Die Seite: Kopf (MEET_ links, YOUTH b+ rechts) und die drei Screens Heute, Schreiben, Danke |
 | `styles.css` | Design-Tokens und Styles |
-| `app.js` | Tab-Wechsel, Zähler, Versand, Erfolgskarte |
+| `app.js` | Screen-Wechsel, MEET-Moment oder Frage, Versand |
+| `motion.js` | Logo-Intro, Sticky-Kopf mit Morph M_ ↔ MEET_, Leerstellen-Logik |
+| `homescreen.js` | Hinweis „MEET auf den Home-Bildschirm“ fürs Handy |
 | `homescreen.js` | Hinweis „Leg MEET auf deinen Home-Bildschirm“ – nur auf dem Handy, nicht in der hinzugefügten App; Wegklicken merkt sich das Gerät (`localStorage`, Schlüssel `meet:homescreen-hint`) |
-| `config.js` | **Hier täglich die Bibelstelle ändern** (`passage`), Standard-Tab, Zeichenlimit |
+| `config.js` | **Hier täglich die Bibelstelle ändern** (`passage`), stille Zeichen-Obergrenze |
 | `manifest.webmanifest` | Web-App auf dem Home-Bildschirm (Icon = Signet; `assets/apple-touch-icon.png`, `icon-192.png`, `icon-maskable-512.png` sind vollflächig violett, weil iPhone und Android durchsichtige Ecken sonst schwarz oder weiss füllen) |
 | `netlify.toml` | Hosting-Header (Cache, Sicherheit) |
 | `assets/` | Logos, Signets, Verläufe, Schriften (SIL Open Font License 1.1) |

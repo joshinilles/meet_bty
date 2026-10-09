@@ -54,19 +54,27 @@
   }
 
   // ---- 2) Sticky-Kopf & Morph ----
+  // Kompakt (Signet M_) beim Scrollen oder sobald ein anderer Screen als "Heute" offen ist (is-away).
   var topbar = document.getElementById("topbar");
   var headerLogo = document.getElementById("wordmark");
   var compact = false, ticking = false;
+  function setCompact(on) {
+    compact = on;
+    topbar.classList.toggle("is-compact", on);
+    if (headerLogo) headerLogo.classList.toggle("is-signet", on);
+  }
   function applyScroll() {
     var y = window.scrollY || window.pageYOffset || 0;
-    if (!compact && y > 60) { compact = true; topbar.classList.add("is-compact"); if (headerLogo) headerLogo.classList.add("is-signet"); }
-    else if (compact && y < 12) { compact = false; topbar.classList.remove("is-compact"); if (headerLogo) headerLogo.classList.remove("is-signet"); }
+    var away = topbar.classList.contains("is-away");
+    if (!compact && (y > 60 || away)) setCompact(true);
+    else if (compact && y < 12 && !away) setCompact(false);
     ticking = false;
   }
   if (topbar) {
     window.addEventListener("scroll", function () {
       if (!ticking) { ticking = true; window.requestAnimationFrame(applyScroll); }
     }, { passive: true });
+    window.addEventListener("meet:screen", function () { window.requestAnimationFrame(applyScroll); });
     applyScroll();
   }
 
@@ -88,21 +96,9 @@
   if (text) {
     text.addEventListener("input", syncCursor);
     document.addEventListener("click", function (ev) {
-      if (ev.target.closest && ev.target.closest(".tab, #reset, #send")) setTimeout(syncCursor, 0);
+      if (ev.target.closest && ev.target.closest("#reset, #send, #goMoment, #goQuestion, #back")) setTimeout(syncCursor, 0);
     });
     syncCursor();
   }
 
-  // ---- 4) Tab-Wechsel: Karteninhalt blendet kurz über ----
-  var form = document.getElementById("panel");
-  var tabsBox = document.querySelector(".tabs");
-  if (form && tabsBox) {
-    // Capture-Phase am Container: läuft vor dem Tab-Handler in app.js
-    tabsBox.addEventListener("click", function (ev) {
-      var t = ev.target.closest ? ev.target.closest(".tab") : null;
-      if (!t || reduce || t.classList.contains("is-on")) return;
-      form.classList.add("is-switching");
-      setTimeout(function () { form.classList.remove("is-switching"); }, 190);
-    }, true);
-  }
 })();

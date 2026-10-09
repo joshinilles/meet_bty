@@ -1,6 +1,7 @@
-/* MEET · meet-bty.com · nach CI-Entwurf v0.5 (7. Oktober 2026)
+/* MEET · meet-bty.com · nach CI-Entwurf v0.5
    Nachtviolett trägt, Lime macht jung. Space Grotesk für Logo & Headlines,
-   Geist für Fliesstext, Geist Mono für Labels. */
+   Geist für Fliesstext, Geist Mono für Labels.
+   Version 2: drei Screens (Heute, Schreiben, Danke), ein Screen, eine Aufgabe. */
 
 @font-face{font-family:"Space Grotesk";src:url("assets/fonts/SpaceGrotesk.ttf") format("truetype");font-weight:300 700;font-display:swap}
 @font-face{font-family:"Geist";src:url("assets/fonts/Geist.ttf") format("truetype");font-weight:100 900;font-display:swap}
@@ -19,13 +20,13 @@
   --pink:#FF5FA8;
   --muted:#B9A6CC;      /* Labels auf Dunkel */
   --soft:#CDBEDD;       /* Fliesstext gedämpft auf Dunkel */
-  --field-line:#6D5684;
+  --field:rgba(61,27,85,.72);
   --head:"Space Grotesk",system-ui,sans-serif;
   --body:"Geist",system-ui,sans-serif;
   --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  --r-card:12px;
-  --r-field:10px;
   --spring:cubic-bezier(.34,1.56,.64,1);
+  --ease:cubic-bezier(.3,.9,.25,1);
+  --topbar:72px;
 }
 
 *,*::before,*::after{box-sizing:border-box}
@@ -47,33 +48,33 @@ button{font:inherit;color:inherit}
 
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .hp{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden}
-/* hidden muss gewinnen – sonst ueberstimmt display:flex von .card/.tabs das Attribut */
+/* hidden muss gewinnen – sonst überstimmt display:flex das Attribut */
 [hidden]{display:none !important}
 
-/* ---- Bühne: körniger Verlauf ---- */
+/* ---- Bühne: ruhiges Nachtviolett, der körnige Verlauf nur oben ---- */
 .page{
   min-height:100vh;
   min-height:100dvh;
-  background:var(--night) url("assets/verlauf-9x16.png") center top / cover no-repeat;
+  background:var(--night);
   display:flex;
   flex-direction:column;
   align-items:center;
   position:relative;
   isolation:isolate;
 }
-@media (min-aspect-ratio: 1/1){
-  .page{background-image:url("assets/verlauf-16x9.png")}
+.page::before{
+  content:"";
+  position:absolute;
+  left:0;right:0;top:0;
+  height:min(72vh,640px);
+  background:url("assets/verlauf-9x16.png") center top / cover no-repeat;
+  -webkit-mask-image:linear-gradient(#000 25%,transparent);
+  mask-image:linear-gradient(#000 25%,transparent);
+  z-index:-1;
+  pointer-events:none;
 }
-.frame{
-  width:100%;
-  max-width:430px;
-  padding:8px 22px 36px;
-  padding-left:max(22px,env(safe-area-inset-left));
-  padding-right:max(22px,env(safe-area-inset-right));
-  padding-bottom:max(36px,env(safe-area-inset-bottom));
-  display:flex;
-  flex-direction:column;
-  gap:22px;
+@media (min-aspect-ratio: 1/1){
+  .page::before{background-image:url("assets/verlauf-16x9.png")}
 }
 
 /* ---- Kopf: MEET_ links, YOUTH b+ rechts – bleibt oben kleben ---- */
@@ -102,7 +103,7 @@ button{font:inherit;color:inherit}
   display:flex;
   justify-content:space-between;
   align-items:flex-start;
-  transition:padding .5s cubic-bezier(.2,.8,.2,1);
+  transition:padding .5s var(--ease);
 }
 .topbar.is-compact .topbar-in{padding-top:10px;padding-bottom:10px;align-items:center}
 .logo{display:block;color:inherit}
@@ -110,16 +111,16 @@ button{font:inherit;color:inherit}
 
 /* ---- Ein Logo, zwei Zustände: Signet M_ (klein) und Wortmarke MEET_ (gross).
    Die Buchstaben E, E, T wandern aus dem M heraus, der Balken schiebt nach rechts,
-   der Kreis löst sich auf. Gleicher Übergang im Intro und beim Scrollen. ---- */
+   der Kreis löst sich auf. Gleicher Übergang im Intro, beim Scrollen und beim Screen-Wechsel. ---- */
 .morph{height:38px;width:auto;overflow:visible;display:block}
 .morph *{transform-box:view-box}
-.m-root{transform-origin:402px 559px;transition:transform 1.05s cubic-bezier(.3,.9,.25,1)}
+.m-root{transform-origin:402px 559px;transition:transform 1.05s var(--ease)}
 .m-circle{fill:#2F1041;stroke:rgba(255,255,255,.3);stroke-width:56;opacity:0;transform:scale(1.18);transform-origin:860px 596px;
-  transition:opacity .75s ease-in-out,transform 1.05s cubic-bezier(.3,.9,.25,1)}
+  transition:opacity .75s ease-in-out,transform 1.05s var(--ease)}
 .m-E1,.m-E2,.m-T{opacity:1;filter:blur(0px);
-  transition:transform 1.05s cubic-bezier(.3,.9,.25,1),opacity .8s ease-in-out,filter .8s ease-in-out}
+  transition:transform 1.05s var(--ease),opacity .8s ease-in-out,filter .8s ease-in-out}
 .m-E1{transition-delay:.06s}.m-E2{transition-delay:.18s}.m-T{transition-delay:.30s}
-.m-bar{transition:transform 1.05s cubic-bezier(.3,.9,.25,1) .08s}
+.m-bar{transition:transform 1.05s var(--ease) .08s}
 .is-signet .m-root{transform:scale(.373)}
 .is-signet .m-circle{opacity:1;transform:scale(1)}
 .is-signet .m-E1{transform:translateX(-800px);opacity:0;filter:blur(14px);transition-delay:.24s}
@@ -139,50 +140,46 @@ button{font:inherit;color:inherit}
 html.intro .splash{display:block}
 .splash-logo{position:fixed;left:50%;top:42%;height:112px;transform:translate(-56px,-50%);will-change:transform}
 html.intro .page{opacity:0}
-html.ready .page{opacity:1;animation:zoomOut 1.1s cubic-bezier(.3,.9,.25,1) backwards}
+html.ready .page{opacity:1;animation:zoomOut 1.1s var(--ease) backwards}
 @keyframes zoomOut{from{opacity:0;transform:scale(1.06)}to{opacity:1;transform:scale(1)}}
 html.intro .logo{opacity:0}
-html.ready .frame>*{animation:rise .6s var(--spring) both}
-html.ready .frame>*:nth-child(1){animation-delay:.18s}
-html.ready .frame>*:nth-child(2){animation-delay:.28s}
-html.ready .frame>*:nth-child(3){animation-delay:.38s}
-html.ready .frame>*:nth-child(4){animation-delay:.48s}
-html.intro .ul{background-size:0 3px}
-html.ready .ul{background-size:100% 3px;transition:background-size .8s cubic-bezier(.3,.9,.25,1) .9s}
+html.ready .screen--home>*{animation:rise .6s var(--spring) both}
+html.ready .screen--home>*:nth-child(1){animation-delay:.18s}
+html.ready .screen--home>*:nth-child(2){animation-delay:.26s}
+html.ready .screen--home>*:nth-child(3){animation-delay:.34s}
+html.ready .screen--home>*:nth-child(5){animation-delay:.44s}
+html.ready .screen--home>*:nth-child(6){animation-delay:.52s}
+html.ready .screen--home>*:nth-child(7){animation-delay:.58s}
+@keyframes rise{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+
+/* ---- Screens: einer sichtbar, Wechsel schiebt seitlich ---- */
+.screens{width:100%;max-width:430px;display:flex;flex-direction:column;flex:1}
+.screen{
+  width:100%;
+  min-height:calc(100vh - var(--topbar));
+  min-height:calc(100dvh - var(--topbar));
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+  padding:6px 22px 24px;
+  padding-left:max(22px,env(safe-area-inset-left));
+  padding-right:max(22px,env(safe-area-inset-right));
+  padding-bottom:max(24px,env(safe-area-inset-bottom));
+}
+.screen.enter-fwd{animation:slideFwd .42s var(--ease) both}
+.screen.enter-back{animation:slideBack .42s var(--ease) both}
+@keyframes slideFwd{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes slideBack{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+.grow{flex:1 1 0}
 
 /* ---- Typo-Bausteine ---- */
-.label{
-  font-family:var(--mono);
-  font-size:11px;
-  letter-spacing:.12em;
-  text-transform:uppercase;
-  color:var(--muted);
-}
-.label--sm{font-size:10px;letter-spacing:.08em;text-transform:none}
-.pill{
-  display:inline-block;
-  font-family:var(--mono);
-  font-size:11px;
-  letter-spacing:.12em;
-  text-transform:uppercase;
-  padding:4px 10px;
-  border-radius:20px;
-  white-space:nowrap;
-}
-.pill--lime{background:var(--lime);color:var(--night)}
-.pill--sun{background:var(--sunl);color:var(--night);font-size:10px}
-.kicker{
-  font-family:var(--mono);
-  font-size:11px;
-  letter-spacing:.12em;
-  text-transform:uppercase;
-  color:var(--lime);
-}
+.label{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--lime)}
 h1{
   font-family:var(--head);
   font-weight:700;
-  font-size:clamp(30px,9.6vw,38px);
-  line-height:1.02;
+  font-size:clamp(28px,8.6vw,34px);
+  line-height:1.04;
   letter-spacing:-.02em;
   margin:0;
   text-wrap:pretty;
@@ -190,171 +187,94 @@ h1{
 h2{
   font-family:var(--head);
   font-weight:700;
-  font-size:22px;
-  line-height:1.15;
-  letter-spacing:-.01em;
+  font-size:26px;
+  line-height:1.1;
+  letter-spacing:-.02em;
   margin:0;
   text-wrap:pretty;
 }
 .lead{font-size:16px;line-height:1.45;color:var(--soft);margin:0;text-wrap:pretty}
 .hint{font-size:14px;line-height:1.45;color:var(--soft);margin:0;text-wrap:pretty}
-.hint--lg{font-size:15px}
-.cta{
-  font-family:var(--head);
-  font-weight:700;
-  font-size:18px;
-  letter-spacing:-.01em;
-  line-height:1.3;
-  margin:4px 0 0;
-  color:#fff;
-}
-.ul{
-  background:linear-gradient(var(--lime),var(--lime)) left 100% / 100% 3px no-repeat;
-  padding-bottom:3px;
-}
 
-/* ---- Intro ---- */
-.intro{display:flex;flex-direction:column;gap:10px;margin-top:6px}
-.meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-
-/* ---- Tabs ---- */
-.composer{display:flex;flex-direction:column;gap:22px}
-.tabs{
-  display:flex;
-  gap:6px;
-  padding:5px;
-  border-radius:14px;
-  background:rgba(255,255,255,.08);
-  border:1px solid rgba(255,255,255,.12);
-}
-.tab{
-  flex:1;
-  min-height:48px;
-  border:0;
-  border-radius:10px;
-  cursor:pointer;
-  font-family:var(--head);
-  font-weight:700;
-  font-size:15px;
-  letter-spacing:-.01em;
-  background:transparent;
-  color:#fff;
-  position:relative;
-  transform:scale(1);
-  transition:background .2s,color .2s,transform .35s var(--spring),box-shadow .35s;
-}
-.tab.is-on{background:var(--lime);color:var(--night)}
-@media (hover:hover){
-  .tab:hover{transform:scale(1.07);box-shadow:0 10px 28px rgba(0,0,0,.35);z-index:1}
-}
-
-/* ---- Karten ---- */
-.card{
-  background:var(--night2);
-  border-radius:var(--r-card);
-  padding:18px;
+/* ---- 1 · Heute ---- */
+.day{
   display:flex;
   flex-direction:column;
-  gap:14px;
+  gap:8px;
+  padding:18px 18px 20px;
+  border-radius:18px;
+  background:var(--field);
+  margin-top:4px;
 }
-.card--form{
-  transform:scale(1);
-  transition:transform .4s cubic-bezier(.34,1.3,.64,1),box-shadow .4s;
-}
-@media (hover:hover){
-  .card--form:hover{transform:scale(1.025);box-shadow:0 18px 44px rgba(0,0,0,.4)}
-}
-.card-head{display:flex;flex-direction:column;gap:4px;transition:opacity .18s ease,transform .18s ease}
-.card--form.is-switching .card-head,.card--form.is-switching textarea{opacity:0;transform:translateY(4px)}
-textarea{transition:border-color .2s,opacity .18s ease,transform .18s ease}
+.passage{font-family:var(--head);font-weight:700;font-size:clamp(26px,7.6vw,30px);letter-spacing:-.02em;line-height:1.05}
+.stack{display:flex;flex-direction:column;gap:4px}
+.soon{text-align:center;font-size:12px;color:var(--muted);margin:0}
+.foot{display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:6px;font-size:11px;color:var(--muted)}
+.foot nav{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.foot a{color:var(--muted);text-decoration:underline;text-decoration-color:rgba(185,166,204,.4);text-underline-offset:.2em}
+.foot a:hover{color:#fff}
+.claim{font-family:var(--head);font-weight:700;font-size:13px;letter-spacing:-.01em;color:#fff;opacity:.85}
 
-textarea,input[type="text"]{
-  width:100%;
-  border-radius:var(--r-field);
-  border:1.2px solid var(--field-line);
-  background:var(--night);
-  color:#fff;
-  font-family:var(--body);
-  transition:border-color .2s;
-}
-textarea{resize:none;font-size:17px;line-height:1.45;padding:14px}
-input[type="text"]{min-height:48px;font-size:16px;padding:0 14px}
-textarea::placeholder,input::placeholder{color:var(--muted);opacity:1}
-textarea:focus,input:focus{outline:none;border-color:var(--lime)}
-
-.actions{display:flex;justify-content:space-between;align-items:center;gap:12px}
-.counter{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--muted)}
-.counter.is-max{color:var(--sunl)}
-
+/* ---- Buttons ---- */
 .btn{
   border:0;
   cursor:pointer;
   font-family:var(--head);
   font-weight:700;
   letter-spacing:-.01em;
-  transition:opacity .2s,transform .2s;
+  transition:opacity .2s,transform .2s,background .2s,color .2s;
 }
-.btn--primary{
-  min-height:50px;
-  padding:0 22px;
-  border-radius:25px;
-  font-size:16px;
-  background:var(--lime);
-  color:var(--night);
-}
+.btn:active{transform:scale(.985)}
+.btn--primary{min-height:50px;padding:0 22px;border-radius:25px;font-size:16px;background:var(--lime);color:var(--night)}
 .btn--primary:disabled{opacity:.45;cursor:not-allowed}
 .btn--primary.is-busy{opacity:.7;cursor:progress}
-.btn--ghost{
-  margin-top:6px;
-  min-height:46px;
-  padding:0 20px;
-  border:1.2px solid var(--lime);
-  border-radius:23px;
-  background:transparent;
-  color:var(--lime);
-  font-size:15px;
-}
+.btn--full{width:100%;min-height:56px;border-radius:28px;font-size:17px}
+.btn--ghost{min-height:46px;padding:0 20px;border:1.2px solid var(--lime);border-radius:23px;background:transparent;color:var(--lime);font-size:15px}
 .btn--ghost:hover{color:var(--night);background:var(--lime)}
-.error{
-  margin:0;
-  font-size:14px;
-  line-height:1.45;
-  color:var(--sunl);
-}
+.btn--ghost.btn--full{min-height:54px;border-radius:27px;font-size:16px}
+.btn--text{background:transparent;color:var(--lime);min-height:48px;padding:0 12px;font-weight:500;font-size:15px;border-radius:12px}
+.btn--text:hover{color:#fff}
+.btn--left{align-self:flex-start;padding:0;min-height:40px}
+.btn--sm{min-height:40px;padding:0 18px;border-radius:20px;font-size:15px;align-self:flex-start;margin-top:4px}
 
-/* Erfolgskarte */
-.card--sent{padding:26px 20px;align-items:flex-start}
-.card--sent h2{font-size:26px;line-height:1.1;letter-spacing:-.02em}
-.signet{width:56px;height:56px}
-.card--sent:not([hidden]){animation:rise .45s var(--spring) both}
-@keyframes rise{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
-
-/* MEET2gether – bald */
-.card--soon{
-  background:transparent;
-  border:1.2px solid rgba(255,196,155,.45);
-  gap:10px;
-  margin-top:8px;
-}
-.soon-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
-.format{height:26px;width:auto}
-
-/* ---- Fuss ---- */
-.foot{display:flex;flex-direction:column;gap:14px;padding-top:4px}
-.foot-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
-.claim{font-family:var(--head);font-weight:700;font-size:14px;letter-spacing:-.01em;color:#fff}
-.foot-legal{
-  display:flex;
-  justify-content:space-between;
+/* ---- 2 · Schreiben ---- */
+.back{
+  align-self:flex-start;
+  display:inline-flex;
   align-items:center;
-  gap:12px;
-  flex-wrap:wrap;
-  font-size:12px;
+  gap:8px;
+  background:transparent;
+  border:0;
+  padding:8px 10px 8px 4px;
+  margin-left:-4px;
+  border-radius:8px;
   color:var(--muted);
+  font-size:15px;
+  cursor:pointer;
 }
-.foot-legal nav{display:flex;gap:14px}
-.foot-legal a{color:var(--muted);text-decoration:underline;text-decoration-color:rgba(185,166,204,.4);text-underline-offset:.2em}
-.foot-legal a:hover{color:#fff}
+.back::before{content:"";width:9px;height:9px;border-left:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(45deg);margin-left:4px}
+.back:hover{color:#fff}
+.write{display:flex;flex-direction:column;gap:16px;flex:1;min-height:0}
+.write-head{display:flex;flex-direction:column;gap:6px}
+textarea,input[type="text"]{
+  width:100%;
+  border:1.2px solid transparent;
+  background:var(--field);
+  color:#fff;
+  font-family:var(--body);
+  transition:border-color .2s,background .2s;
+}
+textarea{flex:1;min-height:38vh;min-height:38dvh;resize:none;border-radius:16px;font-size:18px;line-height:1.5;padding:16px}
+input[type="text"]{min-height:50px;border-radius:14px;font-size:16px;padding:0 16px}
+textarea::placeholder,input::placeholder{color:var(--muted);opacity:1}
+textarea:focus,input:focus{outline:none;border-color:var(--lime)}
+.name-row{display:flex;flex-direction:column}
+.error{margin:0;font-size:14px;line-height:1.45;color:var(--sunl)}
+
+/* ---- 3 · Danke ---- */
+.screen--done{align-items:flex-start}
+.signet{width:72px;height:72px}
+.screen--done .btn--full{width:100%}
 
 /* ---- Hinweis: MEET auf den Home-Bildschirm (nur Handy, siehe homescreen.js) ---- */
 .a2hs{
@@ -377,7 +297,7 @@ textarea:focus,input:focus{outline:none;border-color:var(--lime)}
 }
 .a2hs-icon{width:52px;height:52px;border-radius:12px;flex:none}
 .a2hs-text{display:flex;flex-direction:column;gap:6px;min-width:0}
-.a2hs h2{font-size:17px;line-height:1.2}
+.a2hs h2{font-size:17px;line-height:1.2;letter-spacing:-.01em}
 .a2hs .hint b{color:#fff;font-weight:600}
 .a2hs-share{display:inline-block;width:1.05em;height:1.05em;vertical-align:-.18em;margin-right:.15em;color:#fff}
 .a2hs-close{
@@ -395,11 +315,12 @@ textarea:focus,input:focus{outline:none;border-color:var(--lime)}
   place-items:center;
 }
 .a2hs-close:hover{color:#fff;background:rgba(255,255,255,.08)}
-.btn--sm{min-height:40px;padding:0 18px;border-radius:20px;font-size:15px;align-self:flex-start;margin-top:4px}
 
 /* ---- Grössere Screens: Bühne bleibt schmal, Rand atmet ---- */
 @media (min-width:700px){
-  .frame{padding-top:48px;padding-bottom:56px}
+  :root{--topbar:90px}
+  .topbar-in{padding-top:40px}
+  .screen{padding-top:12px;padding-bottom:56px}
 }
 
 @media (prefers-reduced-motion:reduce){

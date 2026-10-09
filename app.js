@@ -1,11 +1,10 @@
-/* MEET · meet-bty.com – Formular-Logik
-   Zwei Modi (MEET-Moment / Frage zum Text), Text pro Modus gemerkt,
-   Versand als Netlify Form (POST auf "/", form-name "meet-impuls"). */
+/* MEET · meet-bty.com – drei Screens: Heute, Schreiben, Danke
+   Ein Screen, eine Aufgabe. Versand als Netlify Form (POST auf "/", form-name "meet-impuls"). */
 (function () {
   "use strict";
 
   var cfg = Object.assign(
-    { passage: "Johannes 4,1–26", defaultTab: "moment", maxChars: 500 },
+    { passage: "Johannes 4,1–26", maxChars: 2000 },
     window.MEET_CONFIG || {}
   );
 
@@ -13,24 +12,22 @@
     moment: {
       label: "MEET-Moment",
       kicker: "Dein MEET-Moment",
-      heading: "Wie ist Gott dir im Text begegnet?",
-      hint: "Ein Satz reicht. Ein Wort, das hängen bleibt, ein Gedanke, ein Gefühl.",
+      heading: "Schreib einfach drauflos.",
       placeholder: "Mir ist aufgefallen, dass …",
-      send: "Moment teilen",
+      send: "Teilen",
       sentKicker: "Moment geteilt",
-      sentHeading: function (g) { return g + " – schön, dass du dabei bist."; },
-      sentBody: "Dein MEET-Moment ist beim Team angekommen. Vielleicht taucht er morgen im Kanal auf."
+      sentHeading: function (n) { return n ? "Danke fürs Teilen, " + n + "!" : "Danke fürs Teilen!"; },
+      sentBody: "Vielleicht posten wir deinen MEET-Moment im Kanal."
     },
     question: {
       label: "Frage zum Text",
       kicker: "Deine Frage zum Text",
-      heading: "Was verstehst du noch nicht?",
-      hint: "Keine Frage ist zu klein. Das Team greift Fragen im Kanal oder im Podcast auf.",
+      heading: "Frag einfach drauflos.",
       placeholder: "Ich frage mich, warum …",
       send: "Frage stellen",
       sentKicker: "Frage gestellt",
-      sentHeading: function (g) { return g + " – wir schauen uns das an."; },
-      sentBody: "Deine Frage ist beim Team. Antworten gibt es im Kanal oder in der nächsten MEET US-Folge."
+      sentHeading: function (n) { return n ? "Danke für deine Frage, " + n + "!" : "Danke für deine Frage!"; },
+      sentBody: "Wir greifen deine Frage im Kanal oder in MEET US auf."
     }
   };
 
@@ -38,62 +35,93 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var el = {
+    topbar: $("topbar"), logoLink: $("logoLink"),
+    screens: { home: $("screen-home"), write: $("screen-write"), done: $("screen-done") },
     dateLabel: $("dateLabel"), passage: $("passage"),
-    tabs: Array.prototype.slice.call(document.querySelectorAll(".tab")),
+    goMoment: $("goMoment"), goQuestion: $("goQuestion"), back: $("back"),
     form: $("panel"), fArt: $("fArt"), fPassage: $("fPassage"), fDate: $("fDate"),
-    kicker: $("kicker"), heading: $("heading"), hint: $("hint"),
-    text: $("text"), name: $("name"), counter: $("counter"), send: $("send"), error: $("error"),
-    sent: $("sent"), sentKicker: $("sentKicker"), sentHeading: $("sentHeading"), sentBody: $("sentBody"),
+    kicker: $("kicker"), heading: $("heading"), text: $("text"),
+    addName: $("addName"), name: $("name"), error: $("error"), send: $("send"),
+    sentKicker: $("sentKicker"), sentHeading: $("sentHeading"), sentBody: $("sentBody"),
     reset: $("reset")
   };
 
-  var state = {
-    mode: cfg.defaultTab === "question" ? "question" : "moment",
-    texts: { moment: "", question: "" },
-    busy: false
-  };
+  var reduce = false;
+  try { reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
+
+  var state = { screen: "home", mode: "moment", texts: { moment: "", question: "" }, busy: false };
 
   // ---- Kopf: Datum & Bibelstelle ----
   var now = new Date();
-  var dateLabel = now.getDate() + ". " + MONTHS[now.getMonth()];
-  el.dateLabel.textContent = dateLabel;
+  el.dateLabel.textContent = now.getDate() + ". " + MONTHS[now.getMonth()];
   el.passage.textContent = cfg.passage;
   el.fPassage.value = cfg.passage;
   el.fDate.value = now.toISOString().slice(0, 10);
   el.text.maxLength = cfg.maxChars;
 
-  // ---- Modus wechseln ----
+  // ---- Screens ----
+  function show(name, dir) {
+    if (state.screen === name) return;
+    var prev = state.screen;
+    state.screen = name;
+    Object.keys(el.screens).forEach(function (k) {
+      var s = el.screens[k];
+      s.classList.remove("enter-fwd", "enter-back");
+      s.hidden = k !== name;
+    });
+    var target = el.screens[name];
+    if (!reduce && prev) {
+      target.classList.add(dir === "back" ? "enter-back" : "enter-fwd");
+      target.addEventListener("animationend", function h() {
+        target.classList.remove("enter-fwd", "enter-back");
+        target.removeEventListener("animationend", h);
+      });
+    }
+    // Kopf: unterwegs zeigt das Logo das Signet M_
+    el.topbar.classList.toggle("is-away", name !== "home");
+    window.scrollTo({ top: 0, behavior: "auto" });
+    window.dispatchEvent(new Event("meet:screen"));
+  }
+
+  function goWrite(mode) {
+    setMode(mode);
+    show("write", "fwd");
+    try { history.pushState({ screen: "write" }, ""); } catch (e) {}
+    setTimeout(function () { el.text.focus({ preventScroll: true }); }, reduce ? 0 : 380);
+  }
+
+  function goHome() {
+    show("home", "back");
+    hideError();
+  }
+
+  el.goMoment.addEventListener("click", function () { goWrite("moment"); });
+  el.goQuestion.addEventListener("click", function () { goWrite("question"); });
+  el.back.addEventListener("click", function () {
+    if (history.state && history.state.screen === "write") history.back(); else goHome();
+  });
+  el.logoLink.addEventListener("click", function () {
+    if (state.screen !== "home") goHome();
+  });
+  window.addEventListener("popstate", function () {
+    if (state.screen !== "home") goHome();
+  });
+
+  // ---- Modus: MEET-Moment oder Frage ----
   function setMode(mode) {
     state.mode = mode;
     var c = COPY[mode];
-    el.tabs.forEach(function (t) {
-      var on = t.dataset.mode === mode;
-      t.classList.toggle("is-on", on);
-      t.setAttribute("aria-selected", on ? "true" : "false");
-    });
-    el.form.setAttribute("aria-labelledby", "tab-" + mode);
     el.kicker.textContent = c.kicker;
     el.heading.textContent = c.heading;
-    el.hint.textContent = c.hint;
     el.text.placeholder = c.placeholder;
     el.send.textContent = c.send;
     el.fArt.value = c.label;
     el.text.value = state.texts[mode];
     hideError();
-    updateCounter();
+    updateSend();
   }
 
-  el.tabs.forEach(function (t) {
-    t.addEventListener("click", function () {
-      if (t.dataset.mode !== state.mode) setMode(t.dataset.mode);
-    });
-  });
-
-  // ---- Zähler & Button ----
-  function updateCounter() {
-    var len = el.text.value.length;
-    el.counter.textContent = len + " / " + cfg.maxChars;
-    el.counter.classList.toggle("is-max", len >= cfg.maxChars);
+  function updateSend() {
     el.send.disabled = el.text.value.trim().length === 0 || state.busy;
   }
 
@@ -101,13 +129,17 @@
     if (el.text.value.length > cfg.maxChars) el.text.value = el.text.value.slice(0, cfg.maxChars);
     state.texts[state.mode] = el.text.value;
     hideError();
-    updateCounter();
+    updateSend();
   });
 
-  function showError(msg) {
-    if (msg) el.error.textContent = msg;
-    el.error.hidden = false;
-  }
+  // ---- Name: eingeklappt, bis jemand ihn will ----
+  el.addName.addEventListener("click", function () {
+    el.addName.hidden = true;
+    el.name.hidden = false;
+    el.name.focus();
+  });
+
+  function showError() { el.error.hidden = false; }
   function hideError() { el.error.hidden = true; }
 
   // ---- Versand ----
@@ -116,7 +148,7 @@
     return location.protocol === "file:" || h === "localhost" || h === "127.0.0.1" || h === "[::1]";
   }
 
-  function submit(ev) {
+  el.form.addEventListener("submit", function (ev) {
     ev.preventDefault();
     var text = el.text.value.trim();
     if (!text || state.busy) return;
@@ -124,7 +156,7 @@
     state.busy = true;
     el.send.classList.add("is-busy");
     el.send.textContent = "Wird gesendet …";
-    updateCounter();
+    updateSend();
 
     var data = new URLSearchParams(new FormData(el.form));
     data.set("nachricht", text);
@@ -144,43 +176,30 @@
       })
       .catch(function (err) {
         console.warn("[MEET] Versand fehlgeschlagen:", err);
-        showError("Das hat gerade nicht geklappt. Bitte probier es gleich noch einmal.");
+        showError();
       })
       .then(function () {
         state.busy = false;
         el.send.classList.remove("is-busy");
         el.send.textContent = COPY[state.mode].send;
-        updateCounter();
+        updateSend();
       });
-  }
+  });
 
   function onSent(mode) {
     var c = COPY[mode];
     var n = el.name.value.trim();
-    var greet = n ? "Danke, " + n : "Danke";
     el.sentKicker.textContent = c.sentKicker;
-    el.sentHeading.textContent = c.sentHeading(greet);
+    el.sentHeading.textContent = c.sentHeading(n);
     el.sentBody.textContent = c.sentBody;
-
     state.texts[mode] = "";
     el.text.value = "";
-
-    document.querySelector(".tabs").hidden = true;
-    el.form.hidden = true;
-    el.sent.hidden = false;
-    el.sent.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.text.blur();
+    show("done", "fwd");
+    try { history.replaceState({ screen: "done" }, ""); } catch (e) {}
   }
 
-  el.form.addEventListener("submit", submit);
+  el.reset.addEventListener("click", goHome);
 
-  el.reset.addEventListener("click", function () {
-    el.sent.hidden = true;
-    document.querySelector(".tabs").hidden = false;
-    el.form.hidden = false;
-    hideError();
-    updateCounter();
-    el.text.focus();
-  });
-
-  setMode(state.mode);
+  setMode("moment");
 })();
