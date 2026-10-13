@@ -92,6 +92,11 @@ details.settings[open] summary::after{content:"–"}
 #out.show{opacity:1}
 #out.mirror{transform:scaleX(-1)}
 .hud-corners.off{display:none}
+.livediag{position:absolute;left:8px;right:8px;bottom:8px;z-index:6;font-family:var(--f-mono);font-size:10px;line-height:1.3;color:var(--lilac);background:rgba(47,16,65,.72);border-radius:8px;padding:5px 8px;pointer-events:none;word-break:break-word}
+details.logbox{border-top:1px solid var(--line);padding-block:10px 0}
+details.logbox summary{cursor:pointer;font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);list-style:none}
+details.logbox summary::-webkit-details-marker{display:none}
+details.logbox pre{margin-top:10px;max-height:320px}
 .hud-corners{position:absolute;inset:0;z-index:3;pointer-events:none}
 .hud-corners .shade{position:absolute;left:0;right:0;bottom:0;height:19%;background:linear-gradient(rgba(47,16,65,0),rgba(47,16,65,.6))}
 .hud-corners .d{position:absolute;left:11.1%;bottom:5.7%;width:43.5%}
@@ -166,8 +171,8 @@ details.settings[open] summary::after{content:"–"}
     <details class="settings" id="settings">
       <summary>Einstellungen</summary>
       <div class="set">
-        <div class="row"><span>Aufnahme-Weg<small>Kamera-Datei: robust, Titelkarte wird danach über die Hardware eingesetzt (ca. 10 s pro Minute Video). Live-Leinwand: ohne Nachlauf, in Safari aber unzuverlässig</small></span>
-          <div class="seg" data-set="live"><button data-val="raw">Kamera-Datei</button><button data-val="canvas">Live-Leinwand</button></div></div>
+        <div class="row"><span>Aufnahme-Weg<small>Direkt: Bild wird während der Aufnahme kodiert, Ton separat aufgezeichnet, am Ende nur zusammengefügt. Kamera-Datei: Browser-Recorder, Titelkarte danach eingesetzt</small></span>
+          <div class="seg" data-set="live"><button data-val="auto">Auto</button><button data-val="wc">Direkt</button><button data-val="raw">Kamera-Datei</button></div></div>
         <div class="row"><span>Titelkarte am Anfang<small>Nur das erste Bild zählt als Vorschau. 0,1 s = 3 Frames</small></span>
           <div class="seg" data-set="cardSec"><button data-val="0.1">0,1 s</button><button data-val="0.2">0,2 s</button><button data-val="0.5">0,5 s</button><button data-val="1">1 s</button></div></div>
         <div class="row"><span>Logo-Ecken im Video<small>MEET DAILY links, YOUTH b+ rechts (nicht nötig, die Karte reicht)</small></span>
@@ -196,6 +201,7 @@ details.settings[open] summary::after{content:"–"}
         <div class="hud-corners" id="hudCorners"><div class="shade"></div><img class="d" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjIwMCAxODc2IDQ5MjQgOTA5IiB3aWR0aD0iNDkyNCIgaGVpZ2h0PSI5MDkiPjx0aXRsZT5NRUVUIERBSUxZIOKAkyBXZWlzcy9zb25uZW5hdWZnYW5nPC90aXRsZT48cGF0aCBmaWxsPSIjRkZGRkZGIiBkPSJNMjAwIDI1NzZWMTg3Nkg0NDVMNTY2IDI0ODZINTg0TDcwNSAxODc2SDk1MFYyNTc2SDgyMlYxOTczSDgwNEw2ODQgMjU3Nkg0NjZMMzQ2IDE5NzNIMzI4VjI1NzZaIi8+PHBhdGggZmlsbD0iI0ZGRkZGRiIgZD0iTTEwMDAuMzEgMjU3NlYxODc2SDE0NTAuMzFWMTk5NkgxMTMyLjMxVjIxNjNIMTQyMi4zMVYyMjgzSDExMzIuMzFWMjQ1NkgxNDU2LjMxVjI1NzZaIi8+PHBhdGggZmlsbD0iI0ZGRkZGRiIgZD0iTTE1MDYuMDIgMjU3NlYxODc2SDE5NTYuMDJWMTk5NkgxNjM4LjAyVjIxNjNIMTkyOC4wMlYyMjgzSDE2MzguMDJWMjQ1NkgxOTYyLjAyVjI1NzZaIi8+PHBhdGggZmlsbD0iI0ZGRkZGRiIgZD0iTTIyMTcuMDIgMjU3NlYxOTk2SDIwMTMuMDJWMTg3NkgyNTUzLjAyVjE5OTZIMjM0OS4wMlYyNTc2WiIvPjxwYXRoIGZpbGw9IiNGRkZGRkYiIGQ9Ik0yNzQ4LjAyIDI1NzZWMjQ2MEgyODQwLjAyVjE5OTJIMjc0OC4wMlYxODc2SDMwMzYuMDJRMzE3Ny4wMiAxODc2IDMyNTAuNTIgMTk0Ny41UTMzMjQuMDIgMjAxOSAzMzI0LjAyIDIxNjBWMjI5MlEzMzI0LjAyIDI0MzMgMzI1MC41MiAyNTA0LjVRMzE3Ny4wMiAyNTc2IDMwMzYuMDIgMjU3NlpNMjk3Mi4wMiAyNDU2SDMwMzguMDJRMzExOC4wMiAyNDU2IDMxNTUuMDIgMjQxNFEzMTkyLjAyIDIzNzIgMzE5Mi4wMiAyMjk2VjIxNTZRMzE5Mi4wMiAyMDc5IDMxNTUuMDIgMjAzNy41UTMxMTguMDIgMTk5NiAzMDM4LjAyIDE5OTZIMjk3Mi4wMloiLz48cGF0aCBmaWxsPSIjRkZGRkZGIiBkPSJNMzMzNSAyNTc2IDM1MTkgMTg3NkgzNzQ5TDM5MzMgMjU3NkgzNzk3TDM3NTkgMjQyMkgzNTA5TDM0NzEgMjU3NlpNMzU0MCAyMzAwSDM3MjhMMzY0MyAxOTU5SDM2MjVaIi8+PHBhdGggZmlsbD0iI0ZGRkZGRiIgZD0iTTM5NzIgMjU3NlYxODc2SDQxMDRWMjU3NloiLz48cGF0aCBmaWxsPSIjRkZGRkZGIiBkPSJNNDE5MSAyNTc2VjE4NzZINDMyM1YyNDU2SDQ2NDNWMjU3NloiLz48cGF0aCBmaWxsPSIjRkZGRkZGIiBkPSJNNDc1NCAyNTc2VjIzMzVMNDUxNiAxODc2SDQ2NjNMNDgxMSAyMTc2SDQ4MjlMNDk3NyAxODc2SDUxMjRMNDg4NiAyMzM1VjI1NzZaIi8+PHJlY3QgeD0iMjcwMi4wMiIgeT0iMjcwMCIgd2lkdGg9IjIzODUiIGhlaWdodD0iODUiIGZpbGw9IiNGRjhBM0QiLz48L3N2Zz4=" alt=""><img class="y" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMDk0LjU0IDEwMDAiIHdpZHRoPSIzMDk0LjU0IiBoZWlnaHQ9IjEwMDAiPjx0aXRsZT5iaWJsZXR1bmVzIFlPVVRIIGIrIChPcmlnaW5hbCk8L3RpdGxlPjxnIGZpbGw9IiNGRkZGRkYiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgMCkgc2NhbGUoMS4wMDAwMDApIj48cGF0aCBkPSJNMzAwNy41Miw0OTAuMzhsLTE4Ni44OC0uMTJ2LTE0MS4wOWMwLTQ4LjA5LTM4Ljk4LTg3LjA3LTg3LjA3LTg3LjA3cy04Ny4wNywzOC45OC04Ny4wNyw4Ny4wN3YxNDAuOTdsLTMwNC41MS0uMmMtMTQuODItMTYuMzQtMzMuNTctMzIuMzEtNTcuMTktNDcuMjgtMjMuODYtMTUuMTItNzkuNzItNTAuNTMtMTM5LjUzLTMyLjA0LTM5LjYyLDEyLjI0LTY2LjM4LDQ0LjM3LTY5Ljg0LDgzLjgzLTQuNjQsNTIuODksMzEuNjQsOTguNDEsMTEwLjk0LDEzOS4xOCwxMC4yNyw1LjI4LDIxLjQ5LDEwLjYsMzMuOTcsMTUuMjl2MjAuN2MwLDg0LjY5LTc1LjI5LDE1Ni4yMy0xNjQuNDEsMTU2LjIzLTk5LjE4LDAtMTYwLjU3LTkwLjA5LTE2MC41Ny0xNzMuNTVWODcuMDdjMC00OC4wOS0zOC45OC04Ny4wNy04Ny4wNy04Ny4wN3MtODcuMDcsMzguOTgtODcuMDcsODcuMDd2NTY1LjI0YzAsMTY3LjIyLDEyNy45NywzNDcuNjksMzM0LjcxLDM0Ny42OSwxODMuNTIsMCwzMzguNTUtMTUxLjMsMzM4LjU1LTMzMC4zOHYtNS41MWwyNTIuMDEuMTd2MjI4Ljc0YzAsNDguMDksMzguOTgsODcuMDcsODcuMDcsODcuMDdzODcuMDctMzguOTgsODcuMDctODcuMDd2LTIyOC42M2wxODYuNzcuMTJoLjA2YzQ4LjA2LDAsODcuMDQtMzguOTQsODcuMDctODcuMDEuMDMtNDguMDktMzguOTItODcuMS04Ny4wMS04Ny4xM1oiLz48cGF0aCBkPSJNOTAuMiw2NjUuNzR2LTEwMC4xTDAsNDA1LjRoNjUuNjNsNTQuNjMsMTAyLjMsNTQuMjctMTAyLjNoNjUuNjNsLTkwLjIsMTYwLjI0djEwMC4xaC01OS43N1oiLz48cGF0aCBkPSJNNDIyLjA0LDY3MS42MWMtMjYuNjUsMC00OS41Ni01LjUtNjguNzUtMTYuNS0xOS4xOS0xMS0zMy44Ni0yNi42NC00NC00Ni45My0xMC4xNS0yMC4yOS0xNS4yMi00NC4zNy0xNS4yMi03Mi4yM3M1LjA3LTUyLDE1LjIyLTcyLjQyYzEwLjE0LTIwLjQxLDI0LjgxLTM2LjE4LDQ0LTQ3LjMsMTkuMTktMTEuMTIsNDIuMS0xNi42OCw2OC43NS0xNi42OHM0OS44Nyw1LjU2LDY4LjkzLDE2LjY4YzE5LjA3LDExLjEzLDMzLjY3LDI2Ljg5LDQzLjgyLDQ3LjMsMTAuMTQsMjAuNDEsMTUuMjIsNDQuNTUsMTUuMjIsNzIuNDJzLTUuMDgsNTEuOTUtMTUuMjIsNzIuMjNjLTEwLjE1LDIwLjI5LTI0Ljc1LDM1LjkzLTQzLjgyLDQ2LjkzLTE5LjA3LDExLTQyLjA1LDE2LjUtNjguOTMsMTYuNVpNNDIyLjA0LDYyMi4xMWMxMy45MywwLDI1LjkxLTMuNDIsMzUuOTMtMTAuMjcsMTAuMDItNi44NCwxNy42Ni0xNi42MiwyMi45Mi0yOS4zMyw1LjI1LTEyLjcxLDcuODgtMjguMjMsNy44OC00Ni41N3MtMi42My0zMy45Ny03Ljg4LTQ2Ljk0Yy01LjI2LTEyLjk1LTEyLjktMjIuODUtMjIuOTItMjkuNy0xMC4wMy02Ljg0LTIyLTEwLjI3LTM1LjkzLTEwLjI3cy0yNS45MSwzLjQzLTM1LjkzLDEwLjI3Yy0xMC4wMyw2Ljg1LTE3LjY2LDE2Ljc1LTIyLjkyLDI5LjctNS4yNiwxMi45Ni03Ljg4LDI4LjYtNy44OCw0Ni45NHMyLjYyLDMzLjg2LDcuODgsNDYuNTdjNS4yNSwxMi43MSwxMi44OSwyMi40OSwyMi45MiwyOS4zMywxMC4wMiw2Ljg1LDIyLDEwLjI3LDM1LjkzLDEwLjI3WiIvPjxwYXRoIGQ9Ik03NTMuNTIsNjcxLjYxYy0yMiwwLTQxLjE5LTQuMS01Ny41Ny0xMi4yOC0xNi4zOC04LjE5LTI5LjAzLTE5LjgtMzcuOTUtMzQuODMtOC45My0xNS4wMy0xMy4zOC0zMi44Mi0xMy4zOC01My4zNXYtMTY2LjFoNTkuNzd2MTY2LjFjMCwxNi4xMyw0LjIyLDI4LjY2LDEyLjY1LDM3LjU4LDguNDMsOC45MywyMC41OSwxMy4zOCwzNi40OCwxMy4zOHMyOC4wNS00LjQ2LDM2LjQ4LTEzLjM4YzguNDMtOC45MiwxMi42NS0yMS40NSwxMi42NS0zNy41OHYtMTY2LjFoNTkuNzd2MTY2LjFjMCwyMC41My00LjQ2LDM4LjMyLTEzLjM4LDUzLjM1LTguOTMsMTUuMDMtMjEuNTEsMjYuNjUtMzcuNzcsMzQuODMtMTYuMjYsOC4xOS0zNS41MSwxMi4yOC01Ny43NSwxMi4yOFoiLz48cGF0aCBkPSJNMTAyMy4wMiw2NjUuNzR2LTIxMC44NGgtNzcuMzd2LTQ5LjVoMjE0Ljg3djQ5LjVoLTc3Ljc0djIxMC44NGgtNTkuNzdaIi8+PHBhdGggZD0iTTEyNDMuMDMsNjY1Ljc0di0yNjAuMzRoNTkuNzd2MTIyLjg0bC0yNi4wMy0xOC4zM2gxNDUuNTdsLTI2LjAzLDE4LjMzdi0xMjIuODRoNTkuNzd2MjYwLjM0aC01OS43N3YtMTI0LjNsMjYuMDMsMTcuOTdoLTE0NS41N2wyNi4wMy0xNy45N3YxMjQuM2gtNTkuNzdaIi8+PC9nPjwvc3ZnPg==" alt=""></div>
         <div class="hud-top"><span class="pill ghost" id="hudLabel">Video 1 · Start</span><span class="rec" id="recTime" hidden><i></i><span>00:00</span></span></div>
         <div id="countdown" hidden></div>
+        <div class="livediag" id="liveDiag" hidden></div>
       </div>
     </div>
     <div id="stageCtrl" class="stage-ctrl" hidden>
@@ -248,6 +254,7 @@ details.settings[open] summary::after{content:"–"}
       <button class="btn ghost block" id="btnAgain">Neu aufnehmen</button>
       <button class="btn ghost block" id="btnHome">Zur Übersicht</button>
     </div>
+    <details class="logbox" id="resLogBox" hidden><summary>Protokoll der Aufnahme (bei Problemen Screenshot schicken)</summary><pre class="log" id="resLog"></pre></details>
     <p class="hint">In WhatsApp: Kanal MEET DAILY öffnen → Anhang → Video → <b>HD</b> wählen. Die Titelkarte ist das erste Bild, WhatsApp nimmt sie als Vorschau.</p>
   </section>
 </div>
@@ -287,7 +294,7 @@ const VIDEOS = {
 };
 
 /* ---------- Settings ---------- */
-const DEFAULTS = { live: 'raw', cardSec: 0.2, corners: false, mirrorPreview: true, mirrorExport: false, quality: '1080', encoder: 'auto', speed: 2 };
+const DEFAULTS = { live: 'auto', cardSec: 0.2, corners: false, mirrorPreview: true, mirrorExport: false, quality: '1080', encoder: 'auto', speed: 2 };
 const settings = Object.assign({}, DEFAULTS);
 try { Object.assign(settings, JSON.parse(localStorage.getItem('meetstudio:settings:v2') || '{}')); } catch (e) { }
 function saveSettings() { try { localStorage.setItem('meetstudio:settings:v2', JSON.stringify(settings)); } catch (e) { } }
@@ -375,14 +382,24 @@ function drawThumbs() {
 assetsReady.then(drawThumbs);
 
 /* ---------- Capability probe ---------- */
-const caps = { wcVideo: null, wcAac: false, wcOpus: false, avcCodec: null, mrMime: null, share: !!(navigator.canShare), downloads: null, camera: 'unknown' };
+const caps = { wcVideo: null, wcDec: false, wcAac: false, wcOpus: false, avcCodec: null, mrMime: null, audioMp4: false, isSafari: false, ua: '', share: !!(navigator.canShare), downloads: null, camera: 'unknown' };
+function uaInfo() {
+  const ua = navigator.userAgent || '';
+  const ios = ua.match(/OS (\d+)[_.](\d+)/), saf = ua.match(/Version\/(\d+(?:\.\d+)?)/), isIOS = /iPhone|iPad|iPod/.test(ua);
+  caps.isSafari = /Safari/.test(ua) && !/Chrome|CriOS|Chromium|Android|Edg/.test(ua);
+  caps.ua = (isIOS ? 'iOS ' + (ios ? ios[1] + '.' + ios[2] : '?') : /Android/.test(ua) ? 'Android' : 'Desktop') + (saf ? ' · Safari ' + saf[1] : /Chrome/.test(ua) ? ' · Chrome' : '') + (navigator.standalone ? ' · Home-App' : '');
+}
 async function probe() {
+  uaInfo();
   try {
-    if (window.VideoEncoder && window.AudioEncoder) {
+    if (window.VideoEncoder) {
       for (const codec of ['avc1.640028', 'avc1.4D0028', 'avc1.42E028', 'avc1.42001F']) {
         try { const r = await VideoEncoder.isConfigSupported({ codec, width: 1080, height: 1920, bitrate: 5e6, framerate: 30, avc: { format: 'avc' } }); if (r.supported) { caps.avcCodec = codec; break; } } catch (e) { }
       }
       caps.wcVideo = !!caps.avcCodec && !!window.Mp4Muxer;
+      caps.wcDec = !!window.VideoDecoder && !!window.EncodedVideoChunk;
+    }
+    if (window.AudioEncoder) {
       try { caps.wcAac = (await AudioEncoder.isConfigSupported({ codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 1, bitrate: 128000 })).supported; } catch (e) { }
       try { caps.wcOpus = (await AudioEncoder.isConfigSupported({ codec: 'opus', sampleRate: 48000, numberOfChannels: 1, bitrate: 96000 })).supported; } catch (e) { }
     }
@@ -391,31 +408,37 @@ async function probe() {
     for (const m of ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']) {
       try { if (MediaRecorder.isTypeSupported(m)) { caps.mrMime = m; break; } } catch (e) { }
     }
+    try {
+      const ok = m => { try { return MediaRecorder.isTypeSupported(m); } catch (e) { return false; } };
+      caps.audioMp4 = ok('audio/mp4;codecs=mp4a.40.2') ? 'audio/mp4;codecs=mp4a.40.2' : (caps.isSafari && ok('audio/mp4')) ? 'audio/mp4' : (caps.wcAac && ok('audio/mp4')) ? 'audio/mp4' : (caps.wcAac && ok('audio/webm')) ? 'audio/webm' : null;
+    } catch (e) { }
   }
   if (window.claude && typeof window.claude.use === 'function') { try { caps.downloads = await window.claude.use('downloads'); } catch (e) { caps.downloads = null; } }
   renderTech();
 }
+/* Datei-Modus: WebCodecs braucht nur den Video-Encoder, der Ton wird 1:1 übernommen */
 function pickEncoder(mode) {
-  const wcAudio = caps.wcAac ? 'aac' : (caps.wcOpus ? 'opus' : null);
-  const wc = caps.wcVideo && wcAudio ? { kind: 'wc', audio: wcAudio } : null;
+  const wc = caps.wcVideo ? { kind: 'wc', audio: 'aac' } : null;
   const mr = caps.mrMime ? { kind: 'mr', mime: caps.mrMime } : null;
   const mrMp4 = mr && mr.mime.startsWith('video/mp4') ? mr : null;
   if (settings.encoder === 'wc' && wc) return wc;
   if (settings.encoder === 'mr' && mr) return mr;
-  if (mode === 'live') return mrMp4 || (wc && wc.audio === 'aac' ? wc : null) || wc || mr;
-  return (wc && wc.audio === 'aac' ? wc : null) || mrMp4 || wc || mr;
+  return wc || mrMp4 || mr;
 }
+function liveMode() { if (settings.live === 'wc' || settings.live === 'raw') return settings.live; return (caps.wcVideo && caps.audioMp4) ? 'wc' : 'raw'; }
 function describeEncoder(e) {
   if (!e) return 'kein Encoder';
-  if (e.kind === 'wc') return 'WebCodecs · H.264 + ' + (e.audio === 'aac' ? 'AAC' : 'Opus') + ' · MP4';
+  if (e.kind === 'wc') return 'WebCodecs · H.264 + AAC (Ton 1:1) · MP4';
   return 'Browser-Recorder · ' + (e.mime.startsWith('video/mp4') ? 'MP4' : 'WebM (WhatsApp nimmt das ggf. nicht an)');
 }
 function renderTech() {
-  const live = pickEncoder('live'), file = pickEncoder('file');
+  const file = pickEncoder('file');
   const cam = caps.camera === 'ok' ? 'Browser-Kamera' : caps.camera === 'blocked' ? 'nur Kamera-App (Browser-Kamera hier gesperrt)' : 'wird beim Start geprüft';
   const out = caps.share ? 'Teilen-Menü' : caps.downloads ? 'Speichern/Teilen über Claude' : 'Download-Link';
-  const liveTxt = settings.live === 'canvas' ? 'Live-Leinwand · ' + describeEncoder(live) : 'Kamera-Datei (' + (caps.mrMime ? caps.mrMime.split(';')[0] : 'kein Recorder') + ') + Hardware-Umrechnung';
-  $('#tech').textContent = `Kamera: ${cam} · Aufnahme: ${liveTxt} · Datei: ${describeEncoder(file)} · Ausgabe: ${out}`;
+  const lm = liveMode();
+  const liveTxt = lm === 'wc' ? 'Direkt (WebCodecs + Ton-Recorder ' + caps.audioMp4 + ')' : 'Kamera-Datei (' + (caps.mrMime ? caps.mrMime.split(';')[0] : 'kein Recorder') + ') + Umrechnung';
+  const wcTxt = caps.wcVideo ? ('Encoder' + (caps.wcDec ? ' + Decoder' : '')) : 'nicht verfügbar';
+  $('#tech').textContent = `${caps.ua} · Kamera: ${cam} · Aufnahme: ${liveTxt} · Datei: ${describeEncoder(file)} · WebCodecs: ${wcTxt} · Ausgabe: ${out}`;
 }
 probe();
 
@@ -438,16 +461,27 @@ function aacDescription(sampleRate, channels) {
   return new Uint8Array([(2 << 3) | (sfi >> 1), ((sfi & 1) << 7) | (channels << 3)]);
 }
 class WCSession {
-  constructor(o) { this.W = o.W; this.H = o.H; this.fps = o.fps; this.sr = o.sampleRate; this.audio = o.audio; this.bitrate = o.bitrate; this.live = o.live; this.audioRaw = o.audioRaw || null; this.err = null; this.lastKey = -1e12; this.aq = []; this.aqLen = 0; this.asamples = 0; this.audioOffsetUs = 0; }
+  constructor(o) { this.W = o.W; this.H = o.H; this.fps = o.fps; this.sr = o.sampleRate; this.audio = o.audio; this.bitrate = o.bitrate; this.live = o.live; this.defer = !!o.deferMux; this.audioRaw = o.audioRaw || null; this.err = null; this.lastKey = -1e12; this.aq = []; this.aqLen = 0; this.asamples = 0; this.audioOffsetUs = 0; this.vchunks = null; this.nframes = 0; }
   async start() {
     const { Muxer, ArrayBufferTarget } = window.Mp4Muxer;
-    let audioCfg = null;
-    if (this.audioRaw) audioCfg = { codec: 'aac', sampleRate: this.audioRaw.sampleRate, numberOfChannels: this.audioRaw.channels };
-    else if (this.audio) audioCfg = { codec: this.audio === 'aac' ? 'aac' : 'opus', sampleRate: this.sr, numberOfChannels: 1 };
-    const mcfg = { target: new ArrayBufferTarget(), video: { codec: 'avc', width: this.W, height: this.H }, fastStart: 'in-memory', firstTimestampBehavior: 'offset' };
-    if (audioCfg) mcfg.audio = audioCfg;
-    this.muxer = new Muxer(mcfg);
-    this.venc = new VideoEncoder({ output: (c, m) => { try { this.muxer.addVideoChunk(c, m); } catch (e) { this.err = e; } }, error: e => this.err = e });
+    if (this.defer) { this.vchunks = []; }
+    else {
+      let audioCfg = null;
+      if (this.audioRaw) audioCfg = { codec: 'aac', sampleRate: this.audioRaw.sampleRate, numberOfChannels: this.audioRaw.channels };
+      else if (this.audio) audioCfg = { codec: this.audio === 'aac' ? 'aac' : 'opus', sampleRate: this.sr, numberOfChannels: 1 };
+      const mcfg = { target: new ArrayBufferTarget(), video: { codec: 'avc', width: this.W, height: this.H }, fastStart: 'in-memory', firstTimestampBehavior: 'offset' };
+      if (audioCfg) mcfg.audio = audioCfg;
+      this.muxer = new Muxer(mcfg);
+    }
+    this.venc = new VideoEncoder({
+      output: (c, m) => {
+        try {
+          if (this.vchunks) { const d = new Uint8Array(c.byteLength); c.copyTo(d); this.vchunks.push({ data: d, type: c.type, timestamp: c.timestamp, duration: c.duration, meta: (m && m.decoderConfig) ? { decoderConfig: m.decoderConfig } : undefined }); }
+          else this.muxer.addVideoChunk(c, m);
+          this.nframes++;
+        } catch (e) { this.err = e; }
+      }, error: e => this.err = e
+    });
     const vcfg = { codec: caps.avcCodec, width: this.W, height: this.H, bitrate: this.bitrate, framerate: this.fps, avc: { format: 'avc' } };
     if (this.live) vcfg.latencyMode = 'realtime';
     this.venc.configure(vcfg);
@@ -497,6 +531,35 @@ class WCSession {
     this.audioOffsetUs = n * durUs;
   }
   addRawChunk(data, tsUs, durUs) { if (this.err) throw this.err; this.muxer.addAudioChunkRaw(data, 'key', this.audioOffsetUs + tsUs, durUs, this.rawMeta); }
+  /* Direkt-Aufnahme: Bildpakete wurden gesammelt, jetzt mit dem separat aufgezeichneten Ton zusammenfügen */
+  async finishDeferred(spec, cardSec, ctl) {
+    await this.venc.flush(); if (this.err) throw this.err;
+    if (!this.vchunks || !this.vchunks.length) throw new Error('keine Bilder kodiert');
+    const { Muxer, ArrayBufferTarget } = window.Mp4Muxer;
+    const mcfg = { target: new ArrayBufferTarget(), video: { codec: 'avc', width: this.W, height: this.H }, fastStart: 'in-memory', firstTimestampBehavior: 'offset' };
+    const aud = spec && spec.raw;
+    if (aud) { mcfg.audio = { codec: 'aac', sampleRate: aud.sampleRate, numberOfChannels: aud.channels }; this.audioRaw = aud; this.rawMeta = { decoderConfig: { codec: 'mp4a.40.2', sampleRate: aud.sampleRate, numberOfChannels: aud.channels, description: aud.description } }; }
+    else if (spec && spec.pcm) { this.sr = spec.pcm.sampleRate; this.audio = 'aac'; mcfg.audio = { codec: 'aac', sampleRate: this.sr, numberOfChannels: 1 }; }
+    this.muxer = new Muxer(mcfg);
+    const vc = this.vchunks;
+    for (let i = 0; i < vc.length; i++) { const c = vc[i]; const dur = (c.duration != null && c.duration > 0) ? c.duration : (i + 1 < vc.length ? Math.max(1, vc[i + 1].timestamp - c.timestamp) : 1e6 / this.fps); this.muxer.addVideoChunkRaw(c.data, c.type, c.timestamp, dur, c.meta); }
+    this.vchunks = null;
+    if (aud) { this.addRawSilence(cardSec); await addRawAudioAll(this, aud, spec.file, ctl || { aborted: false }, 0); }
+    else if (spec && spec.pcm) {
+      const desc = aacDescription(this.sr, 1);
+      this.aenc = new AudioEncoder({ output: (c, m) => { try { this.muxer.addAudioChunk(c, { decoderConfig: { codec: 'mp4a.40.2', sampleRate: this.sr, numberOfChannels: 1, description: desc } }); } catch (e) { this.err = e; } }, error: e => this.err = e });
+      this.aenc.configure({ codec: 'mp4a.40.2', sampleRate: this.sr, numberOfChannels: 1, bitrate: 128000 });
+      this.addSilence(cardSec);
+      const b = spec.pcm, n = b.length, ch = b.numberOfChannels, mono = new Float32Array(n);
+      for (let c = 0; c < ch; c++) { const d = b.getChannelData(c); for (let i = 0; i < n; i++) mono[i] += d[i] / ch; }
+      for (let o = 0; o < n; o += 48000) this.addAudio(mono.subarray(o, Math.min(n, o + 48000)));
+      if (this.aqLen > 0) this._flushAudio(this.aqLen);
+      await this.aenc.flush(); if (this.err) throw this.err;
+    }
+    this.muxer.finalize();
+    const buf = this.muxer.target.buffer; this.abort();
+    return new Blob([buf], { type: 'video/mp4' });
+  }
   async finish() {
     if (this.aenc && this.aqLen > 0) this._flushAudio(this.aqLen);
     await this.venc.flush(); if (this.aenc) await this.aenc.flush();
@@ -523,21 +586,6 @@ class MRSession {
   finish() { return new Promise((res, rej) => { this.rec.onerror = e => rej(e.error || new Error('Recorder-Fehler')); this.rec.onstop = () => res(new Blob(this.chunks, { type: this.rec.mimeType || this.mime })); this.rec.stop(); }); }
   abort() { try { this.rec.stop(); } catch (e) { } }
 }
-const WORKLET_SRC = `class MeetCap extends AudioWorkletProcessor{process(inputs){const ch=inputs[0]&&inputs[0][0];if(ch&&ch.length)this.port.postMessage(ch.slice(0));return true}}registerProcessor('meet-cap',MeetCap);`;
-async function makeCapture(actx, source, onChunk) {
-  if (actx.audioWorklet) {
-    const url = URL.createObjectURL(new Blob([WORKLET_SRC], { type: 'application/javascript' }));
-    await actx.audioWorklet.addModule(url);
-    const node = new AudioWorkletNode(actx, 'meet-cap', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] });
-    node.port.onmessage = e => onChunk(e.data);
-    source.connect(node); node.connect(actx.destination);
-    return () => { try { source.disconnect(node); node.disconnect(); node.port.onmessage = null; } catch (e) { } };
-  }
-  const sp = actx.createScriptProcessor(2048, 1, 1);
-  sp.onaudioprocess = e => onChunk(e.inputBuffer.getChannelData(0).slice(0));
-  source.connect(sp); sp.connect(actx.destination);
-  return () => { try { source.disconnect(sp); sp.disconnect(); sp.onaudioprocess = null; } catch (e) { } };
-}
 function outSize() { return settings.quality === '720' ? { W: 720, H: 1280, bitrate: 3.2e6 } : { W: 1080, H: 1920, bitrate: 5.5e6 }; }
 function fileName(v) { return `MEET-DAILY_${todayKey()}_${v.file}`; }
 
@@ -551,15 +599,33 @@ function hudUpdate() {
   cam.classList.toggle('mirror', settings.mirrorPreview && facing === 'user');
   $('#hudCorners').hidden = !settings.corners;
 }
+function camVideoConstraints() { return { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }; }
+function camAudioConstraints() { return { echoCancellation: true, noiseSuppression: true, autoGainControl: true }; }
+function attachTrackEvents(vtk) {
+  vtk.addEventListener('mute', () => { ldiag('Kamera-Spur stumm (' + (vtk.readyState) + ')'); $('#hudLabel').textContent = current.name + ' · Kamera pausiert'; try { cam.play(); } catch (e) { } });
+  vtk.addEventListener('unmute', () => { ldiag('Kamera-Spur wieder aktiv'); $('#hudLabel').textContent = current.name; });
+  vtk.addEventListener('ended', () => { ldiag('Kamera-Spur beendet'); $('#hudLabel').textContent = current.name + ' · Kamera beendet'; });
+}
 async function openCamera() {
   stopCamera();
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('getUserMedia fehlt'), { name: 'NotSupportedError' });
-  const constraints = { video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
-  stream = await navigator.mediaDevices.getUserMedia(constraints);
-  const vtk = stream.getVideoTracks()[0];
-  if (vtk) { vtk.addEventListener('mute', () => { $('#hudLabel').textContent = current.name + ' · Kamera pausiert'; try { cam.play(); } catch (e) { } }); vtk.addEventListener('unmute', () => { $('#hudLabel').textContent = current.name; }); vtk.addEventListener('ended', () => { $('#hudLabel').textContent = current.name + ' · Kamera beendet'; }); }
+  stream = await navigator.mediaDevices.getUserMedia({ video: camVideoConstraints(), audio: camAudioConstraints() });
+  const vtk = stream.getVideoTracks()[0]; if (vtk) attachTrackEvents(vtk);
   cam.srcObject = stream;
   try { await cam.play(); } catch (e) { }
+}
+/* Kamera während einer Aufnahme neu holen (Bildspur eingefroren oder beendet); Tonspur bleibt, solange sie lebt */
+async function restartCamera() {
+  const oldAudio = stream ? stream.getAudioTracks()[0] : null;
+  if (stream) stream.getVideoTracks().forEach(tk => tk.stop());
+  const vs = await navigator.mediaDevices.getUserMedia({ video: camVideoConstraints() });
+  const vtk = vs.getVideoTracks()[0]; attachTrackEvents(vtk);
+  const tracks = [vtk];
+  if (oldAudio && oldAudio.readyState === 'live') tracks.push(oldAudio);
+  else { try { const as = await navigator.mediaDevices.getUserMedia({ audio: camAudioConstraints() }); tracks.push(as.getAudioTracks()[0]); ldiag('Mikrofon neu geholt'); } catch (e) { ldiag('Mikrofon nicht neu holbar: ' + e.message); } }
+  stream = new MediaStream(tracks); cam.srcObject = stream;
+  try { await cam.play(); } catch (e) { }
+  return stream;
 }
 function stopCamera() { if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } cam.srcObject = null; }
 
@@ -591,124 +657,193 @@ async function countdown(n) {
   el.hidden = true;
 }
 
-/* ---------- Live recording ---------- */
-$('#btnRec').addEventListener('click', () => { if (recording) recording.stop(); else if (settings.live === 'canvas') startLive(); else startLiveRaw(); });
-
-/* ---------- Live-Aufnahme, robuster Weg: Kamera direkt aufzeichnen, Titelkarte danach über die Hardware einsetzen ---------- */
-async function startLiveRaw() {
-  if (!caps.mrMime) { showStageError('Dieser Browser kann kein Video aufzeichnen.'); return; }
-  if (!stream) { showStageError('Keine Kamera aktiv.'); return; }
-  await assetsReady; keepAwake();
-  const btn = $('#btnRec'); btn.disabled = true;
-  const { bitrate } = outSize();
-  const rc = { stop: null }; recording = rc;
-  let rec = null, timer = 0; const chunks = [];
-  const cleanup = () => { clearInterval(timer); recording = null; btn.classList.remove('on'); btn.disabled = false; $('#recTime').hidden = true; };
-  try {
-    await countdown(3);
-    let opts = { mimeType: caps.mrMime, videoBitsPerSecond: Math.round(bitrate * 1.2), audioBitsPerSecond: 128000 };
-    try { rec = new MediaRecorder(stream, opts); } catch (e) { rec = new MediaRecorder(stream); }
-    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-    const stopped = new Promise((res, rej) => { rec.onstop = res; rec.onerror = e => rej((e && e.error) || new Error('Recorder-Fehler')); });
-    rec.start(1000);
-    const liveStart = performance.now();
-    btn.classList.add('on'); btn.disabled = false; $('#recTime').hidden = false;
-    timer = setInterval(() => { $('#recTime span').textContent = fmtTime((performance.now() - liveStart) / 1000); }, 500);
-    await new Promise(res => {
-      rc.stop = () => { if (rec.state === 'recording') { try { rec.requestData(); } catch (e) { } rec.stop(); } res(); };
-      document.addEventListener('visibilitychange', function onv() { if (document.hidden && recording === rc) { document.removeEventListener('visibilitychange', onv); rc.stop(); } });
-    });
-    btn.disabled = true;
-    await Promise.race([stopped, timeoutP(15000, 'Recorder stoppt nicht')]);
-    const blob = new Blob(chunks, { type: rec.mimeType || caps.mrMime });
-    cleanup(); stopCamera();
-    const isMp4 = (blob.type || '').includes('mp4');
-    const raw = new File([blob], 'aufnahme.' + (isMp4 ? 'mp4' : 'webm'), { type: blob.type });
-    await processFile(raw, { title: 'Titelkarte wird eingesetzt …', mirror: !!(settings.mirrorExport && facing === 'user'), rawFallback: true });
-  } catch (e) {
-    console.error(e); if (rec && rec.state !== 'inactive') { try { rec.stop(); } catch (x) { } } cleanup();
-    show('rec'); showStageError('Aufnahme fehlgeschlagen: ' + (e && e.message ? e.message : e));
-  }
+/* ---------- Live-Aufnahme ---------- */
+const liveLog = []; let liveT0 = 0;
+function ldiag(m) {
+  const line = (liveT0 ? ((performance.now() - liveT0) / 1000).toFixed(1).padStart(5) + ' s  ' : '       ') + m;
+  liveLog.push(line); console.log('MEET Live', line);
+  const el = $('#liveDiag'); if (el) { el.textContent = line; el.hidden = false; }
 }
-async function startLive() {
-  const enc = pickEncoder('live');
-  if (!enc) { showStageError('Dieser Browser kann kein Video aufzeichnen. Bitte Safari (iPhone) oder Chrome (Android) verwenden.'); return; }
+/* Überwacht, ob noch neue Kamerabilder ankommen (requestVideoFrameCallback, sonst Pixelvergleich) */
+let camMon = null;
+function startCamMonitor(onStall) {
+  stopCamMonitor();
+  const m = { frames: 0, lastFrame: performance.now(), stalled: false, timer: 0, rvfc: 0, lastPix: null };
+  const probe = document.createElement('canvas'); probe.width = 8; probe.height = 8; const pctx = probe.getContext('2d', { willReadFrequently: true });
+  const useRvfc = !!cam.requestVideoFrameCallback;
+  const tick = () => { if (camMon !== m) return; m.frames++; m.lastFrame = performance.now(); m.rvfc = cam.requestVideoFrameCallback(tick); };
+  if (useRvfc) m.rvfc = cam.requestVideoFrameCallback(tick);
+  m.timer = setInterval(() => {
+    if (camMon !== m) return;
+    const now = performance.now();
+    if (cam.paused) cam.play().catch(() => { });
+    if (!useRvfc) { try { pctx.drawImage(cam, 0, 0, 8, 8); const d = pctx.getImageData(0, 0, 8, 8).data; if (m.lastPix) { let diff = 0; for (let i = 0; i < d.length; i += 4) diff += Math.abs(d[i] - m.lastPix[i]) + Math.abs(d[i + 1] - m.lastPix[i + 1]); if (diff > 24) { m.frames++; m.lastFrame = now; } } m.lastPix = d; } catch (e) { } }
+    const vt = stream && stream.getVideoTracks()[0];
+    const dead = !vt || vt.readyState === 'ended';
+    const stalled = dead || (vt.muted && now - m.lastFrame > 1200) || now - m.lastFrame > 2500;
+    if (stalled && !m.stalled) { m.stalled = true; onStall(dead ? (vt ? 'Kamera-Spur beendet' : 'keine Kamera-Spur') : vt.muted ? 'Kamera-Spur stumm' : 'kein neues Kamerabild seit 2,5 s'); }
+  }, 500);
+  camMon = m; return m;
+}
+function stopCamMonitor() { if (camMon) { clearInterval(camMon.timer); try { if (camMon.rvfc) cam.cancelVideoFrameCallback(camMon.rvfc); } catch (e) { } camMon = null; } }
+function liveReset() { liveLog.length = 0; liveT0 = performance.now(); $('#liveDiag').hidden = true; ldiag(caps.ua + ' · ' + current.name + ' · ' + outSize().W + '×' + outSize().H); }
+
+$('#btnRec').addEventListener('click', () => { if (recording) recording.stop(); else if (liveMode() === 'wc') startLiveWC(); else startLiveRaw(); });
+
+/* Weg A „Direkt“: Bild pro Frame über WebCodecs kodieren (Vorschau = Aufnahme), Ton parallel mit einem Audio-Recorder (AAC), am Ende nur zusammenfügen */
+async function startLiveWC() {
+  if (!caps.wcVideo || !caps.audioMp4) return startLiveRaw();
   if (!stream) { showStageError('Keine Kamera aktiv.'); return; }
-  await assetsReady; keepAwake();
+  await assetsReady; keepAwake(); stageErr.hidden = true;
   const btn = $('#btnRec'); btn.disabled = true;
   const { W, H, bitrate } = outSize(); out.width = W; out.height = H;
-  const fps = 30, cardSec = settings.cardSec;
-  const AC = window.AudioContext || window.webkitAudioContext;
-  const actx = new AC(); try { await actx.resume(); } catch (e) { }
-  const src = actx.createMediaStreamSource(stream);
-  let session = null, stopCapture = null, gain = null, state = 'countdown', liveStart = 0, raf = 0, timer = 0, lastFrameT = -1, capturing = false;
-  const vid = cam, vw = () => cam.videoWidth, vh = () => cam.videoHeight;
-  const rc = { stop: null };
-  recording = rc;
-  const cleanup = () => { cancelAnimationFrame(raf); clearInterval(timer); if (stopCapture) stopCapture(); try { src.disconnect(); } catch (e) { } actx.close().catch(() => { }); recording = null; releaseWake(); btn.classList.remove('on'); btn.disabled = false; $('#recTime').hidden = true; out.classList.remove('show', 'mirror'); $('#hudCorners').classList.remove('off'); };
+  const fps = 30, cardSec = settings.cardSec, mirror = !!(settings.mirrorExport && facing === 'user');
+  const rc = { stop: null }; recording = rc;
+  let session = null, audioRec = null, timer = 0, raf = 0, frames = 0, skipped = 0, lastTs = -1, state = 'countdown', t0 = 0, stalls = 0;
+  const audioChunks = [];
+  liveReset(); ldiag('Weg: Direkt · ' + caps.avcCodec + ' · Ton: ' + caps.audioMp4);
+  const cleanup = () => { clearInterval(timer); cancelAnimationFrame(raf); stopCamMonitor(); recording = null; btn.classList.remove('on'); btn.disabled = false; $('#recTime').hidden = true; out.classList.remove('show', 'mirror'); $('#hudCorners').classList.remove('off'); };
   try {
     await countdown(3);
-    if (enc.kind === 'wc') {
-      session = new WCSession({ W, H, fps, sampleRate: actx.sampleRate, audio: enc.audio, bitrate, live: true });
-      await session.start();
-      stopCapture = await makeCapture(actx, src, f32 => { if (capturing && session) session.addAudio(f32); });
-    } else {
-      gain = actx.createGain(); gain.gain.value = 0;
-      const dest = actx.createMediaStreamDestination(); src.connect(gain); gain.connect(dest);
-      session = new MRSession({ canvas: out, fps, mime: enc.mime, audioTrack: dest.stream.getAudioTracks()[0], bitrate });
-      await session.start();
-    }
-    /* --- card phase --- */
-    state = 'card'; out.classList.add('show'); btn.classList.add('on'); btn.disabled = false;
-    const cardStart = performance.now();
+    session = new WCSession({ W, H, fps, bitrate, live: true, deferMux: true });
+    await session.start();
     drawCard(octx, W, H, current, getRef());
-    if (enc.kind === 'wc') {
-      const n = Math.round(cardSec * fps);
-      for (let i = 0; i < n; i++) session.addFrame(out, Math.round(i / fps * 1e6), i === 0);
-      session.addSilence(cardSec);
-    }
-    /* --- live phase --- */
+    const n = Math.round(cardSec * fps);
+    for (let i = 0; i < n; i++) session.addFrame(out, i / fps * 1e6, i === 0);
+    const atrack = stream.getAudioTracks()[0]; if (!atrack) throw new Error('kein Mikrofon in der Kamera-Spur');
+    audioRec = new MediaRecorder(new MediaStream([atrack]), { mimeType: caps.audioMp4 });
+    audioRec.ondataavailable = e => { if (e.data && e.data.size) audioChunks.push(e.data); };
+    const audioStopped = new Promise((res, rej) => { audioRec.onstop = res; audioRec.onerror = e => rej((e && e.error) || new Error('Ton-Recorder-Fehler')); });
+    audioRec.start(1000);
+    t0 = performance.now(); state = 'live';
+    out.classList.add('show'); out.classList.toggle('mirror', !!(settings.mirrorPreview && facing === 'user' && !mirror)); $('#hudCorners').classList.add('off');
+    btn.classList.add('on'); btn.disabled = false; $('#recTime').hidden = false;
+    timer = setInterval(() => { $('#recTime span').textContent = fmtTime((performance.now() - t0) / 1000); }, 500);
+    ldiag('Aufnahme läuft · Kamera ' + cam.videoWidth + '×' + cam.videoHeight);
     const draw = () => {
-      if (state === 'done') return;
-      const now = performance.now();
-      if (state === 'card') {
-        if (enc.kind === 'mr') { drawCard(octx, W, H, current, getRef()); session.addFrame(); }
-        if (now - cardStart >= cardSec * 1000) {
-          state = 'live'; liveStart = now; capturing = true; if (gain) gain.gain.value = 1;
-          /* Die Aufnahme-Leinwand bleibt sichtbar und ist die Vorschau: Safari liefert für unsichtbare Leinwände nach kurzer Zeit keine Bilder mehr. */
-          out.classList.toggle('mirror', !!(settings.mirrorPreview && facing === 'user' && !settings.mirrorExport));
-          $('#hudCorners').classList.add('off'); $('#recTime').hidden = false;
-          timer = setInterval(() => { $('#recTime span').textContent = fmtTime((performance.now() - liveStart) / 1000); }, 500);
-        }
-        raf = requestAnimationFrame(draw); return;
+      if (state !== 'live') return;
+      const tUs = (performance.now() - t0) * 1000;
+      if (tUs - lastTs >= 1e6 / fps * 0.9) {
+        try {
+          drawCover(octx, cam, cam.videoWidth, cam.videoHeight, W, H, mirror);
+          if (settings.corners) drawCorners(octx, W, H, true);
+          if (session.busy < 8) { session.addFrame(out, cardSec * 1e6 + tUs, frames === 0); frames++; lastTs = tUs; } else skipped++;
+        } catch (e) { ldiag('Frame-Fehler: ' + (e && e.message)); }
       }
-      const t = (now - liveStart) / 1000;
-      if (vid.paused || vid.ended) vid.play().catch(() => { }); /* iOS pausiert die Kamera-Vorschau gelegentlich (Audio-Session) */
-      if (enc.kind === 'wc' && t - lastFrameT < 1 / fps * 0.92) { raf = requestAnimationFrame(draw); return; }
-      if (enc.kind === 'wc' && session.busy > 12) { raf = requestAnimationFrame(draw); return; }
-      lastFrameT = t;
-      try {
-        drawCover(octx, vid, vw(), vh(), W, H, settings.mirrorExport && facing === 'user');
-        if (settings.corners) drawCorners(octx, W, H, true);
-        if (enc.kind === 'wc') session.addFrame(out, Math.round((cardSec + t) * 1e6), false); else session.addFrame();
-      } catch (e) { console.warn('Frame übersprungen', e); }
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
-    await new Promise((res, rej) => {
-      rc.stop = () => { if (state === 'card') return; state = 'done'; capturing = false; res(); };
-      rc.fail = rej;
-      document.addEventListener('visibilitychange', function onv() { if (document.hidden && recording === rc) { document.removeEventListener('visibilitychange', onv); rc.stop(); } });
+    const onStall = async reason => {
+      if (state !== 'live') return;
+      stalls++; ldiag('Kamera-Stillstand: ' + reason + (stalls <= 5 ? ' → Neustart' : ' (kein weiterer Neustart)'));
+      if (stalls > 5) return;
+      try { await restartCamera(); ldiag('Kamera neu gestartet · ' + cam.videoWidth + '×' + cam.videoHeight); } catch (e) { ldiag('Kamera-Neustart fehlgeschlagen: ' + (e && e.message)); }
+      if (state === 'live') startCamMonitor(onStall);
+    };
+    startCamMonitor(onStall);
+    const statTimer = setInterval(() => { if (state === 'live') ldiag(`läuft · ${frames} Frames · Encoder-Warteschlange ${session.busy} · Ton-Pakete ${audioChunks.length}` + (skipped ? ` · ${skipped} übersprungen` : '')); }, 5000);
+    await new Promise(res => {
+      rc.stop = () => { if (state !== 'live') return; state = 'stopping'; res(); };
+      document.addEventListener('visibilitychange', function onv() { if (document.hidden && recording === rc) { document.removeEventListener('visibilitychange', onv); ldiag('Seite in den Hintergrund → Stopp'); rc.stop(); } });
     });
-    btn.disabled = true;
-    cancelAnimationFrame(raf); clearInterval(timer); if (stopCapture) { stopCapture(); stopCapture = null; }
-    show('proc'); $('#procLabel').textContent = current.name; $('#procTitle').textContent = 'Video wird fertiggestellt …'; $('#procBar').style.width = '90%';
-    const blob = await Promise.race([session.finish(), timeoutP(90000, 'Fertigstellen dauert zu lange (90 s)')]);
-    cleanup(); stopCamera();
-    showResult(blob, enc);
+    clearInterval(statTimer);
+    const liveDur = (performance.now() - t0) / 1000;
+    btn.disabled = true; cancelAnimationFrame(raf); stopCamMonitor(); clearInterval(timer);
+    ldiag(`Stopp nach ${fmtTime(liveDur)} · ${frames} Frames kodiert` + (skipped ? ` · ${skipped} übersprungen` : ''));
+    if (audioRec.state === 'recording') { try { audioRec.requestData(); } catch (e) { } audioRec.stop(); }
+    await Promise.race([audioStopped, timeoutP(10000, 'Ton-Recorder stoppt nicht')]);
+    stopCamera(); cleanup();
+    show('proc'); $('#procLabel').textContent = current.name; $('#procTitle').textContent = 'Video wird zusammengefügt …'; $('#procBar').style.width = '60%'; $('#procLog').textContent = liveLog.slice(-14).join('\n'); $('#procMsg').textContent = 'Nur noch Bild und Ton zusammenfügen.';
+    const ablob = new Blob(audioChunks, { type: audioRec.mimeType || 'audio/mp4' });
+    ldiag(`Ton: ${(ablob.size / 1024).toFixed(0)} KB · ${ablob.type}`);
+    const afile = new File([ablob], 'ton.m4a', { type: ablob.type });
+    let audSpec = null;
+    try { const an = await analyzeFile(afile, { aborted: false }, ldiag); if (an.audio && !an.audio.silent) { audSpec = { raw: an.audio, file: afile }; ldiag(`Ton: AAC · ${an.audio.sampleRate} Hz · ${an.audio.channels === 1 ? 'Mono' : 'Stereo'} · ${an.audio.samples.length} Pakete, 1:1`); } }
+    catch (e) { ldiag('Ton-Analyse: ' + (e && e.message)); }
+    if (!audSpec && caps.wcAac) {
+      try { const AC = window.AudioContext || window.webkitAudioContext; const ac = new AC(); const abuf = await ac.decodeAudioData(await ablob.arrayBuffer()); ac.close().catch(() => { }); audSpec = { pcm: abuf }; ldiag(`Ton: dekodiert (${abuf.sampleRate} Hz, ${abuf.duration.toFixed(1)} s) → AAC`); }
+      catch (e) { ldiag('Ton-Dekodierung: ' + (e && e.message)); }
+    }
+    if (!audSpec) ldiag('Export ohne Ton');
+    const tf = performance.now();
+    const blob = await Promise.race([session.finishDeferred(audSpec, cardSec, { aborted: false }), timeoutP(60000, 'Zusammenfügen dauert zu lange')]);
+    ldiag(`Fertig: ${(blob.size / 1048576).toFixed(1)} MB · zusammengefügt in ${((performance.now() - tf) / 1000).toFixed(1)} s`);
+    showResult(blob, { kind: 'wc', audio: 'aac' }, (performance.now() - tf) / 1000, liveLog.slice());
   } catch (e) {
-    console.error(e); if (session) session.abort(); cleanup();
-    show('rec'); showStageError('Aufnahme fehlgeschlagen: ' + (e && e.message ? e.message : e) + ' – In den Einstellungen einen anderen Encoder wählen.');
+    const msg = e && e.message ? e.message : String(e);
+    ldiag('Fehler: ' + msg); console.error(e);
+    if (session) session.abort();
+    try { if (audioRec && audioRec.state !== 'inactive') audioRec.stop(); } catch (x) { }
+    cleanup();
+    show('rec'); showStageError('Aufnahme fehlgeschlagen: ' + msg + '\n\nProtokoll:\n' + liveLog.slice(-12).join('\n'));
+  }
+}
+
+/* Weg B „Kamera-Datei“: Browser-Recorder direkt auf dem Kamera-Stream, Titelkarte danach über die Hardware; bei Bild-Stillstand neuer Abschnitt */
+async function startLiveRaw() {
+  if (!caps.mrMime) { showStageError('Dieser Browser kann kein Video aufzeichnen.'); return; }
+  if (!stream) { showStageError('Keine Kamera aktiv.'); return; }
+  await assetsReady; keepAwake(); stageErr.hidden = true;
+  const btn = $('#btnRec'); btn.disabled = true;
+  const { bitrate } = outSize();
+  const rc = { stop: null }; recording = rc;
+  let rec = null, timer = 0, state = 'countdown', t0 = 0, stalls = 0, sawVideo = false, smallRun = 0;
+  const segments = []; let chunks = [];
+  liveReset(); ldiag('Weg: Kamera-Datei · ' + caps.mrMime);
+  const opts = caps.isSafari ? { mimeType: caps.mrMime } : { mimeType: caps.mrMime, videoBitsPerSecond: Math.round(bitrate * 1.2), audioBitsPerSecond: 128000 };
+  const cleanup = () => { clearInterval(timer); stopCamMonitor(); recording = null; btn.classList.remove('on'); btn.disabled = false; $('#recTime').hidden = true; };
+  const startSegment = () => {
+    chunks = []; sawVideo = false; smallRun = 0;
+    try { rec = new MediaRecorder(stream, opts); } catch (e) { rec = new MediaRecorder(stream); }
+    rec.ondataavailable = e => {
+      if (!(e.data && e.data.size)) return;
+      chunks.push(e.data);
+      if (e.data.size > 150000) sawVideo = true;
+      if (sawVideo && e.data.size < 40000) smallRun++; else smallRun = 0;
+      if (smallRun >= 2 && state === 'live') onStall('Recorder liefert nur noch Ton (' + e.data.size + ' B/s)');
+    };
+    rec.onerror = e => ldiag('Recorder-Fehler: ' + ((e && e.error && e.error.message) || '?'));
+    rec.start(1000);
+    ldiag('Abschnitt ' + (segments.length + 1) + ' gestartet');
+  };
+  const stopSegment = () => new Promise(res => { if (!rec || rec.state === 'inactive') return res(); rec.onstop = () => { segments.push(new Blob(chunks, { type: rec.mimeType || caps.mrMime })); ldiag('Abschnitt ' + segments.length + ' gesichert · ' + (segments[segments.length - 1].size / 1048576).toFixed(1) + ' MB'); res(); }; try { rec.requestData(); } catch (e) { } rec.stop(); });
+  let restarting = false;
+  const onStall = async reason => {
+    if (state !== 'live' || restarting) return;
+    restarting = true; stalls++;
+    ldiag('Bild-Stillstand: ' + reason + (stalls <= 5 ? ' → neuer Abschnitt' : ''));
+    if (stalls > 5) { restarting = false; return; }
+    try { await stopSegment(); await restartCamera(); ldiag('Kamera neu gestartet · ' + cam.videoWidth + '×' + cam.videoHeight); if (state === 'live') startSegment(); } catch (e) { ldiag('Neustart fehlgeschlagen: ' + (e && e.message)); if (state === 'live') { try { startSegment(); } catch (x) { } } }
+    restarting = false;
+    if (state === 'live') startCamMonitor(onStall);
+  };
+  try {
+    await countdown(3);
+    t0 = performance.now(); state = 'live';
+    startSegment();
+    btn.classList.add('on'); btn.disabled = false; $('#recTime').hidden = false;
+    timer = setInterval(() => { $('#recTime span').textContent = fmtTime((performance.now() - t0) / 1000); }, 500);
+    startCamMonitor(onStall);
+    const statTimer = setInterval(() => { if (state === 'live') ldiag(`läuft · ${chunks.length} Pakete · letztes ${chunks.length ? (chunks[chunks.length - 1].size / 1024).toFixed(0) : 0} KB`); }, 5000);
+    await new Promise(res => {
+      rc.stop = () => { if (state !== 'live') return; state = 'stopping'; res(); };
+      document.addEventListener('visibilitychange', function onv() { if (document.hidden && recording === rc) { document.removeEventListener('visibilitychange', onv); ldiag('Seite in den Hintergrund → Stopp'); rc.stop(); } });
+    });
+    clearInterval(statTimer);
+    btn.disabled = true; stopCamMonitor(); clearInterval(timer);
+    while (restarting) await sleep(50);
+    await Promise.race([stopSegment(), timeoutP(15000, 'Recorder stoppt nicht')]);
+    ldiag(`Stopp nach ${fmtTime((performance.now() - t0) / 1000)} · ${segments.length} Abschnitt(e)`);
+    stopCamera(); cleanup();
+    const files = segments.map((b, i) => new File([b], 'aufnahme-' + (i + 1) + '.' + ((b.type || '').includes('mp4') ? 'mp4' : 'webm'), { type: b.type }));
+    if (!files.length) throw new Error('keine Aufnahme erhalten');
+    await processFiles(files, { title: 'Titelkarte wird eingesetzt …', mirror: !!(settings.mirrorExport && facing === 'user'), rawFallback: true, prelog: liveLog.slice() });
+  } catch (e) {
+    const msg = e && e.message ? e.message : String(e);
+    ldiag('Fehler: ' + msg); console.error(e);
+    try { if (rec && rec.state !== 'inactive') rec.stop(); } catch (x) { }
+    cleanup();
+    show('rec'); showStageError('Aufnahme fehlgeschlagen: ' + msg + '\n\nProtokoll:\n' + liveLog.slice(-12).join('\n'));
   }
 }
 function showStageError(msg) { stageErr.textContent = msg; stageErr.hidden = false; }
@@ -918,21 +1053,24 @@ async function decodePath(vt, file, ctl, diag, session, W, H, cardSec, onProgres
   onProgress(ss.length ? (ss[ss.length - 1].cts - minCts) / ts : 0);
   return frames;
 }
-async function addRawAudioAll(session, aud, file, ctl) {
+async function addRawAudioAll(session, aud, file, ctl, extraUs) {
+  extraUs = extraUs || 0;
   const ss = aud.samples, ts = aud.timescale, first = ss.length ? ss[0].cts : 0;
   let i = 0;
   while (i < ss.length) {
     if (ctl.aborted) throw new Error(ctl.reason);
-    if (ss[i].data) { const s = ss[i]; session.addRawChunk(s.data, (s.cts - first) / ts * 1e6, s.duration / ts * 1e6); i++; continue; }
+    if (ss[i].data) { const s = ss[i]; session.addRawChunk(s.data, extraUs + (s.cts - first) / ts * 1e6, s.duration / ts * 1e6); i++; continue; }
     let j = i, start = ss[i].offset, end = start + ss[i].size;
     while (j + 1 < ss.length && ss[j + 1].offset === end && end - start < 2 * 1048576) { j++; end += ss[j].size; }
     const buf = new Uint8Array(await file.slice(start, end).arrayBuffer()); let p = 0;
-    for (let k = i; k <= j; k++) { const s = ss[k]; session.addRawChunk(buf.slice(p, p + s.size), (s.cts - first) / ts * 1e6, s.duration / ts * 1e6); p += s.size; }
+    for (let k = i; k <= j; k++) { const s = ss[k]; session.addRawChunk(buf.slice(p, p + s.size), extraUs + (s.cts - first) / ts * 1e6, s.duration / ts * 1e6); p += s.size; }
     i = j + 1;
   }
 }
 
-async function processFile(file, opt) {
+function spanSec(samples, ts) { if (!samples || !samples.length) return 0; let mn = Infinity, mx = 0; for (const s of samples) { if (s.cts < mn) mn = s.cts; const e = s.cts + (s.duration || 0); if (e > mx) mx = e; } return (mx - mn) / ts; }
+function processFile(file, opt) { return processFiles([file], opt); }
+async function processFiles(files, opt) {
   opt = opt || {};
   const forceMR = !!opt.forceMR;
   const enc = forceMR ? (caps.mrMime ? { kind: 'mr', mime: caps.mrMime } : null) : pickEncoder('file');
@@ -942,103 +1080,124 @@ async function processFile(file, opt) {
   ctl.promise = new Promise((_, rej) => ctl._rej = rej); ctl.promise.catch(() => { });
   ctl.abort = r => { if (ctl.aborted) return; ctl.aborted = true; ctl.reason = r; ctl._rej(new Error(r)); };
   procCtl = ctl;
-  const log = [], t0 = performance.now();
+  const log = (opt.prelog || []).slice(), t0 = performance.now();
   const mirror = !!opt.mirror;
   const el = s => (performance.now() - s) / 1000;
   const diag = m => { const line = el(t0).toFixed(1).padStart(5) + ' s  ' + m; log.push(line); console.log('MEET Studio', line); const pre = $('#procLog'); pre.textContent = log.slice(-14).join('\n'); pre.scrollTop = pre.scrollHeight; };
   show('proc'); $('#procLabel').textContent = current.name; $('#procTitle').textContent = opt.title || 'Video wird umgerechnet …'; $('#procBar').style.width = '0%'; $('#procLog').textContent = '';
   $('#procMsg').textContent = opt.rawFallback ? 'Die Aufnahme ist gesichert. Jetzt wird nur noch die Titelkarte davorgesetzt.' : 'Bitte Bildschirm anlassen und die App nicht verlassen.';
-  diag(`Datei: ${file.name || 'Video'} · ${(file.size / 1048576).toFixed(1)} MB · ${file.type || 'Typ unbekannt'}`);
+  diag(caps.ua + ' · ' + files.map(f => `${f.name || 'Video'} · ${(f.size / 1048576).toFixed(1)} MB · ${f.type || '?'}`).join(' + '));
   diag('Weg: ' + describeEncoder(enc) + (forceMR ? ' (Ausweichweg)' : ''));
   const { W, H, bitrate } = outSize(); out.width = W; out.height = H;
   $('#procPreview').appendChild(out);
   const fps = 30, cardSec = settings.cardSec;
   const AC = window.AudioContext || window.webkitAudioContext;
-  const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', ''); v.preload = 'auto'; $('#srcHolder').replaceChildren(v);
-  let session = null, url = null, actx = null, watchdog = 0, pump = 0, lastProgress = performance.now(), dur = 0, frames = 0;
-  const cleanup = () => { clearInterval(watchdog); clearInterval(pump); try { v.pause(); } catch (e) { } v.removeAttribute('src'); try { v.load(); } catch (e) { } v.remove(); if (url) URL.revokeObjectURL(url); if (actx) actx.close().catch(() => { }); releaseWake(); $('#stageBox').insertBefore(out, $('#hudCorners')); procCtl = null; };
-  const progress = t => { lastProgress = performance.now(); $('#procBar').style.width = Math.min(95, (t / (dur || 1)) * 95) + '%'; };
-  try {
-    url = URL.createObjectURL(file); v.src = url; v.load();
+  let session = null, actx = null, watchdog = 0, pump = 0, lastProgress = performance.now(), frames = 0, totalDur = 0;
+  const vids = [];
+  const cleanup = () => { clearInterval(watchdog); clearInterval(pump); for (const v of vids) { try { v.pause(); } catch (e) { } v.removeAttribute('src'); try { v.load(); } catch (e) { } v.remove(); if (v._url) URL.revokeObjectURL(v._url); } if (actx) actx.close().catch(() => { }); releaseWake(); $('#stageBox').insertBefore(out, $('#hudCorners')); procCtl = null; };
+  const progress = (t, base) => { lastProgress = performance.now(); $('#procBar').style.width = Math.min(95, ((base || 0) + t) / (totalDur || 1) * 95) + '%'; };
+  const openVideo = async file => {
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', ''); v.preload = 'auto'; $('#srcHolder').replaceChildren(v); vids.push(v);
+    v._url = URL.createObjectURL(file); v.src = v._url; v.load();
     await Promise.race([once(v, 'loadedmetadata'), ctl.promise, timeoutP(20000, 'Video lässt sich nicht öffnen (20 s)')]);
-    dur = isFinite(v.duration) ? v.duration : 0;
-    diag(`Quelle: ${v.videoWidth}×${v.videoHeight} · ${dur ? fmtTime(dur) : 'Länge unbekannt'} → Export ${W}×${H}`);
+    return v;
+  };
+  try {
     watchdog = setInterval(() => { if (performance.now() - lastProgress > 15000) ctl.abort('Keine Fortschritte seit 15 s'); }, 1000);
     if (enc.kind === 'wc') {
-      const an = await Promise.race([analyzeFile(file, ctl, diag), ctl.promise]);
-      const aud = an.audio;
-      if (aud === null) throw new Error('Tonspur kann nicht direkt übernommen werden');
-      if (aud.silent) diag('Export ohne Ton'); else diag(`Ton: AAC · ${aud.sampleRate} Hz · ${aud.channels === 1 ? 'Mono' : 'Stereo'} · ${aud.samples.length} Pakete, wird 1:1 übernommen`);
-      lastProgress = performance.now();
-      session = new WCSession({ W, H, fps, bitrate, live: false, audioRaw: aud.silent ? null : aud });
+      /* 1) alle Abschnitte analysieren */
+      const parts = [];
+      for (const f of files) { const an = await Promise.race([analyzeFile(f, ctl, diag), ctl.promise]); parts.push(an); lastProgress = performance.now(); }
+      if (parts.some(p => p.audio === null)) throw new Error('Tonspur kann nicht direkt übernommen werden');
+      const firstAud = (parts.find(p => p.audio && !p.audio.silent) || {}).audio || null;
+      if (!firstAud) diag('Export ohne Ton'); else diag(`Ton: AAC · ${firstAud.sampleRate} Hz · ${firstAud.channels === 1 ? 'Mono' : 'Stereo'}, wird 1:1 übernommen`);
+      totalDur = parts.reduce((a, p) => a + Math.max(p.video ? spanSec(p.video.samples, p.video.timescale) : 0, p.audio && !p.audio.silent ? spanSec(p.audio.samples, p.audio.timescale) : 0), 0);
+      session = new WCSession({ W, H, fps, bitrate, live: false, audioRaw: firstAud });
       await session.start();
       drawCard(octx, W, H, current, getRef());
       const n = Math.round(cardSec * fps);
       for (let i = 0; i < n; i++) session.addFrame(out, i / fps * 1e6, i === 0);
-      if (!aud.silent) session.addRawSilence(cardSec);
+      if (firstAud) session.addRawSilence(cardSec);
       diag(`Titelkarte: ${n} Frames (${cardSec} s)`);
-      let decoded = false;
-      if (an.video) { decoded = await decodePath(an.video, file, ctl, diag, session, W, H, cardSec, progress, mirror); if (decoded) { frames = decoded; diag(`Bild: ${frames} Frames über Hardware nach ${el(t0).toFixed(1)} s`); } }
-      if (!decoded) {
-      diag('Ersatzweg: Video wird abgespielt und mitgeschnitten');
-      v.playbackRate = Number(settings.speed) || 1;
-      let lastT = -1, paused = false;
-      const schedule = () => { if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(() => tick()); };
-      const tick = (now, md) => {
-        if (ctl.aborted || v.ended) return;
-        const t = md ? md.mediaTime : v.currentTime;
-        if (t > lastT) { lastT = t; drawCover(octx, v, v.videoWidth, v.videoHeight, W, H, mirror); if (settings.corners) drawCorners(octx, W, H, true); session.addFrame(out, (cardSec + t) * 1e6, false); frames++; progress(t); }
-        if (session.busy > 24 && !paused) { paused = true; v.pause(); }
-        schedule();
-      };
-      pump = setInterval(() => {
-        if (ctl.aborted || v.ended) return;
-        if (paused && session.busy < 6) { paused = false; v.play().catch(() => { }); }
-        else if (!paused && v.paused) v.play().catch(() => { }); /* vom Browser pausiert (Energiesparen) → weiter */
-      }, 80);
-      schedule();
-      v.play().catch(e => diag('play(): ' + (e && e.message ? e.message : e)));
-      diag('Bild läuft mit ' + v.playbackRate + '×' + (v.requestVideoFrameCallback ? '' : ' (ohne rVFC)'));
-      await Promise.race([once(v, 'ended'), ctl.promise]);
-      clearInterval(pump);
-      diag(`Bild: ${frames} Frames nach ${el(t0).toFixed(1)} s`);
+      /* 2) Abschnitte nacheinander anhängen */
+      let offSec = 0;
+      for (let pi = 0; pi < parts.length; pi++) {
+        const part = parts[pi], file = files[pi];
+        let vSpan = 0, aSpan = 0, decoded = false;
+        if (part.video && caps.wcDec) {
+          decoded = await decodePath(part.video, file, ctl, diag, session, W, H, cardSec + offSec, t => progress(t, offSec), mirror);
+          if (decoded) { frames += decoded; vSpan = spanSec(part.video.samples, part.video.timescale); diag(`Abschnitt ${pi + 1}: ${decoded} Frames über Hardware nach ${el(t0).toFixed(1)} s`); }
+        }
+        if (!decoded) {
+          /* Ersatzweg: abspielen und mitschneiden */
+          diag('Ersatzweg: Abschnitt ' + (pi + 1) + ' wird abgespielt und mitgeschnitten');
+          const v = await openVideo(file);
+          const dur = isFinite(v.duration) ? v.duration : 0;
+          v.playbackRate = Number(settings.speed) || 1;
+          let lastT = -1, paused = false, segFrames = 0;
+          const schedule = () => { if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(() => tick()); };
+          const tick = (now, md) => {
+            if (ctl.aborted || v.ended) return;
+            const tt = md ? md.mediaTime : v.currentTime;
+            if (tt > lastT) { lastT = tt; drawCover(octx, v, v.videoWidth, v.videoHeight, W, H, mirror); if (settings.corners) drawCorners(octx, W, H, true); session.addFrame(out, (cardSec + offSec + tt) * 1e6, false); segFrames++; progress(tt, offSec); }
+            if (session.busy > 24 && !paused) { paused = true; v.pause(); }
+            schedule();
+          };
+          pump = setInterval(() => { if (ctl.aborted || v.ended) return; if (paused && session.busy < 6) { paused = false; v.play().catch(() => { }); } else if (!paused && v.paused) v.play().catch(() => { }); }, 80);
+          schedule();
+          v.play().catch(e => diag('play(): ' + (e && e.message ? e.message : e)));
+          await Promise.race([once(v, 'ended'), ctl.promise]);
+          clearInterval(pump);
+          frames += segFrames; vSpan = lastT > 0 ? lastT : dur;
+          diag(`Abschnitt ${pi + 1}: ${segFrames} Frames nach ${el(t0).toFixed(1)} s`);
+        }
+        if (part.audio && !part.audio.silent && firstAud) {
+          if (part.audio.sampleRate !== firstAud.sampleRate || part.audio.channels !== firstAud.channels) diag(`Abschnitt ${pi + 1}: Tonformat weicht ab, Ton übersprungen`);
+          else { await addRawAudioAll(session, part.audio, file, ctl, offSec * 1e6); aSpan = spanSec(part.audio.samples, part.audio.timescale); }
+        }
+        offSec += Math.max(vSpan, aSpan);
       }
-      if (!aud.silent) { await addRawAudioAll(session, aud, file, ctl); diag('Ton übernommen'); }
     } else {
+      /* Browser-Recorder-Weg: Abschnitte in Echtzeit abspielen und mitschneiden */
       actx = new AC(); try { await actx.resume(); } catch (e) { }
       const dest = actx.createMediaStreamDestination();
-      let audioMode = 'kein Ton';
-      try { v.muted = false; v.removeAttribute('muted'); v.volume = 1; const ms = actx.createMediaElementSource(v); ms.connect(dest); audioMode = 'direkt'; } catch (e) { diag('Ton-Abgriff: ' + e.message); }
       session = new MRSession({ canvas: out, fps, mime: enc.mime, audioTrack: dest.stream.getAudioTracks()[0], bitrate });
       await session.start();
       const tc = performance.now();
       await new Promise(res => { const loop = () => { if (ctl.aborted) return res(); drawCard(octx, W, H, current, getRef()); session.addFrame(); if (performance.now() - tc >= cardSec * 1000) res(); else requestAnimationFrame(loop); }; loop(); });
-      v.playbackRate = 1;
-      let ended = false; v.addEventListener('ended', () => ended = true, { once: true });
-      try { await v.play(); } catch (e) {
-        if (e && e.name === 'NotAllowedError') { diag('Start mit Ton abgelehnt, zweiter Versuch stumm'); v.muted = true; audioMode = 'kein Ton'; await v.play(); }
-        else diag('play(): ' + (e && e.message ? e.message : e));
+      for (let pi = 0; pi < files.length; pi++) {
+        const v = await openVideo(files[pi]);
+        totalDur += isFinite(v.duration) ? v.duration : 0;
+        let audioMode = 'kein Ton';
+        try { v.muted = false; v.removeAttribute('muted'); v.volume = 1; const ms = actx.createMediaElementSource(v); ms.connect(dest); audioMode = 'direkt'; } catch (e) { diag('Ton-Abgriff: ' + e.message); }
+        v.playbackRate = 1;
+        let ended = false; v.addEventListener('ended', () => ended = true, { once: true });
+        try { await v.play(); } catch (e) {
+          if (e && e.name === 'NotAllowedError') { diag('Start mit Ton abgelehnt, zweiter Versuch stumm'); v.muted = true; audioMode = 'kein Ton'; await v.play(); }
+          else diag('play(): ' + (e && e.message ? e.message : e));
+        }
+        pump = setInterval(() => { if (!ctl.aborted && !ended && v.paused) v.play().catch(() => { }); }, 300);
+        diag('Abschnitt ' + (pi + 1) + ' läuft mit 1× · Ton: ' + audioMode);
+        await new Promise((res, rej) => { ctl.promise.catch(rej); const loop = () => { if (ctl.aborted) return; if (ended) return res(); drawCover(octx, v, v.videoWidth, v.videoHeight, W, H, mirror); if (settings.corners) drawCorners(octx, W, H, true); session.addFrame(); frames++; progress(v.currentTime, 0); requestAnimationFrame(loop); }; loop(); });
+        clearInterval(pump);
       }
-      pump = setInterval(() => { if (!ctl.aborted && !ended && v.paused) v.play().catch(() => { }); }, 300);
-      diag('Bild läuft mit 1× · Ton: ' + audioMode);
-      await new Promise((res, rej) => { ctl.promise.catch(rej); const loop = () => { if (ctl.aborted) return; if (ended) return res(); drawCover(octx, v, v.videoWidth, v.videoHeight, W, H, mirror); if (settings.corners) drawCorners(octx, W, H, true); session.addFrame(); frames++; progress(v.currentTime); requestAnimationFrame(loop); }; loop(); });
     }
     $('#procTitle').textContent = 'Video wird fertiggestellt …'; $('#procBar').style.width = '97%'; lastProgress = performance.now();
     const blob = await Promise.race([session.finish(), ctl.promise, timeoutP(90000, 'Fertigstellen dauert zu lange (90 s)')]);
     const secs = el(t0);
-    diag(`Fertig: ${(blob.size / 1048576).toFixed(1)} MB nach ${secs.toFixed(1)} s`);
+    diag(`Fertig: ${(blob.size / 1048576).toFixed(1)} MB · ${frames} Frames · nach ${secs.toFixed(1)} s`);
     cleanup();
-    showResult(blob, enc, secs);
+    showResult(blob, enc, secs, log);
   } catch (e) {
     const msg = e && e.message ? e.message : String(e);
     diag('Fehler: ' + msg); console.error(e);
     if (session) session.abort();
     const wasWc = enc.kind === 'wc';
     cleanup();
-    if (!ctl.userCancelled && wasWc && caps.mrMime) { toast('Schneller Weg hat nicht geklappt – jetzt der sichere Weg (1×).', 4000); return processFile(file, Object.assign({}, opt, { forceMR: true })); }
-    if (opt.rawFallback && !ctl.userCancelled) {
+    if (!ctl.userCancelled && wasWc && caps.mrMime) { toast('Schneller Weg hat nicht geklappt – jetzt der sichere Weg (1×).', 4000); return processFiles(files, Object.assign({}, opt, { forceMR: true, prelog: log })); }
+    if (opt.rawFallback && !ctl.userCancelled && files.length) {
       toast('Titelkarte konnte nicht eingesetzt werden. Die Aufnahme ohne Karte ist trotzdem da.', 6000);
-      showResult(file, { kind: 'mr', mime: file.type || caps.mrMime }, null);
+      showResult(files[0], { kind: 'mr', mime: files[0].type || caps.mrMime }, null, log);
       $('#resProc').textContent = 'OHNE Titelkarte · ' + msg;
       return;
     }
@@ -1049,7 +1208,8 @@ async function processFile(file, opt) {
 
 /* ---------- Result ---------- */
 let result = null;
-function showResult(blob, enc, procSecs) {
+function showResult(blob, enc, procSecs, logLines) {
+  $('#resLog').textContent = (logLines || []).join('\n'); $('#resLogBox').hidden = !(logLines && logLines.length); $('#resLogBox').open = false;
   const isMp4 = (blob.type || '').includes('mp4');
   const ext = isMp4 ? 'mp4' : 'webm';
   const name = fileName(current) + '.' + ext;
@@ -1061,7 +1221,7 @@ function showResult(blob, enc, procSecs) {
   $('#resSize').textContent = (blob.size / 1048576).toFixed(1) + ' MB';
   $('#resFmt').textContent = (isMp4 ? 'MP4' : 'WebM') + ' · ' + out.width + '×' + out.height + ' · ' + describeEncoder(enc).replace(/ · MP4$/, '');
   $('#resDur').textContent = '–';
-  $('#resProc').textContent = procSecs ? 'Verarbeitung ' + procSecs.toFixed(0) + ' s' : 'Live-Aufnahme';
+  $('#resProc').textContent = procSecs != null ? 'Nachlauf ' + procSecs.toFixed(0) + ' s' : '–';
   rv.addEventListener('loadedmetadata', () => { if (isFinite(rv.duration)) $('#resDur').textContent = fmtTime(rv.duration); }, { once: true });
   const file = new File([blob], name, { type: result.type });
   result.file = file;
@@ -1101,7 +1261,20 @@ window.MEET = { selfTest: async (sec, v) => {
   const t0 = performance.now(); await new Promise(res => { const l = () => { const t = (performance.now() - t0) / 1000; x.fillStyle = `hsl(${t * 60},70%,40%)`; x.fillRect(0, 0, 720, 1280); x.fillStyle = '#fff'; x.font = '80px sans-serif'; x.fillText('t=' + t.toFixed(1), 100, 640); if (t < sec) requestAnimationFrame(l); else res(); }; l(); });
   const blob = await new Promise(res => { rec.onstop = () => res(new Blob(ch, { type: rec.mimeType })); rec.stop(); }); osc.stop(); a.close();
   return processFile(new File([blob], mm ? 'test.mp4' : 'test.webm', { type: blob.type }), {});
-}, processFile, reprocess: (v) => { current = VIDEOS[v || 1]; return processFile(result.file, {}); }, result: () => result, processFromUrl: async (u, v) => { current = VIDEOS[v || 1]; const r = await fetch(u); const b = await r.blob(); return processFile(new File([b], 'test.mp4', { type: b.type || 'video/mp4' }), {}); }, settings, caps };
+}, processFile, processFiles, caps, simulateLive: async (sec, mode) => {
+  /* Test ohne echte Kamera: synthetischer Stream aus Leinwand + Ton */
+  current = VIDEOS[1]; show('rec'); hudUpdate(); $('#stageWrap').hidden = false; filePanel.hidden = true; stageCtrl.hidden = false;
+  const c = document.createElement('canvas'); c.width = 720; c.height = 1280; const x = c.getContext('2d');
+  const AC = window.AudioContext || window.webkitAudioContext; const a = new AC(); const osc = a.createOscillator(); const d = a.createMediaStreamDestination(); osc.frequency.value = 440; osc.connect(d); osc.start();
+  const vs = c.captureStream(30); const t0 = performance.now();
+  const loop = () => { const tt = (performance.now() - t0) / 1000; x.fillStyle = `hsl(${tt * 60},70%,40%)`; x.fillRect(0, 0, 720, 1280); x.fillStyle = '#fff'; x.font = '80px sans-serif'; x.fillText('t=' + tt.toFixed(1), 100, 640); if (recording || tt < sec + 5) requestAnimationFrame(loop); };
+  loop();
+  stopCamera(); stream = new MediaStream([...vs.getVideoTracks(), ...d.stream.getAudioTracks()]); cam.srcObject = stream; await cam.play().catch(() => { });
+  if (mode) settings.live = mode;
+  const p = liveMode() === 'wc' ? startLiveWC() : startLiveRaw();
+  await sleep(3200 + sec * 1000); if (recording) recording.stop();
+  await p; osc.stop(); a.close();
+}, reprocess: (v) => { current = VIDEOS[v || 1]; return processFile(result.file, {}); }, result: () => result, processFromUrl: async (u, v) => { current = VIDEOS[v || 1]; const r = await fetch(u); const b = await r.blob(); return processFile(new File([b], 'test.mp4', { type: b.type || 'video/mp4' }), {}); }, settings, caps };
 })();
 </script>
 
