@@ -24,3 +24,15 @@
   for = "/manifest.webmanifest"
   [headers.values]
     Content-Type = "application/manifest+json"
+
+# MEET DAILY Studio (internes Aufnahme-Tool): Kamera und Mikrofon nur hier erlauben
+[[headers]]
+  for = "/studio/*"
+  [headers.values]
+    Permissions-Policy = "camera=(self), microphone=(self), geolocation=()"
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/studio/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"

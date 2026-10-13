@@ -1,0 +1,17 @@
+{
+  "name": "MEET DAILY Studio",
+  "short_name": "MEET Studio",
+  "description": "Morgenvideos für den WhatsApp-Kanal MEET DAILY aufnehmen und mit Titelkarte exportieren.",
+  "lang": "de",
+  "start_url": "/studio/",
+  "scope": "/studio/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#2F1041",
+  "theme_color": "#2F1041",
+  "icons": [
+    { "src": "../assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "../assets/favicon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "../assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
