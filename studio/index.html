@@ -90,6 +90,8 @@ details.settings[open] summary::after{content:"–"}
 .stage-box video.mirror{transform:scaleX(-1)}
 #out{z-index:2;opacity:0;pointer-events:none}
 #out.show{opacity:1}
+#out.mirror{transform:scaleX(-1)}
+.hud-corners.off{display:none}
 .hud-corners{position:absolute;inset:0;z-index:3;pointer-events:none}
 .hud-corners .shade{position:absolute;left:0;right:0;bottom:0;height:19%;background:linear-gradient(rgba(47,16,65,0),rgba(47,16,65,.6))}
 .hud-corners .d{position:absolute;left:11.1%;bottom:5.7%;width:43.5%}
@@ -551,6 +553,8 @@ async function openCamera() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('getUserMedia fehlt'), { name: 'NotSupportedError' });
   const constraints = { video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
   stream = await navigator.mediaDevices.getUserMedia(constraints);
+  const vtk = stream.getVideoTracks()[0];
+  if (vtk) { vtk.addEventListener('mute', () => { $('#hudLabel').textContent = current.name + ' · Kamera pausiert'; try { cam.play(); } catch (e) { } }); vtk.addEventListener('unmute', () => { $('#hudLabel').textContent = current.name; }); vtk.addEventListener('ended', () => { $('#hudLabel').textContent = current.name + ' · Kamera beendet'; }); }
   cam.srcObject = stream;
   try { await cam.play(); } catch (e) { }
 }
@@ -601,7 +605,7 @@ async function startLive() {
   const vid = cam, vw = () => cam.videoWidth, vh = () => cam.videoHeight;
   const rc = { stop: null };
   recording = rc;
-  const cleanup = () => { cancelAnimationFrame(raf); clearInterval(timer); if (stopCapture) stopCapture(); try { src.disconnect(); } catch (e) { } actx.close().catch(() => { }); recording = null; releaseWake(); btn.classList.remove('on'); btn.disabled = false; $('#recTime').hidden = true; out.classList.remove('show'); };
+  const cleanup = () => { cancelAnimationFrame(raf); clearInterval(timer); if (stopCapture) stopCapture(); try { src.disconnect(); } catch (e) { } actx.close().catch(() => { }); recording = null; releaseWake(); btn.classList.remove('on'); btn.disabled = false; $('#recTime').hidden = true; out.classList.remove('show', 'mirror'); $('#hudCorners').classList.remove('off'); };
   try {
     await countdown(3);
     if (enc.kind === 'wc') {
@@ -631,12 +635,15 @@ async function startLive() {
         if (enc.kind === 'mr') { drawCard(octx, W, H, current, getRef()); session.addFrame(); }
         if (now - cardStart >= cardSec * 1000) {
           state = 'live'; liveStart = now; capturing = true; if (gain) gain.gain.value = 1;
-          out.classList.remove('show'); $('#recTime').hidden = false;
+          /* Die Aufnahme-Leinwand bleibt sichtbar und ist die Vorschau: Safari liefert für unsichtbare Leinwände nach kurzer Zeit keine Bilder mehr. */
+          out.classList.toggle('mirror', !!(settings.mirrorPreview && facing === 'user' && !settings.mirrorExport));
+          $('#hudCorners').classList.add('off'); $('#recTime').hidden = false;
           timer = setInterval(() => { $('#recTime span').textContent = fmtTime((performance.now() - liveStart) / 1000); }, 500);
         }
         raf = requestAnimationFrame(draw); return;
       }
       const t = (now - liveStart) / 1000;
+      if (vid.paused || vid.ended) vid.play().catch(() => { }); /* iOS pausiert die Kamera-Vorschau gelegentlich (Audio-Session) */
       if (enc.kind === 'wc' && t - lastFrameT < 1 / fps * 0.92) { raf = requestAnimationFrame(draw); return; }
       if (enc.kind === 'wc' && session.busy > 12) { raf = requestAnimationFrame(draw); return; }
       lastFrameT = t;
