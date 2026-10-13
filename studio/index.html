@@ -19,7 +19,7 @@
 /* Layout: one-screen phone tool. Home = choose video + Bibelstelle; Stage = full-bleed 9:16 camera/card; Result = preview + share. Dark by choice (CI Nachtviolett, used at 05:45). */
 :root{
   --night:#2F1041;--night2:#3D1B55;--night3:#4A2466;--violet:#602184;
-  --lime:#D4F65A;--sun:#FF8A3D;--paper:#F7F4EF;--lilac:#EEDEF7;--muted:#B9A6CC;
+  --lime:#D4F65A;--sun:#FF8A3D;--pink:#FF5FA8;--paper:#F7F4EF;--lilac:#EEDEF7;--muted:#B9A6CC;
   --line:rgba(255,255,255,.14);--red:#E8452C;
   --f-display:"Space Grotesk","Arial Black",Arial,sans-serif;
   --f-body:"Geist",-apple-system,"Helvetica Neue",Arial,sans-serif;
@@ -97,6 +97,15 @@ details.logbox{border-top:1px solid var(--line);padding-block:10px 0}
 details.logbox summary{cursor:pointer;font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);list-style:none}
 details.logbox summary::-webkit-details-marker{display:none}
 details.logbox pre{margin-top:10px;max-height:320px}
+details.igbox{border:1px solid rgba(255,95,168,.45);border-radius:16px;padding:12px 14px;background:rgba(255,95,168,.06)}
+details.igbox summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;font-family:var(--f-display);font-size:17px;letter-spacing:-.01em}
+details.igbox summary::-webkit-details-marker{display:none}
+details.igbox summary::after{content:"+";font-size:20px;color:var(--pink)}
+details.igbox[open] summary::after{content:"–"}
+details.igbox .inner{display:flex;flex-direction:column;gap:10px;padding-top:12px}
+textarea.cap{font:inherit;font-size:14px;line-height:1.45;color:var(--paper);background:var(--night2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;min-height:120px;resize:vertical;outline:none}
+textarea.cap:focus{border-color:var(--pink)}
+.btn.pink{background:var(--pink);color:var(--night)}
 .hud-corners{position:absolute;inset:0;z-index:3;pointer-events:none}
 .hud-corners .shade{position:absolute;left:0;right:0;bottom:0;height:19%;background:linear-gradient(rgba(47,16,65,0),rgba(47,16,65,.6))}
 .hud-corners .d{position:absolute;left:11.1%;bottom:5.7%;width:43.5%}
@@ -181,6 +190,10 @@ details.logbox pre{margin-top:10px;max-height:320px}
           <div class="seg" data-set="mirrorPreview"><button data-val="true">An</button><button data-val="false">Aus</button></div></div>
         <div class="row"><span>Export spiegeln<small>Wie im Spiegel speichern (Schrift im Bild wird falsch herum)</small></span>
           <div class="seg" data-set="mirrorExport"><button data-val="false">Aus</button><button data-val="true">An</button></div></div>
+        <div class="row" style="flex-direction:column;align-items:stretch"><span>Instagram-Text Video 1 · Start<small>{bibelstelle} wird ersetzt</small></span>
+          <textarea class="cap" id="igT1" rows="4"></textarea></div>
+        <div class="row" style="flex-direction:column;align-items:stretch"><span>Instagram-Text Video 2 · MEETmoment<small>{bibelstelle} wird ersetzt</small></span>
+          <textarea class="cap" id="igT2" rows="4"></textarea></div>
         <div class="row"><span>Auflösung</span>
           <div class="seg" data-set="quality"><button data-val="1080">1080p</button><button data-val="720">720p</button></div></div>
         <div class="row"><span>Video-Encoder<small>Bei Problemen auf dem Handy umstellen</small></span>
@@ -247,6 +260,16 @@ details.logbox pre{margin-top:10px;max-height:320px}
     <span class="lab lime" id="resLabel">Video 1 · Start</span>
     <video id="resvid" class="result-vid" controls playsinline></video>
     <dl class="kv"><dt>Datei</dt><dd id="resName">–</dd><dt>Länge</dt><dd id="resDur">–</dd><dt>Grösse</dt><dd id="resSize">–</dd><dt>Format</dt><dd id="resFmt">–</dd><dt>Dauer</dt><dd id="resProc">–</dd></dl>
+    <details class="igbox" id="igBox" hidden>
+      <summary>Als Reel auf Instagram</summary>
+      <div class="inner">
+        <label class="lab" for="igCaption">Beschreibung (wird kopiert)</label>
+        <textarea class="cap" id="igCaption" rows="5"></textarea>
+        <button class="btn pink block" id="btnIg">Beschreibung kopieren und an Instagram geben</button>
+        <button class="btn ghost block" id="btnIgCopy">Nur Beschreibung kopieren</button>
+        <p class="hint">Im Teilen-Menü <b>Instagram</b> wählen, dann <b>Reel</b>. Die Beschreibung aus der Zwischenablage einfügen und posten. Das erste Bild (Titelkarte) ist automatisch das Cover.</p>
+      </div>
+    </details>
     <div class="stack">
       <button class="btn block" id="btnShare">An WhatsApp teilen</button>
       <button class="btn ghost block" id="btnSave" hidden>Speichern</button>
@@ -1206,6 +1229,34 @@ async function processFiles(files, opt) {
   }
 }
 
+/* ---------- Instagram-Reel: Beschreibung + Übergabe ans Teilen-Menü ---------- */
+const IG_DEFAULT = {
+  1: 'MEET DAILY · Start · {bibelstelle}\nGuten Morgen! Wir beten zusammen und kommen zur Ruhe. Nimm dir jetzt 20 Minuten mit Gott.\nJeden Morgen im WhatsApp-Kanal MEET DAILY → meet-bty.com\n#meetdaily #bibletunes #bibletunesyouth #stillezeit #bibel',
+  2: 'MEETmoment · {bibelstelle}\nHier ist uns Gott heute im Text begegnet. Und dir? Schreib uns auf meet-bty.com\n#meetmoment #meetdaily #bibletunes #bibletunesyouth #bibel'
+};
+function igTemplate(n) { const s = settings['igT' + n]; return (typeof s === 'string' && s.trim()) ? s : IG_DEFAULT[n]; }
+function igCaption(n) { return igTemplate(n).replace(/\{bibelstelle\}/g, getRef() || 'Bibelstelle').replace(/\{datum\}/g, new Date().toLocaleDateString('de-CH')); }
+['1', '2'].forEach(n => { const ta = $('#igT' + n); ta.value = igTemplate(n); ta.addEventListener('input', () => { settings['igT' + n] = ta.value; saveSettings(); }); });
+async function copyText(txt) {
+  try { await navigator.clipboard.writeText(txt); return true; } catch (e) { }
+  try { const ta = $('#igCaption'); ta.focus(); ta.select(); return document.execCommand && document.execCommand('copy'); } catch (e) { return false; }
+}
+$('#btnIgCopy').addEventListener('click', async () => { toast((await copyText($('#igCaption').value)) ? 'Beschreibung kopiert' : 'Kopieren nicht möglich – Text markieren und manuell kopieren'); });
+$('#btnIg').addEventListener('click', async () => {
+  if (!result) return;
+  const ok = await copyText($('#igCaption').value);
+  const canShare = !caps.downloads && !!(navigator.canShare && navigator.canShare({ files: [result.file] }));
+  if (canShare) {
+    try { await navigator.share({ files: [result.file], title: result.name }); toast(ok ? 'Beschreibung ist in der Zwischenablage – in Instagram einfügen' : 'An Instagram übergeben', 5000); }
+    catch (e) { if (e && e.name !== 'AbortError') toast('Teilen nicht möglich: ' + e.message); }
+  } else if (caps.downloads) {
+    try { await caps.downloads.save({ filename: result.name, data: result.blob }); toast('Im Teilen-Menü Instagram → Reel wählen. Beschreibung ist kopiert.', 6000); }
+    catch (e) { if (!(e && e.code === 'declined')) toast('Übergabe nicht möglich: ' + (e && e.message ? e.message : e)); }
+  } else {
+    toast(ok ? 'Beschreibung kopiert. Video herunterladen und in Instagram hochladen.' : 'Hier ist kein Teilen möglich. Video herunterladen und in Instagram hochladen.', 6000);
+  }
+});
+
 /* ---------- Result ---------- */
 let result = null;
 function showResult(blob, enc, procSecs, logLines) {
@@ -1231,6 +1282,7 @@ function showResult(blob, enc, procSecs, logLines) {
   $('#btnSave').textContent = 'Speichern / Teilen';
   const a = $('#lnkDownload'); a.hidden = canShare || !!caps.downloads; a.href = result.url; a.download = name;
   if (!isMp4) toast('Achtung: WebM statt MP4. WhatsApp nimmt das Video möglicherweise nicht an.', 5000);
+  $('#igCaption').value = igCaption(current.n); $('#igBox').hidden = false; $('#igBox').open = current.n === 2;
   show('result');
 }
 $('#btnShare').addEventListener('click', async () => {
