@@ -166,6 +166,8 @@ details.settings[open] summary::after{content:"–"}
     <details class="settings" id="settings">
       <summary>Einstellungen</summary>
       <div class="set">
+        <div class="row"><span>Aufnahme-Weg<small>Kamera-Datei: robust, Titelkarte wird danach über die Hardware eingesetzt (ca. 10 s pro Minute Video). Live-Leinwand: ohne Nachlauf, in Safari aber unzuverlässig</small></span>
+          <div class="seg" data-set="live"><button data-val="raw">Kamera-Datei</button><button data-val="canvas">Live-Leinwand</button></div></div>
         <div class="row"><span>Titelkarte am Anfang<small>Nur das erste Bild zählt als Vorschau. 0,1 s = 3 Frames</small></span>
           <div class="seg" data-set="cardSec"><button data-val="0.1">0,1 s</button><button data-val="0.2">0,2 s</button><button data-val="0.5">0,5 s</button><button data-val="1">1 s</button></div></div>
         <div class="row"><span>Logo-Ecken im Video<small>MEET DAILY links, YOUTH b+ rechts (nicht nötig, die Karte reicht)</small></span>
@@ -285,7 +287,7 @@ const VIDEOS = {
 };
 
 /* ---------- Settings ---------- */
-const DEFAULTS = { cardSec: 0.2, corners: false, mirrorPreview: true, mirrorExport: false, quality: '1080', encoder: 'auto', speed: 2 };
+const DEFAULTS = { live: 'raw', cardSec: 0.2, corners: false, mirrorPreview: true, mirrorExport: false, quality: '1080', encoder: 'auto', speed: 2 };
 const settings = Object.assign({}, DEFAULTS);
 try { Object.assign(settings, JSON.parse(localStorage.getItem('meetstudio:settings:v2') || '{}')); } catch (e) { }
 function saveSettings() { try { localStorage.setItem('meetstudio:settings:v2', JSON.stringify(settings)); } catch (e) { } }
@@ -299,7 +301,7 @@ $$('.seg').forEach(seg => seg.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const key = seg.dataset.set; let v = b.dataset.val;
   if (v === 'true') v = true; else if (v === 'false') v = false; else if (!isNaN(Number(v)) && key !== 'quality') v = Number(v);
-  settings[key] = v; saveSettings(); renderSettings(); drawThumbs();
+  settings[key] = v; saveSettings(); renderSettings(); drawThumbs(); renderTech();
 }));
 renderSettings();
 
@@ -412,7 +414,8 @@ function renderTech() {
   const live = pickEncoder('live'), file = pickEncoder('file');
   const cam = caps.camera === 'ok' ? 'Browser-Kamera' : caps.camera === 'blocked' ? 'nur Kamera-App (Browser-Kamera hier gesperrt)' : 'wird beim Start geprüft';
   const out = caps.share ? 'Teilen-Menü' : caps.downloads ? 'Speichern/Teilen über Claude' : 'Download-Link';
-  $('#tech').textContent = `Kamera: ${cam} · Live: ${describeEncoder(live)} · Datei: ${describeEncoder(file)} · Ausgabe: ${out}`;
+  const liveTxt = settings.live === 'canvas' ? 'Live-Leinwand · ' + describeEncoder(live) : 'Kamera-Datei (' + (caps.mrMime ? caps.mrMime.split(';')[0] : 'kein Recorder') + ') + Hardware-Umrechnung';
+  $('#tech').textContent = `Kamera: ${cam} · Aufnahme: ${liveTxt} · Datei: ${describeEncoder(file)} · Ausgabe: ${out}`;
 }
 probe();
 
@@ -589,7 +592,44 @@ async function countdown(n) {
 }
 
 /* ---------- Live recording ---------- */
-$('#btnRec').addEventListener('click', () => { if (recording) recording.stop(); else startLive(); });
+$('#btnRec').addEventListener('click', () => { if (recording) recording.stop(); else if (settings.live === 'canvas') startLive(); else startLiveRaw(); });
+
+/* ---------- Live-Aufnahme, robuster Weg: Kamera direkt aufzeichnen, Titelkarte danach über die Hardware einsetzen ---------- */
+async function startLiveRaw() {
+  if (!caps.mrMime) { showStageError('Dieser Browser kann kein Video aufzeichnen.'); return; }
+  if (!stream) { showStageError('Keine Kamera aktiv.'); return; }
+  await assetsReady; keepAwake();
+  const btn = $('#btnRec'); btn.disabled = true;
+  const { bitrate } = outSize();
+  const rc = { stop: null }; recording = rc;
+  let rec = null, timer = 0; const chunks = [];
+  const cleanup = () => { clearInterval(timer); recording = null; btn.classList.remove('on'); btn.disabled = false; $('#recTime').hidden = true; };
+  try {
+    await countdown(3);
+    let opts = { mimeType: caps.mrMime, videoBitsPerSecond: Math.round(bitrate * 1.2), audioBitsPerSecond: 128000 };
+    try { rec = new MediaRecorder(stream, opts); } catch (e) { rec = new MediaRecorder(stream); }
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise((res, rej) => { rec.onstop = res; rec.onerror = e => rej((e && e.error) || new Error('Recorder-Fehler')); });
+    rec.start(1000);
+    const liveStart = performance.now();
+    btn.classList.add('on'); btn.disabled = false; $('#recTime').hidden = false;
+    timer = setInterval(() => { $('#recTime span').textContent = fmtTime((performance.now() - liveStart) / 1000); }, 500);
+    await new Promise(res => {
+      rc.stop = () => { if (rec.state === 'recording') { try { rec.requestData(); } catch (e) { } rec.stop(); } res(); };
+      document.addEventListener('visibilitychange', function onv() { if (document.hidden && recording === rc) { document.removeEventListener('visibilitychange', onv); rc.stop(); } });
+    });
+    btn.disabled = true;
+    await Promise.race([stopped, timeoutP(15000, 'Recorder stoppt nicht')]);
+    const blob = new Blob(chunks, { type: rec.mimeType || caps.mrMime });
+    cleanup(); stopCamera();
+    const isMp4 = (blob.type || '').includes('mp4');
+    const raw = new File([blob], 'aufnahme.' + (isMp4 ? 'mp4' : 'webm'), { type: blob.type });
+    await processFile(raw, { title: 'Titelkarte wird eingesetzt …', mirror: !!(settings.mirrorExport && facing === 'user'), rawFallback: true });
+  } catch (e) {
+    console.error(e); if (rec && rec.state !== 'inactive') { try { rec.stop(); } catch (x) { } } cleanup();
+    show('rec'); showStageError('Aufnahme fehlgeschlagen: ' + (e && e.message ? e.message : e));
+  }
+}
 async function startLive() {
   const enc = pickEncoder('live');
   if (!enc) { showStageError('Dieser Browser kann kein Video aufzeichnen. Bitte Safari (iPhone) oder Chrome (Android) verwenden.'); return; }
@@ -647,9 +687,11 @@ async function startLive() {
       if (enc.kind === 'wc' && t - lastFrameT < 1 / fps * 0.92) { raf = requestAnimationFrame(draw); return; }
       if (enc.kind === 'wc' && session.busy > 12) { raf = requestAnimationFrame(draw); return; }
       lastFrameT = t;
-      drawCover(octx, vid, vw(), vh(), W, H, settings.mirrorExport && facing === 'user');
-      if (settings.corners) drawCorners(octx, W, H, true);
-      if (enc.kind === 'wc') session.addFrame(out, Math.round((cardSec + t) * 1e6), false); else session.addFrame();
+      try {
+        drawCover(octx, vid, vw(), vh(), W, H, settings.mirrorExport && facing === 'user');
+        if (settings.corners) drawCorners(octx, W, H, true);
+        if (enc.kind === 'wc') session.addFrame(out, Math.round((cardSec + t) * 1e6), false); else session.addFrame();
+      } catch (e) { console.warn('Frame übersprungen', e); }
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
@@ -689,69 +731,138 @@ $('#btnProcess').addEventListener('click', () => { if (staged) processFile(stage
 $('#btnCancel').addEventListener('click', () => { if (procCtl) { procCtl.userCancelled = true; procCtl.abort('Abgebrochen'); } });
 
 /* MP4/MOV analysieren, ohne die ganze Datei in den Speicher zu laden: Tonspur (AAC) 1:1, Videospur für den Hardware-Decoder */
-function boxDescription(entry) {
-  const box = entry && (entry.avcC || entry.hvcC || entry.vpcC || entry.av1C);
-  if (!box) return null;
-  const DS = window.DataStream || (window.MP4Box && window.MP4Box.DataStream);
-  if (!DS) return null;
-  const ds = new DS(undefined, 0, DS.BIG_ENDIAN); box.write(ds);
-  return new Uint8Array(ds.buffer, 8);
+/* Eigener, kleiner MP4/MOV-Parser (ISO BMFF + QuickTime): liest Spuren, Codec-Konfiguration und Sample-Tabellen aus dem moov */
+function parseBoxes(u8, start, end, cb) {
+  let o = start;
+  while (o + 8 <= end) {
+    const dv = new DataView(u8.buffer, u8.byteOffset + o, Math.min(16, end - o));
+    let size = dv.getUint32(0); const type = String.fromCharCode(u8[o + 4], u8[o + 5], u8[o + 6], u8[o + 7]); let hdr = 8;
+    if (size === 1) { if (end - o < 16) break; size = Number(dv.getBigUint64(8)); hdr = 16; } else if (size === 0) size = end - o;
+    if (size < hdr || o + size > end) break;
+    cb(type, o + hdr, o + size);
+    o += size;
+  }
 }
-function trackRotation(trak) {
-  try { const m = trak.tkhd.matrix; const a = m[0] / 65536, b = m[1] / 65536; let r = Math.round(Math.atan2(b, a) * 180 / Math.PI); if (r < 0) r += 360; return (r === 90 || r === 180 || r === 270) ? r : 0; } catch (e) { return 0; }
+const AAC_RATES = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
+function hex2(n) { return (n < 16 ? '0' : '') + n.toString(16).toUpperCase(); }
+function hevcCodecString(u8, o) {
+  const b1 = u8[o + 1], ps = b1 >> 6, tier = (b1 >> 5) & 1, pidc = b1 & 0x1f;
+  const compat = ((u8[o + 2] << 24) | (u8[o + 3] << 16) | (u8[o + 4] << 8) | u8[o + 5]) >>> 0;
+  let rev = 0; for (let i = 0; i < 32; i++) if (compat & (1 << i)) rev |= 1 << (31 - i); rev >>>= 0;
+  const cons = Array.from(u8.subarray(o + 6, o + 12)); while (cons.length && cons[cons.length - 1] === 0) cons.pop();
+  return 'hvc1.' + (ps ? String.fromCharCode(64 + ps) : '') + pidc + '.' + rev.toString(16).toUpperCase() + '.' + (tier ? 'H' : 'L') + u8[o + 12] + (cons.length ? '.' + cons.map(x => x.toString(16).toUpperCase()).join('.') : '');
+}
+function parseEsds(u8, dv, s, e, tr) {
+  let o = s + 4; /* version/flags */
+  const readDesc = () => { const tag = u8[o++]; let sz = 0; for (let k = 0; k < 4; k++) { const b = u8[o++]; sz = (sz << 7) | (b & 0x7f); if (!(b & 0x80)) break; } return { tag, size: sz, start: o }; };
+  while (o < e) {
+    const d = readDesc(); if (o >= e) break;
+    if (d.tag === 3) { o += 2; const fl = u8[o++]; if (fl & 0x80) o += 2; if (fl & 0x40) o += 1 + u8[o]; if (fl & 0x20) o += 2; continue; }
+    if (d.tag === 4) { tr.oti = u8[o]; o += 13; continue; }
+    if (d.tag === 5) { tr.asc = u8.slice(o, o + d.size); o += d.size; continue; }
+    o = d.start + d.size;
+  }
+}
+function parseStsd(u8, dv, s, e, tr) {
+  const es = s + 8; if (es + 16 > e) return;
+  const esize = dv.getUint32(es), fmt = String.fromCharCode(u8[es + 4], u8[es + 5], u8[es + 6], u8[es + 7]), body = es + 8, end = Math.min(e, es + esize);
+  tr.fmt = fmt;
+  if (tr.type === 'vide') {
+    tr.width = dv.getUint16(body + 24); tr.height = dv.getUint16(body + 26);
+    parseBoxes(u8, body + 78, end, (t, cs, ce) => {
+      if (t === 'avcC') { tr.description = u8.slice(cs, ce); tr.codec = 'avc1.' + hex2(u8[cs + 1]) + hex2(u8[cs + 2]) + hex2(u8[cs + 3]); }
+      else if (t === 'hvcC') { tr.description = u8.slice(cs, ce); tr.codec = hevcCodecString(u8, cs); }
+    });
+  } else if (tr.type === 'soun') {
+    const ver = dv.getUint16(body + 8);
+    tr.channels = dv.getUint16(body + 16); tr.sampleRate = dv.getUint32(body + 24) >>> 16;
+    let cs = body + 28;
+    if (ver === 1) cs += 16;
+    else if (ver === 2) { tr.sampleRate = Math.round(dv.getFloat64(body + 32)); tr.channels = dv.getUint32(body + 40); cs = body + 28 + 36; }
+    const scan = (a, b, depth) => parseBoxes(u8, a, b, (t, x, y) => { if (t === 'esds') parseEsds(u8, dv, x, y, tr); else if (t === 'wave' && depth < 2) scan(x, y, depth + 1); });
+    scan(cs, end, 0);
+    if (tr.asc && tr.asc.length >= 2) {
+      const aot = tr.asc[0] >> 3, sri = ((tr.asc[0] & 7) << 1) | (tr.asc[1] >> 7), chc = (tr.asc[1] >> 3) & 15;
+      if (!tr.sampleRate || tr.sampleRate < 7000) tr.sampleRate = AAC_RATES[sri] || tr.sampleRate;
+      if (!tr.channels || tr.channels > 8) tr.channels = chc || tr.channels;
+      tr.codec = (fmt === 'mp4a' && (tr.oti === 0x40 || tr.oti === undefined)) ? 'mp4a.40.' + aot : fmt;
+    } else tr.codec = fmt;
+  }
+}
+function parseMoov(u8) {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const tracks = []; let fragmented = false;
+  parseBoxes(u8, 0, u8.length, (t, s, e) => {
+    if (t === 'mvex') fragmented = true;
+    if (t !== 'trak') return;
+    const tr = { id: 0, type: '', timescale: 1, duration: 0, rotation: 0, samples: [] };
+    const stts = [], stsc = [], stco = []; let ctts = null, stsz = null, stss = null;
+    parseBoxes(u8, s, e, (t2, s2, e2) => {
+      if (t2 === 'tkhd') { const v = u8[s2]; let o = s2 + 4 + (v === 1 ? 16 : 8); tr.id = dv.getUint32(o); o += 8 + (v === 1 ? 8 : 4) + 8 + 8; const a = dv.getInt32(o) / 65536, b = dv.getInt32(o + 4) / 65536; let r = Math.round(Math.atan2(b, a) * 180 / Math.PI); if (r < 0) r += 360; tr.rotation = (r === 90 || r === 180 || r === 270) ? r : 0; }
+      if (t2 !== 'mdia') return;
+      parseBoxes(u8, s2, e2, (t3, s3, e3) => {
+        if (t3 === 'mdhd') { const v = u8[s3]; tr.timescale = dv.getUint32(s3 + (v === 1 ? 20 : 12)); tr.duration = v === 1 ? Number(dv.getBigUint64(s3 + 24)) : dv.getUint32(s3 + 16); }
+        else if (t3 === 'hdlr') tr.type = String.fromCharCode(u8[s3 + 8], u8[s3 + 9], u8[s3 + 10], u8[s3 + 11]);
+        else if (t3 === 'minf') parseBoxes(u8, s3, e3, (t4, s4, e4) => {
+          if (t4 !== 'stbl') return;
+          parseBoxes(u8, s4, e4, (t5, s5, e5) => {
+            if (t5 === 'stsd') parseStsd(u8, dv, s5, e5, tr);
+            else if (t5 === 'stts') { const n = dv.getUint32(s5 + 4); for (let i = 0; i < n; i++) stts.push([dv.getUint32(s5 + 8 + i * 8), dv.getUint32(s5 + 12 + i * 8)]); }
+            else if (t5 === 'ctts') { ctts = []; const n = dv.getUint32(s5 + 4); for (let i = 0; i < n; i++) ctts.push([dv.getUint32(s5 + 8 + i * 8), dv.getInt32(s5 + 12 + i * 8)]); }
+            else if (t5 === 'stsc') { const n = dv.getUint32(s5 + 4); for (let i = 0; i < n; i++) stsc.push([dv.getUint32(s5 + 8 + i * 12), dv.getUint32(s5 + 12 + i * 12)]); }
+            else if (t5 === 'stsz') { const c = dv.getUint32(s5 + 4), n = dv.getUint32(s5 + 8); stsz = new Uint32Array(n); if (c) stsz.fill(c); else for (let i = 0; i < n; i++) stsz[i] = dv.getUint32(s5 + 12 + i * 4); }
+            else if (t5 === 'stco') { const n = dv.getUint32(s5 + 4); for (let i = 0; i < n; i++) stco.push(dv.getUint32(s5 + 8 + i * 4)); }
+            else if (t5 === 'co64') { const n = dv.getUint32(s5 + 4); for (let i = 0; i < n; i++) stco.push(Number(dv.getBigUint64(s5 + 8 + i * 8))); }
+            else if (t5 === 'stss') { stss = new Set(); const n = dv.getUint32(s5 + 4); for (let i = 0; i < n; i++) stss.add(dv.getUint32(s5 + 8 + i * 4)); }
+          });
+        });
+      });
+    });
+    if (stsz && stsz.length && stco.length && stsc.length) {
+      const n = stsz.length, samples = []; let si = 0, dts = 0, sttsI = 0, sttsLeft = stts.length ? stts[0][0] : 0, cttsI = 0, cttsLeft = ctts && ctts.length ? ctts[0][0] : 0;
+      for (let c = 0; c < stco.length && si < n; c++) {
+        let spc = 1; for (let k = 0; k < stsc.length; k++) { if (stsc[k][0] <= c + 1) spc = stsc[k][1]; else break; }
+        let off = stco[c];
+        for (let j = 0; j < spc && si < n; j++, si++) {
+          while (sttsLeft === 0 && sttsI + 1 < stts.length) { sttsI++; sttsLeft = stts[sttsI][0]; }
+          const dur = stts.length ? stts[sttsI][1] : 0; sttsLeft--;
+          let cto = 0; if (ctts && ctts.length) { while (cttsLeft === 0 && cttsI + 1 < ctts.length) { cttsI++; cttsLeft = ctts[cttsI][0]; } cto = ctts[cttsI][1]; cttsLeft--; }
+          samples.push({ offset: off, size: stsz[si], dts, cts: dts + cto, duration: dur, is_sync: stss ? stss.has(si + 1) : true });
+          off += stsz[si]; dts += dur;
+        }
+      }
+      tr.samples = samples;
+    }
+    tracks.push(tr);
+  });
+  return { tracks, fragmented };
 }
 async function analyzeFile(file, ctl, diag) {
-  if (!window.MP4Box) throw new Error('mp4box nicht geladen');
   const readAt = async (o, n) => new Uint8Array(await file.slice(o, o + n).arrayBuffer());
-  const size = file.size; let off = 0, ftyp = null, moov = null, guard = 0;
+  const size = file.size; let off = 0, moov = null, guard = 0;
   while (off + 8 <= size && guard++ < 128) {
     const h = await readAt(off, Math.min(16, size - off)); if (h.length < 8) break;
     const dv = new DataView(h.buffer, h.byteOffset, h.byteLength);
     let bsize = dv.getUint32(0); const type = String.fromCharCode(h[4], h[5], h[6], h[7]); let hdr = 8;
     if (bsize === 1) { if (h.length < 16) break; bsize = Number(dv.getBigUint64(8)); hdr = 16; } else if (bsize === 0) bsize = size - off;
     if (bsize < hdr) throw new Error('Container unlesbar (Box ' + type + ')');
-    if (type === 'ftyp') ftyp = { off, size: bsize };
-    if (type === 'moov') { moov = { off, size: bsize }; break; }
+    if (type === 'moov') { moov = { off: off + hdr, end: off + bsize }; break; }
     off += bsize;
   }
   if (!moov) throw new Error('kein MP4/MOV (moov fehlt)');
-  if (moov.size > 48 * 1048576) throw new Error('moov zu gross');
-  const mp4 = MP4Box.createFile(false);
-  const info = await new Promise((res, rej) => {
-    mp4.onError = e => rej(new Error('mp4box: ' + e)); mp4.onReady = res;
-    (async () => {
-      try {
-        let pos = 0;
-        if (ftyp && ftyp.off < moov.off) { const b = await file.slice(ftyp.off, ftyp.off + ftyp.size).arrayBuffer(); b.fileStart = 0; pos = b.byteLength; mp4.appendBuffer(b); }
-        const m = await file.slice(moov.off, moov.off + moov.size).arrayBuffer(); m.fileStart = pos; mp4.appendBuffer(m); mp4.flush();
-        if (!mp4.moov) rej(new Error('moov nicht lesbar'));
-      } catch (e) { rej(e); }
-    })();
-  });
+  if (moov.end - moov.off > 48 * 1048576) throw new Error('moov zu gross');
+  const parsed = parseMoov(await readAt(moov.off, moov.end - moov.off));
   const out = { audio: null, video: null };
-  const atrack = (info.audioTracks || [])[0], vtrack = (info.videoTracks || [])[0];
-  const mapS = s => ({ offset: s.offset, size: s.size, cts: s.cts, duration: s.duration, is_sync: !!s.is_sync });
-  /* --- Ton --- */
-  if (!atrack) { diag('Keine Tonspur im Video'); out.audio = { silent: true }; }
-  else {
-    const codec = atrack.codec || '', channels = atrack.audio && atrack.audio.channel_count, sampleRate = atrack.audio && atrack.audio.sample_rate;
-    if (!/^mp4a\.40\.2$/.test(codec) || !AAC_SILENCE[channels] || !sampleRate) { diag('Tonspur ' + codec + ' / ' + channels + ' Kanäle: keine direkte Übernahme'); out.audio = null; }
-    else {
-      let description = null;
-      try { const trak = mp4.getTrackById(atrack.id); const entry = trak.mdia.minf.stbl.stsd.entries[0]; const esd = entry.esds && entry.esds.esd; const dcd = esd && esd.findDescriptor(4); const dsi = dcd && dcd.findDescriptor(5); if (dsi && dsi.data && dsi.data.length >= 2) description = new Uint8Array(dsi.data); } catch (e) { }
-      if (!description) description = aacDescription(sampleRate, channels);
-      out.audio = { id: atrack.id, codec, channels, sampleRate, description, timescale: atrack.timescale || sampleRate, samples: (mp4.getTrackSamplesInfo(atrack.id) || []).map(mapS) };
-    }
-  }
-  /* --- Bild --- */
-  if (vtrack) {
-    let description = null, rotation = 0;
-    try { const trak = mp4.getTrackById(vtrack.id); description = boxDescription(trak.mdia.minf.stbl.stsd.entries[0]); rotation = trackRotation(trak); } catch (e) { }
-    out.video = { id: vtrack.id, codec: vtrack.codec, width: vtrack.video && vtrack.video.width, height: vtrack.video && vtrack.video.height, rotation, description, timescale: vtrack.timescale, samples: (mp4.getTrackSamplesInfo(vtrack.id) || []).map(mapS) };
-  }
-  /* --- fragmentiertes MP4 (moof): ganze Datei durch mp4box schicken --- */
+  const at = parsed.tracks.find(x => x.type === 'soun'), vt = parsed.tracks.find(x => x.type === 'vide');
+  diag('Spuren: ' + parsed.tracks.map(x => x.type + ' ' + (x.codec || x.fmt || '?') + (x.samples.length ? ' · ' + x.samples.length : '')).join(' / ') + (parsed.fragmented ? ' · fragmentiert' : ''));
+  if (!at) out.audio = { silent: true };
+  else if (at.codec !== 'mp4a.40.2' || !AAC_SILENCE[at.channels] || !at.sampleRate) { diag('Tonspur ' + (at.codec || at.fmt) + ' / ' + at.channels + ' Kanäle: keine direkte Übernahme'); out.audio = null; }
+  else out.audio = { id: at.id, codec: at.codec, channels: at.channels, sampleRate: at.sampleRate, description: (at.asc && at.asc.length >= 2) ? at.asc : aacDescription(at.sampleRate, at.channels), timescale: at.timescale || at.sampleRate, samples: at.samples };
+  if (vt && vt.codec) out.video = { id: vt.id, codec: vt.codec, width: vt.width, height: vt.height, rotation: vt.rotation, description: vt.description, timescale: vt.timescale, samples: vt.samples };
+  /* fragmentiertes MP4 (moof): Pakete über mp4box aus der ganzen Datei holen */
   const needFeed = (out.audio && !out.audio.silent && !out.audio.samples.length) || (out.video && !out.video.samples.length);
   if (needFeed) {
+    if (!window.MP4Box) throw new Error('mp4box nicht geladen');
     if (file.size > 200 * 1048576) throw new Error('Fragmentiertes MP4 zu gross für die Direktverarbeitung');
     const mp4b = MP4Box.createFile(false); const gotA = [], gotV = [];
     await new Promise((res, rej) => {
@@ -767,14 +878,14 @@ async function analyzeFile(file, ctl, diag) {
   if (out.video && !out.video.samples.length) out.video = null;
   return out;
 }
-function drawFrameCover(ctx, frame, rot, W, H) {
+function drawFrameCover(ctx, frame, rot, W, H, mirror) {
   const fw = frame.displayWidth || frame.codedWidth, fh = frame.displayHeight || frame.codedHeight;
   const rw = (rot % 180) ? fh : fw, rh = (rot % 180) ? fw : fh;
   const r = Math.max(W / rw, H / rh), dw = fw * r, dh = fh * r;
-  ctx.save(); ctx.translate(W / 2, H / 2); if (rot) ctx.rotate(rot * Math.PI / 180); ctx.drawImage(frame, -dw / 2, -dh / 2, dw, dh); ctx.restore();
+  ctx.save(); ctx.translate(W / 2, H / 2); if (mirror) ctx.scale(-1, 1); if (rot) ctx.rotate(rot * Math.PI / 180); ctx.drawImage(frame, -dw / 2, -dh / 2, dw, dh); ctx.restore();
 }
 /* Hardware-Weg: Pakete aus der Datei → VideoDecoder → Canvas → VideoEncoder. Liefert false, wenn der Decoder den Codec nicht kann. */
-async function decodePath(vt, file, ctl, diag, session, W, H, cardSec, onProgress) {
+async function decodePath(vt, file, ctl, diag, session, W, H, cardSec, onProgress, mirror) {
   if (!window.VideoDecoder || !window.EncodedVideoChunk) return false;
   const cfg = { codec: vt.codec, codedWidth: vt.width, codedHeight: vt.height };
   if (vt.description) cfg.description = vt.description;
@@ -784,7 +895,7 @@ async function decodePath(vt, file, ctl, diag, session, W, H, cardSec, onProgres
   diag(`Decoder: ${vt.codec} · ${vt.width}×${vt.height}${vt.rotation ? ' · gedreht ' + vt.rotation + '°' : ''} · ${vt.samples.length} Frames`);
   let err = null, frames = 0; const cardUs = cardSec * 1e6;
   const vdec = new VideoDecoder({
-    output: f => { try { drawFrameCover(octx, f, vt.rotation, W, H); if (settings.corners) drawCorners(octx, W, H, true); session.addFrame(out, cardUs + f.timestamp, false); frames++; if ((frames & 7) === 0) onProgress(f.timestamp / 1e6); } catch (e) { err = e; } finally { f.close(); } },
+    output: f => { try { drawFrameCover(octx, f, vt.rotation, W, H, mirror); if (settings.corners) drawCorners(octx, W, H, true); session.addFrame(out, cardUs + f.timestamp, false); frames++; if ((frames & 7) === 0) onProgress(f.timestamp / 1e6); } catch (e) { err = e; } finally { f.close(); } },
     error: e => err = e
   });
   vdec.configure(cfg);
@@ -832,10 +943,11 @@ async function processFile(file, opt) {
   ctl.abort = r => { if (ctl.aborted) return; ctl.aborted = true; ctl.reason = r; ctl._rej(new Error(r)); };
   procCtl = ctl;
   const log = [], t0 = performance.now();
+  const mirror = !!opt.mirror;
   const el = s => (performance.now() - s) / 1000;
   const diag = m => { const line = el(t0).toFixed(1).padStart(5) + ' s  ' + m; log.push(line); console.log('MEET Studio', line); const pre = $('#procLog'); pre.textContent = log.slice(-14).join('\n'); pre.scrollTop = pre.scrollHeight; };
-  show('proc'); $('#procLabel').textContent = current.name; $('#procTitle').textContent = 'Video wird umgerechnet …'; $('#procBar').style.width = '0%'; $('#procLog').textContent = '';
-  $('#procMsg').textContent = 'Bitte Bildschirm anlassen und die App nicht verlassen.';
+  show('proc'); $('#procLabel').textContent = current.name; $('#procTitle').textContent = opt.title || 'Video wird umgerechnet …'; $('#procBar').style.width = '0%'; $('#procLog').textContent = '';
+  $('#procMsg').textContent = opt.rawFallback ? 'Die Aufnahme ist gesichert. Jetzt wird nur noch die Titelkarte davorgesetzt.' : 'Bitte Bildschirm anlassen und die App nicht verlassen.';
   diag(`Datei: ${file.name || 'Video'} · ${(file.size / 1048576).toFixed(1)} MB · ${file.type || 'Typ unbekannt'}`);
   diag('Weg: ' + describeEncoder(enc) + (forceMR ? ' (Ausweichweg)' : ''));
   const { W, H, bitrate } = outSize(); out.width = W; out.height = H;
@@ -866,7 +978,7 @@ async function processFile(file, opt) {
       if (!aud.silent) session.addRawSilence(cardSec);
       diag(`Titelkarte: ${n} Frames (${cardSec} s)`);
       let decoded = false;
-      if (an.video) { decoded = await decodePath(an.video, file, ctl, diag, session, W, H, cardSec, progress); if (decoded) { frames = decoded; diag(`Bild: ${frames} Frames über Hardware nach ${el(t0).toFixed(1)} s`); } }
+      if (an.video) { decoded = await decodePath(an.video, file, ctl, diag, session, W, H, cardSec, progress, mirror); if (decoded) { frames = decoded; diag(`Bild: ${frames} Frames über Hardware nach ${el(t0).toFixed(1)} s`); } }
       if (!decoded) {
       diag('Ersatzweg: Video wird abgespielt und mitgeschnitten');
       v.playbackRate = Number(settings.speed) || 1;
@@ -875,7 +987,7 @@ async function processFile(file, opt) {
       const tick = (now, md) => {
         if (ctl.aborted || v.ended) return;
         const t = md ? md.mediaTime : v.currentTime;
-        if (t > lastT) { lastT = t; drawCover(octx, v, v.videoWidth, v.videoHeight, W, H, false); if (settings.corners) drawCorners(octx, W, H, true); session.addFrame(out, (cardSec + t) * 1e6, false); frames++; progress(t); }
+        if (t > lastT) { lastT = t; drawCover(octx, v, v.videoWidth, v.videoHeight, W, H, mirror); if (settings.corners) drawCorners(octx, W, H, true); session.addFrame(out, (cardSec + t) * 1e6, false); frames++; progress(t); }
         if (session.busy > 24 && !paused) { paused = true; v.pause(); }
         schedule();
       };
@@ -909,7 +1021,7 @@ async function processFile(file, opt) {
       }
       pump = setInterval(() => { if (!ctl.aborted && !ended && v.paused) v.play().catch(() => { }); }, 300);
       diag('Bild läuft mit 1× · Ton: ' + audioMode);
-      await new Promise((res, rej) => { ctl.promise.catch(rej); const loop = () => { if (ctl.aborted) return; if (ended) return res(); drawCover(octx, v, v.videoWidth, v.videoHeight, W, H, false); if (settings.corners) drawCorners(octx, W, H, true); session.addFrame(); frames++; progress(v.currentTime); requestAnimationFrame(loop); }; loop(); });
+      await new Promise((res, rej) => { ctl.promise.catch(rej); const loop = () => { if (ctl.aborted) return; if (ended) return res(); drawCover(octx, v, v.videoWidth, v.videoHeight, W, H, mirror); if (settings.corners) drawCorners(octx, W, H, true); session.addFrame(); frames++; progress(v.currentTime); requestAnimationFrame(loop); }; loop(); });
     }
     $('#procTitle').textContent = 'Video wird fertiggestellt …'; $('#procBar').style.width = '97%'; lastProgress = performance.now();
     const blob = await Promise.race([session.finish(), ctl.promise, timeoutP(90000, 'Fertigstellen dauert zu lange (90 s)')]);
@@ -923,7 +1035,13 @@ async function processFile(file, opt) {
     if (session) session.abort();
     const wasWc = enc.kind === 'wc';
     cleanup();
-    if (!ctl.userCancelled && wasWc && caps.mrMime) { toast('Schneller Weg hat nicht geklappt – jetzt der sichere Weg (1×).', 4000); return processFile(file, { forceMR: true }); }
+    if (!ctl.userCancelled && wasWc && caps.mrMime) { toast('Schneller Weg hat nicht geklappt – jetzt der sichere Weg (1×).', 4000); return processFile(file, Object.assign({}, opt, { forceMR: true })); }
+    if (opt.rawFallback && !ctl.userCancelled) {
+      toast('Titelkarte konnte nicht eingesetzt werden. Die Aufnahme ohne Karte ist trotzdem da.', 6000);
+      showResult(file, { kind: 'mr', mime: file.type || caps.mrMime }, null);
+      $('#resProc').textContent = 'OHNE Titelkarte · ' + msg;
+      return;
+    }
     show('rec'); filePanel.hidden = false; $('#stageWrap').hidden = true; if (staged) $('#fileStaged').hidden = false;
     showStageError((ctl.userCancelled ? 'Abgebrochen.' : 'Verarbeitung fehlgeschlagen: ' + msg) + '\n\nProtokoll:\n' + log.slice(-10).join('\n'));
   }
@@ -983,7 +1101,7 @@ window.MEET = { selfTest: async (sec, v) => {
   const t0 = performance.now(); await new Promise(res => { const l = () => { const t = (performance.now() - t0) / 1000; x.fillStyle = `hsl(${t * 60},70%,40%)`; x.fillRect(0, 0, 720, 1280); x.fillStyle = '#fff'; x.font = '80px sans-serif'; x.fillText('t=' + t.toFixed(1), 100, 640); if (t < sec) requestAnimationFrame(l); else res(); }; l(); });
   const blob = await new Promise(res => { rec.onstop = () => res(new Blob(ch, { type: rec.mimeType })); rec.stop(); }); osc.stop(); a.close();
   return processFile(new File([blob], mm ? 'test.mp4' : 'test.webm', { type: blob.type }), {});
-}, reprocess: (v) => { current = VIDEOS[v || 1]; return processFile(result.file, {}); }, result: () => result, processFromUrl: async (u, v) => { current = VIDEOS[v || 1]; const r = await fetch(u); const b = await r.blob(); return processFile(new File([b], 'test.mp4', { type: b.type || 'video/mp4' }), {}); }, settings, caps };
+}, processFile, reprocess: (v) => { current = VIDEOS[v || 1]; return processFile(result.file, {}); }, result: () => result, processFromUrl: async (u, v) => { current = VIDEOS[v || 1]; const r = await fetch(u); const b = await r.blob(); return processFile(new File([b], 'test.mp4', { type: b.type || 'video/mp4' }), {}); }, settings, caps };
 })();
 </script>
 
