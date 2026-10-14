@@ -323,7 +323,7 @@ const assetsReady = Promise.all([
 ]);
 
 const VIDEOS = {
-  1: { n: 1, label: 'MEET DAILY · 05:45', title: 'Guten Morgen', lines: ['Guten', 'Morgen'], sub: 'Heute lesen wir', titleSize: 219, file: '1-Start', name: 'Video 1 · Start' },
+  1: { n: 1, label: 'MEET DAILY · 05:45', title: 'Guten Morgen', lines: ['Guten', 'Morgen'], sub: 'Heute lesen wir', titleSize: 136, file: '1-Start', name: 'Video 1 · Start' },
   2: { n: 2, label: 'MEET DAILY · 06:15', title: 'MEETmoment', sub: 'Hier ist uns Gott begegnet', titleSize: 178, file: '2-MEETmoment', name: 'Video 2 · MEETmoment' }
 };
 
@@ -438,10 +438,12 @@ function drawCard(ctx, W, H, v, ref) {
   for (;;) { ctx.font = `700 ${ts * s}px ${FONT_DISPLAY}`; const mw = Math.max(...lines.map(l => ctx.measureText(l).width)); if (mw * 0.98 <= W - 2 * x || ts < 80) break; ts -= 4; }
   lines.forEach((l, i) => { ctx.fillStyle = (lines.length > 1 && i === lines.length - 1) ? '#D4F65A' : '#FFFFFF'; spacedText(ctx, l, x, (580 + i * ts * 0.98) * s, -0.02 * ts * s); });
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = `400 ${76 * s}px ${FONT_BODY}`; ctx.fillText(v.sub, x, 1010 * s);
+  /* Untertitel und Box folgen dem Titel: bei zwei Zeilen à 136 px landet der Untertitel bei ~870, bei einer grossen Zeile wie früher bei 1010 */
+  const titleBottom = 580 + (lines.length - 1) * ts * 0.98, subY = Math.min(1010, titleBottom + 160);
+  ctx.font = `400 ${76 * s}px ${FONT_BODY}`; ctx.fillText(v.sub, x, subY * s);
   const text = ref || 'Bibelstelle';
   ctx.font = `400 ${78 * s}px ${FONT_MONO}`;
-  const tw = ctx.measureText(text).width, padX = 66 * s, padY = 46 * s, bh = 78 * s + padY * 2, bw = Math.min(tw + padX * 2, W - 2 * x), by = 1070 * s;
+  const tw = ctx.measureText(text).width, padX = 66 * s, padY = 46 * s, bh = 78 * s + padY * 2, bw = Math.min(tw + padX * 2, W - 2 * x), by = (subY + 60) * s;
   ctx.setLineDash([24 * s, 16 * s]); ctx.lineWidth = 10 * s; ctx.strokeStyle = '#D4F65A';
   roundRect(ctx, x, by, bw, bh, 40 * s); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle = ref ? '#D4F65A' : 'rgba(212,246,90,.45)';
