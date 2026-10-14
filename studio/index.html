@@ -323,7 +323,7 @@ const assetsReady = Promise.all([
 ]);
 
 const VIDEOS = {
-  1: { n: 1, label: 'MEET DAILY · 05:45', title: 'Start', sub: 'Heute lesen wir', titleSize: 219, file: '1-Start', name: 'Video 1 · Start' },
+  1: { n: 1, label: 'MEET DAILY · 05:45', title: 'Guten Morgen', lines: ['Guten', 'Morgen'], sub: 'Heute lesen wir', titleSize: 219, file: '1-Start', name: 'Video 1 · Start' },
   2: { n: 2, label: 'MEET DAILY · 06:15', title: 'MEETmoment', sub: 'Hier ist uns Gott begegnet', titleSize: 178, file: '2-MEETmoment', name: 'Video 2 · MEETmoment' }
 };
 
@@ -433,9 +433,11 @@ function drawCard(ctx, W, H, v, ref) {
   ctx.fillStyle = '#FF8A3D'; ctx.font = `400 ${58 * s}px ${FONT_MONO}`;
   spacedText(ctx, v.label.toUpperCase(), x, 360 * s, 0.12 * 58 * s);
   ctx.fillStyle = '#FFFFFF';
+  const lines = v.lines || [v.title];
   let ts = v.titleSize;
-  for (;;) { ctx.font = `700 ${ts * s}px ${FONT_DISPLAY}`; if (ctx.measureText(v.title).width * 0.98 <= W - 2 * x || ts < 80) break; ts -= 4; }
-  spacedText(ctx, v.title, x, 580 * s, -0.02 * ts * s);
+  for (;;) { ctx.font = `700 ${ts * s}px ${FONT_DISPLAY}`; const mw = Math.max(...lines.map(l => ctx.measureText(l).width)); if (mw * 0.98 <= W - 2 * x || ts < 80) break; ts -= 4; }
+  lines.forEach((l, i) => { ctx.fillStyle = (lines.length > 1 && i === lines.length - 1) ? '#D4F65A' : '#FFFFFF'; spacedText(ctx, l, x, (580 + i * ts * 0.98) * s, -0.02 * ts * s); });
+  ctx.fillStyle = '#FFFFFF';
   ctx.font = `400 ${76 * s}px ${FONT_BODY}`; ctx.fillText(v.sub, x, 1010 * s);
   const text = ref || 'Bibelstelle';
   ctx.font = `400 ${78 * s}px ${FONT_MONO}`;
