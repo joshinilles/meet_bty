@@ -74,6 +74,13 @@ details.settings[open] summary::after{content:"–"}
 .seg button[aria-pressed="true"]{background:var(--lime);color:var(--night);font-weight:500}
 .seg button:focus-visible{outline:2px solid var(--lime)}
 .seg.big{align-self:flex-start}
+.plan{display:flex;flex-direction:column;gap:6px;background:var(--night2);border:1px solid rgba(212,246,90,.4);border-radius:14px;padding:14px 16px}
+.plan strong{font-family:var(--f-display);font-size:22px;line-height:1.15;letter-spacing:-.01em;color:var(--paper)}
+.plan.warn{border-color:rgba(255,138,61,.55)}
+.plan.warn .lab{color:var(--sun)}
+details.manual{border-top:0;padding-block:0}
+input.cap{font:inherit;font-family:var(--f-mono);font-size:13px;color:var(--paper);background:var(--night2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;outline:none}
+input.cap:focus{border-color:var(--lime)}
 .seg.big button{padding:9px 20px;font-size:15px}
 .tech{font-family:var(--f-mono);font-size:11px;line-height:1.6;color:var(--muted);padding-top:6px;border-top:1px solid var(--line);word-break:break-word}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:14px 22px;font-size:16px;font-weight:500;cursor:pointer;background:var(--lime);color:var(--night);min-height:48px}
@@ -164,16 +171,27 @@ textarea.cap:focus{border-color:var(--pink)}
   <!-- HOME -->
   <section id="s-home" class="screen">
     <h1>Guten Morgen. Welches Video nimmst du auf?</h1>
-    <label class="field" for="ref">
-      <span class="lab lime">Bibelstelle von heute</span>
-      <input id="ref" placeholder="Johannes 3,16–21" autocomplete="off" autocapitalize="words" enterkeyhint="done">
-      <span class="hint">Steht auf beiden Titelkarten. Wird auf diesem Handy gemerkt.</span>
-    </label>
-    <div class="field">
-      <span class="lab lime">Wer nimmt heute auf?</span>
-      <div class="seg big" data-set="speaker" role="group" aria-label="Sprecher"><button data-val="niklas">Niklas</button><button data-val="vincent">Vincent</button></div>
-      <span class="hint">Bestimmt Name und Foto auf der Titelkarte von Video 2 · MEETmoment. Wird gemerkt.</span>
+    <div class="plan" id="planBox" hidden>
+      <span class="lab lime" id="planLab">Heute aus dem Jahresplan</span>
+      <strong id="planMain">–</strong>
+      <span class="hint" id="planSub"></span>
     </div>
+    <details class="settings manual" id="manual" open>
+      <summary>Bibelstelle und Sprecher anpassen</summary>
+      <div class="set">
+        <label class="field" for="ref">
+          <span class="lab lime">Bibelstelle von heute</span>
+          <input id="ref" placeholder="Johannes 3,16–21" autocomplete="off" autocapitalize="words" enterkeyhint="done">
+          <span class="hint">Steht auf beiden Titelkarten. Was du hier änderst, gilt nur für heute.</span>
+        </label>
+        <div class="field">
+          <span class="lab lime">Wer nimmt heute auf?</span>
+          <div class="seg big" data-set="speaker" role="group" aria-label="Sprecher"><button data-val="niklas">Niklas</button><button data-val="vincent">Vincent</button></div>
+          <span class="hint">Bestimmt Name und Foto auf der Titelkarte von Video 2 · MEETmoment.</span>
+        </div>
+        <button class="btn ghost block" id="btnPlanReset" hidden>Zurück zum Jahresplan</button>
+      </div>
+    </details>
     <div class="choices">
       <button class="choice" data-v="1" id="choice1">
         <canvas class="thumb" width="270" height="480" aria-hidden="true"></canvas>
@@ -199,8 +217,10 @@ textarea.cap:focus{border-color:var(--pink)}
           <div class="seg" data-set="mirrorExport"><button data-val="false">Aus</button><button data-val="true">An</button></div></div>
         <div class="row" style="flex-direction:column;align-items:stretch"><span>Instagram-Text Video 1 · Start<small>{bibelstelle} wird ersetzt</small></span>
           <textarea class="cap" id="igT1" rows="4"></textarea></div>
-        <div class="row" style="flex-direction:column;align-items:stretch"><span>Instagram-Text Video 2 · MEETmoment<small>{bibelstelle}, {name} und {datum} werden ersetzt</small></span>
+        <div class="row" style="flex-direction:column;align-items:stretch"><span>Instagram-Text Video 2 · MEETmoment<small>{bibelstelle}, {name}, {thema} und {datum} werden ersetzt</small></span>
           <textarea class="cap" id="igT2" rows="4"></textarea></div>
+        <div class="row" style="flex-direction:column;align-items:stretch"><span>Jahresplan-Link<small>Google Sheet → Datei → Freigeben → Im Web veröffentlichen → Tabellenblatt als CSV. Spalten: Datum, Bibelstelle, Sprecher, Thema</small></span>
+          <input class="cap" id="planUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
         <div class="row"><span>Auflösung</span>
           <div class="seg" data-set="quality"><button data-val="1080">1080p</button><button data-val="720">720p</button></div></div>
         <div class="row"><span>Video-Encoder<small>Bei Problemen auf dem Handy umstellen</small></span>
@@ -350,7 +370,8 @@ $$('.seg').forEach(seg => seg.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const key = seg.dataset.set; let v = b.dataset.val;
   if (v === 'true') v = true; else if (v === 'false') v = false; else if (!isNaN(Number(v)) && key !== 'quality') v = Number(v);
-  settings[key] = v; saveSettings(); renderSettings(); drawThumbs(); renderTech();
+  settings[key] = v; if (key === 'speaker') settings.speakerDay = todayKey(); saveSettings(); renderSettings(); drawThumbs(); renderTech();
+  if (key === 'speaker') applyToday();
 }));
 renderSettings();
 
@@ -363,7 +384,7 @@ try {
 } catch (e) { }
 function tidyRef(t) { return t.replace(/\s*-\s*(?=\d)/g, '–').replace(/\s+/g, ' ').trim(); }
 function getRef() { return tidyRef(refInput.value); }
-refInput.addEventListener('input', () => { try { localStorage.setItem('meetstudio:ref', JSON.stringify({ text: refInput.value, day: todayKey() })); } catch (e) { } drawThumbs(); });
+refInput.addEventListener('input', () => { try { localStorage.setItem('meetstudio:ref', JSON.stringify({ text: refInput.value, day: todayKey() })); } catch (e) { } applyToday(); });
 refInput.addEventListener('blur', () => { refInput.value = tidyRef(refInput.value); drawThumbs(); });
 refInput.addEventListener('keydown', e => { if (e.key === 'Enter') refInput.blur(); });
 
@@ -463,6 +484,91 @@ function drawThumbs() {
   });
 }
 assetsReady.then(drawThumbs);
+
+/* ---------- Jahresplan: Google Sheet als CSV, eine Zeile pro Morgen (Datum, Bibelstelle, Sprecher, Thema) ---------- */
+const PLAN_DEFAULT_URL = '';
+let plan = null, planLoadedDay = null, planLoadedAt = 0;
+function parseCsv(text) {
+  const rows = []; let row = [], cur = '', q = false; text = text.replace(/^﻿/, '');
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true;
+    else if (c === ',' || c === ';' || c === '\t') { row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+    else cur += c;
+  }
+  if (cur.length || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim()));
+}
+function planDayKey(str) {
+  str = (str || '').trim();
+  const m1 = str.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})/);
+  if (m1) { let y = m1[3]; if (y.length === 2) y = '20' + y; return y + '-' + m1[2].padStart(2, '0') + '-' + m1[1].padStart(2, '0'); }
+  const m2 = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m2) return m2[1] + '-' + m2[2].padStart(2, '0') + '-' + m2[3].padStart(2, '0');
+  return null;
+}
+function planLookup(csv, day) {
+  const rows = parseCsv(csv); if (!rows.length) return { error: 'Jahresplan ist leer' };
+  const head = rows[0].map(h => h.trim().toLowerCase());
+  const ci = n => head.findIndex(h => h.startsWith(n));
+  const iD = ci('datum'), iR = ci('bibelstelle'), iS = ci('sprecher'), iT = ci('thema');
+  if (iD < 0 || iR < 0) return { error: 'Spalten „Datum“ und „Bibelstelle“ nicht gefunden' };
+  for (const r of rows.slice(1)) if (planDayKey(r[iD]) === day) return { ref: tidyRef(r[iR] || ''), speaker: iS >= 0 ? (r[iS] || '').trim() : '', thema: iT >= 0 ? (r[iT] || '').trim() : '' };
+  return { none: true };
+}
+function speakerKey(name) { const n = (name || '').trim().toLowerCase(); for (const k in SPEAKERS) if (n.startsWith(k)) return k; return null; }
+function overrideToday() {
+  const day = todayKey(); let ref = null, sp = null;
+  try { const s = JSON.parse(localStorage.getItem('meetstudio:ref') || 'null'); if (s && s.day === day && s.text && s.text.trim()) ref = s.text; } catch (e) { }
+  if (settings.speakerDay === day && SPEAKERS[settings.speaker]) sp = settings.speaker;
+  return { ref, speaker: sp };
+}
+function applyToday() {
+  if (plan) {
+    const ov = overrideToday();
+    const ref = ov.ref != null ? ov.ref : plan.ref, sk = ov.speaker || speakerKey(plan.speaker) || speaker();
+    if (refInput.value !== ref) refInput.value = ref;
+    if (settings.speaker !== sk) { settings.speaker = sk; saveSettings(); renderSettings(); }
+    const manual = !!(ov.ref != null || ov.speaker);
+    $('#planMain').textContent = (plan.ref || '–') + (plan.speaker ? ' · ' + plan.speaker : '');
+    $('#planSub').textContent = (plan.thema ? plan.thema + ' · ' : '') + (manual ? 'Heute manuell angepasst.' : 'Titelkarten sind vorbereitet.');
+    $('#manual').open = manual; $('#btnPlanReset').hidden = !manual;
+  }
+  drawThumbs();
+}
+function showPlan(p) {
+  plan = (p && !p.error && !p.none) ? p : null; planLoadedDay = todayKey(); planLoadedAt = Date.now();
+  const box = $('#planBox'); box.hidden = false; box.classList.toggle('warn', !plan);
+  if (!plan) {
+    $('#planLab').textContent = 'Jahresplan'; $('#planMain').textContent = p.error ? 'Nicht geladen' : 'Kein Eintrag für heute';
+    $('#planSub').textContent = p.error || 'Bibelstelle und Sprecher unten eintragen.';
+    $('#manual').open = true; $('#btnPlanReset').hidden = true; drawThumbs(); return;
+  }
+  $('#planLab').textContent = 'Heute aus dem Jahresplan' + (p.cached ? ' · zuletzt geladene Fassung' : '');
+  applyToday();
+}
+async function loadPlan() {
+  const url = (settings.planUrl || PLAN_DEFAULT_URL || '').trim();
+  if (!url) { plan = null; $('#planBox').hidden = true; $('#manual').open = true; $('#btnPlanReset').hidden = true; return; }
+  let csv = null, cached = false;
+  try {
+    const r = await fetch(url, { cache: 'no-store', credentials: 'omit' }); if (!r.ok) throw new Error('HTTP ' + r.status); csv = await r.text();
+    if (/<html/i.test(csv.slice(0, 300))) throw new Error('Link liefert keine CSV-Tabelle');
+    try { localStorage.setItem('meetstudio:plan', JSON.stringify({ csv, at: Date.now() })); } catch (e) { }
+  } catch (e) {
+    try { const c = JSON.parse(localStorage.getItem('meetstudio:plan') || 'null'); if (c && c.csv) { csv = c.csv; cached = true; } } catch (e2) { }
+    if (!csv) { showPlan({ error: 'Jahresplan nicht erreichbar (' + (e && e.message ? e.message : e) + ')' }); return; }
+  }
+  const hit = planLookup(csv, todayKey()); if (hit && hit.ref != null) hit.cached = cached;
+  showPlan(hit);
+}
+$('#planUrl').value = settings.planUrl || '';
+$('#planUrl').addEventListener('change', () => { settings.planUrl = $('#planUrl').value.trim(); saveSettings(); loadPlan(); });
+$('#btnPlanReset').addEventListener('click', () => { try { localStorage.removeItem('meetstudio:ref'); } catch (e) { } settings.speakerDay = null; saveSettings(); applyToday(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && (settings.planUrl || PLAN_DEFAULT_URL) && (planLoadedDay !== todayKey() || Date.now() - planLoadedAt > 10 * 60 * 1000)) loadPlan(); });
+assetsReady.then(loadPlan);
 
 /* ---------- Capability probe ---------- */
 const caps = { wcVideo: null, wcDec: false, wcAac: false, wcOpus: false, avcCodec: null, mrMime: null, audioMp4: false, isSafari: false, ua: '', share: !!(navigator.canShare), downloads: null, camera: 'unknown' };
@@ -1298,7 +1404,7 @@ const IG_DEFAULT = {
   2: 'MEETmoment · {bibelstelle}\nHier ist uns Gott heute im Text begegnet. Und dir? Schreib uns auf meet-bty.com\n#meetmoment #meetdaily #bibletunes #bibletunesyouth #bibel'
 };
 function igTemplate(n) { const s = settings['igT' + n]; return (typeof s === 'string' && s.trim()) ? s : IG_DEFAULT[n]; }
-function igCaption(n) { return igTemplate(n).replace(/\{bibelstelle\}/g, getRef() || 'Bibelstelle').replace(/\{datum\}/g, new Date().toLocaleDateString('de-CH')).replace(/\{name\}/g, speakerName()); }
+function igCaption(n) { return igTemplate(n).replace(/\{bibelstelle\}/g, getRef() || 'Bibelstelle').replace(/\{datum\}/g, new Date().toLocaleDateString('de-CH')).replace(/\{name\}/g, speakerName()).replace(/\{thema\}/g, plan && plan.thema ? plan.thema : ''); }
 ['1', '2'].forEach(n => { const ta = $('#igT' + n); ta.value = igTemplate(n); ta.addEventListener('input', () => { settings['igT' + n] = ta.value; saveSettings(); }); });
 async function copyText(txt) {
   try { await navigator.clipboard.writeText(txt); return true; } catch (e) { }
@@ -1389,7 +1495,7 @@ window.MEET = { selfTest: async (sec, v) => {
   const p = liveMode() === 'wc' ? startLiveWC() : startLiveRaw();
   await sleep(3200 + sec * 1000); if (recording) recording.stop();
   await p; osc.stop(); a.close();
-}, reprocess: (v) => { current = VIDEOS[v || 1]; return processFile(result.file, {}); }, result: () => result, processFromUrl: async (u, v) => { current = VIDEOS[v || 1]; const r = await fetch(u); const b = await r.blob(); return processFile(new File([b], 'test.mp4', { type: b.type || 'video/mp4' }), {}); }, settings, caps, drawCard, drawCard2, VIDEOS, IMG };
+}, reprocess: (v) => { current = VIDEOS[v || 1]; return processFile(result.file, {}); }, result: () => result, processFromUrl: async (u, v) => { current = VIDEOS[v || 1]; const r = await fetch(u); const b = await r.blob(); return processFile(new File([b], 'test.mp4', { type: b.type || 'video/mp4' }), {}); }, settings, caps, drawCard, drawCard2, VIDEOS, IMG, loadPlan, planLookup, plan: () => plan };
 })();
 </script>
 
