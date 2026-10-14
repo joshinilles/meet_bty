@@ -486,7 +486,8 @@ function drawThumbs() {
 assetsReady.then(drawThumbs);
 
 /* ---------- Jahresplan: Google Sheet als CSV, eine Zeile pro Morgen (Datum, Bibelstelle, Sprecher, Thema) ---------- */
-const PLAN_DEFAULT_URL = '';
+const PLAN_DEFAULT_URL = 'https://docs.google.com/spreadsheets/d/155HIyzhT3HrH0t4rUXvIo6OKAMxmB5EHVenSIdn8RBE/gviz/tq?tqx=out:csv';
+const PLAN_PROXY = 'https://meet-bty.com/.netlify/functions/plan'; /* Umweg über Netlify, falls Google die direkte Abfrage aus dem Browser blockiert */
 let plan = null, planLoadedDay = null, planLoadedAt = 0;
 function parseCsv(text) {
   const rows = []; let row = [], cur = '', q = false; text = text.replace(/^﻿/, '');
@@ -553,9 +554,10 @@ async function loadPlan() {
   const url = (settings.planUrl || PLAN_DEFAULT_URL || '').trim();
   if (!url) { plan = null; $('#planBox').hidden = true; $('#manual').open = true; $('#btnPlanReset').hidden = true; return; }
   let csv = null, cached = false;
+  const fetchCsv = async u => { const r = await fetch(u, { cache: 'no-store', credentials: 'omit' }); if (!r.ok) throw new Error('HTTP ' + r.status); const s = await r.text(); if (/<html/i.test(s.slice(0, 300))) throw new Error('Link liefert keine CSV-Tabelle'); return s; };
   try {
-    const r = await fetch(url, { cache: 'no-store', credentials: 'omit' }); if (!r.ok) throw new Error('HTTP ' + r.status); csv = await r.text();
-    if (/<html/i.test(csv.slice(0, 300))) throw new Error('Link liefert keine CSV-Tabelle');
+    try { csv = await fetchCsv(url); }
+    catch (e1) { if (!/docs\.google\.com/.test(url)) throw e1; csv = await fetchCsv(PLAN_PROXY + '?u=' + encodeURIComponent(url)); }
     try { localStorage.setItem('meetstudio:plan', JSON.stringify({ csv, at: Date.now() })); } catch (e) { }
   } catch (e) {
     try { const c = JSON.parse(localStorage.getItem('meetstudio:plan') || 'null'); if (c && c.csv) { csv = c.csv; cached = true; } } catch (e2) { }
