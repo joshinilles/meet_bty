@@ -2,7 +2,7 @@
 // Nur Google-Sheets-Adressen sind erlaubt; die Antwort ist 5 Minuten zwischengespeichert.
 export default async (req) => {
   const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' };
-  if (req.method === 'OPTIONS') return new Response('', { status: 204, headers: cors });
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   const u = new URL(req.url).searchParams.get('u') || '';
   if (!/^https:\/\/docs\.google\.com\/spreadsheets\/d\//.test(u)) return new Response('Nur Google-Sheets-Adressen', { status: 400, headers: cors });
   try {

@@ -157,6 +157,16 @@ textarea.cap:focus{border-color:var(--pink)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--paper);color:var(--night);border-radius:999px;padding:10px 16px;font-size:14px;z-index:50;max-width:calc(100% - 32px);text-align:center}
 .ref-note{font-family:var(--f-mono);font-size:12px;color:var(--lime)}
+/* Highlight (Zitat-Karte aus dem MEETmoment) */
+.hl-preview{width:100%;height:auto;display:block;border-radius:14px;border:1px solid var(--line);background:var(--night)}
+.hl-status{font-family:var(--f-mono);font-size:12px;line-height:1.5;letter-spacing:.03em;color:var(--lilac);background:var(--night2);border:1px solid rgba(212,246,90,.4);border-radius:10px;padding:10px 12px;word-break:break-word}
+.hl-status.err{border-color:rgba(232,69,44,.55);color:#FFB8AA}
+.hl-sugg{display:flex;flex-direction:column;gap:8px}
+.sugg{background:var(--night2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-align:left;cursor:pointer;font-family:var(--f-display);font-weight:700;font-size:16px;line-height:1.25;letter-spacing:-.01em;color:var(--paper)}
+.sugg small{display:block;font-family:var(--f-mono);font-weight:400;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:5px}
+.sugg[aria-pressed="true"]{border-color:var(--lime);background:rgba(212,246,90,.1)}
+.field textarea{font:inherit;font-family:var(--f-display);font-weight:700;font-size:18px;line-height:1.25;letter-spacing:-.01em;color:var(--paper);background:var(--night2);border:1.5px dashed var(--lime);border-radius:10px;padding:12px 14px;outline:none;width:100%;resize:vertical;min-height:84px}
+.field textarea:focus{border-style:solid}
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.min.js"></script>
@@ -202,6 +212,8 @@ textarea.cap:focus{border-color:var(--pink)}
         <div class="meta"><span class="pill">06:15</span><strong>Video 2 · MEETmoment</strong><small>Wo Gott uns im Text begegnet ist</small></div>
       </button>
     </div>
+    <button class="btn ghost block" id="btnHlHome">MEETmoment-Highlight aus einem fertigen Video</button>
+    <input class="filein" type="file" id="hlPick" accept="video/*,audio/*" tabindex="-1">
     <details class="settings" id="settings">
       <summary>Einstellungen</summary>
       <div class="set">
@@ -221,6 +233,10 @@ textarea.cap:focus{border-color:var(--pink)}
           <textarea class="cap" id="igT2" rows="4"></textarea></div>
         <div class="row" style="flex-direction:column;align-items:stretch"><span>Jahresplan-Link<small>Google Sheet → Datei → Freigeben → Im Web veröffentlichen → Tabellenblatt als CSV. Spalten: Datum, Bibelstelle, Sprecher, Thema</small></span>
           <input class="cap" id="planUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+        <div class="row" style="flex-direction:column;align-items:stretch"><span>Instagram-Text Highlight<small>{satz}, {bibelstelle}, {name}, {thema} und {datum} werden ersetzt</small></span>
+          <textarea class="cap" id="igT3" rows="4"></textarea></div>
+        <div class="row" style="flex-direction:column;align-items:stretch"><span>Studio-PIN<small>Dieselbe PIN wie STUDIO_PIN auf Netlify. Nötig für die Abschrift des MEETmoments (Satzvorschläge fürs Highlight)</small></span>
+          <input class="cap" id="studioPin" type="text" placeholder="PIN" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
         <div class="row"><span>Auflösung</span>
           <div class="seg" data-set="quality"><button data-val="1080">1080p</button><button data-val="720">720p</button></div></div>
         <div class="row"><span>Video-Encoder<small>Bei Problemen auf dem Handy umstellen</small></span>
@@ -301,11 +317,43 @@ textarea.cap:focus{border-color:var(--pink)}
       <button class="btn block" id="btnShare">An WhatsApp teilen</button>
       <button class="btn ghost block" id="btnSave" hidden>Speichern</button>
       <a class="btn ghost block" id="lnkDownload" hidden download>Herunterladen</a>
+      <button class="btn sun block" id="btnHl" hidden>MEETmoment-Highlight erstellen</button>
       <button class="btn ghost block" id="btnAgain">Neu aufnehmen</button>
       <button class="btn ghost block" id="btnHome">Zur Übersicht</button>
     </div>
     <details class="logbox" id="resLogBox" hidden><summary>Protokoll der Aufnahme (bei Problemen Screenshot schicken)</summary><pre class="log" id="resLog"></pre></details>
     <p class="hint">In WhatsApp: Kanal MEET DAILY öffnen → Anhang → Video → <b>HD</b> wählen. Die Titelkarte ist das erste Bild, WhatsApp nimmt sie als Vorschau.</p>
+  </section>
+
+  <!-- HIGHLIGHT -->
+  <section id="s-hl" class="screen" hidden>
+    <span class="lab sun">MEETmoment-Highlight</span>
+    <h2>Ein Satz aus dem MEETmoment als Bild für den Nachmittag</h2>
+    <div class="hl-status" id="hlStatus" hidden></div>
+    <div class="hl-sugg" id="hlSugg" hidden></div>
+    <label class="field" for="hlText">
+      <span class="lab lime">Satz auf der Karte</span>
+      <textarea id="hlText" rows="3" placeholder="Satz antippen oder hier eintippen …" autocapitalize="sentences" enterkeyhint="done"></textarea>
+      <span class="hint">Anführungszeichen setzt die Karte selbst. Kürzer wirkt stärker.</span>
+    </label>
+    <div class="row"><span>Format<small>Post für den Feed, Story hochkant</small></span>
+      <div class="seg" data-set="hlFormat"><button data-val="post">Post 4:5</button><button data-val="story">Story 9:16</button></div></div>
+    <canvas id="hlCanvas" class="hl-preview" width="1080" height="1350" aria-label="Vorschau der Highlight-Karte"></canvas>
+    <details class="igbox" id="hlCapBox" open>
+      <summary>Beschreibung für den Post</summary>
+      <div class="inner">
+        <textarea class="cap" id="hlCaption" rows="5"></textarea>
+        <p class="hint">Wird beim Teilen in die Zwischenablage kopiert. In Instagram einfügen, auf WhatsApp als Text dazuschreiben.</p>
+      </div>
+    </details>
+    <div class="stack">
+      <button class="btn block" id="btnHlShare">Bild teilen (Instagram / WhatsApp)</button>
+      <button class="btn ghost block" id="btnHlCopy">Nur Beschreibung kopieren</button>
+      <button class="btn ghost block" id="btnHlRedo">Abschrift neu erstellen</button>
+      <button class="btn ghost block" id="btnHlFile">Anderes Video wählen</button>
+      <button class="btn ghost block" id="btnHlBack">Zurück</button>
+    </div>
+    <details class="logbox" id="hlTransBox" hidden><summary>Ganzer Text des MEETmoments (Abschrift)</summary><pre class="log" id="hlTrans"></pre></details>
   </section>
 </div>
 
@@ -356,7 +404,7 @@ function speaker() { return SPEAKERS[settings.speaker] ? settings.speaker : 'vin
 function speakerName() { return SPEAKERS[speaker()].name; }
 
 /* ---------- Settings ---------- */
-const DEFAULTS = { speaker: 'vincent', live: 'auto', cardSec: 0.2, corners: false, mirrorPreview: true, mirrorExport: false, quality: '1080', encoder: 'auto', speed: 2 };
+const DEFAULTS = { speaker: 'vincent', hlFormat: 'post', live: 'auto', cardSec: 0.2, corners: false, mirrorPreview: true, mirrorExport: false, quality: '1080', encoder: 'auto', speed: 2 };
 const settings = Object.assign({}, DEFAULTS);
 try { Object.assign(settings, JSON.parse(localStorage.getItem('meetstudio:settings:v2') || '{}')); } catch (e) { }
 function saveSettings() { try { localStorage.setItem('meetstudio:settings:v2', JSON.stringify(settings)); } catch (e) { } }
@@ -372,6 +420,7 @@ $$('.seg').forEach(seg => seg.addEventListener('click', e => {
   if (v === 'true') v = true; else if (v === 'false') v = false; else if (!isNaN(Number(v)) && key !== 'quality') v = Number(v);
   settings[key] = v; if (key === 'speaker') settings.speakerDay = todayKey(); saveSettings(); renderSettings(); drawThumbs(); renderTech();
   if (key === 'speaker') applyToday();
+  if (key === 'hlFormat') drawHl();
 }));
 renderSettings();
 
@@ -634,7 +683,7 @@ function renderTech() {
 probe();
 
 /* ---------- Screens ---------- */
-const screens = { home: $('#s-home'), rec: $('#s-rec'), proc: $('#s-proc'), result: $('#s-result') };
+const screens = { home: $('#s-home'), rec: $('#s-rec'), proc: $('#s-proc'), result: $('#s-result'), hl: $('#s-hl') };
 function show(name) { Object.entries(screens).forEach(([k, el]) => el.hidden = k !== name); window.scrollTo(0, 0); }
 let current = VIDEOS[1];
 let toastT = null;
@@ -1403,14 +1452,15 @@ async function processFiles(files, opt) {
 /* ---------- Instagram-Reel: Beschreibung + Übergabe ans Teilen-Menü ---------- */
 const IG_DEFAULT = {
   1: 'MEET DAILY · Start · {bibelstelle}\nGuten Morgen! Wir beten zusammen und kommen zur Ruhe. Nimm dir jetzt 20 Minuten mit Gott.\nJeden Morgen im WhatsApp-Kanal MEET DAILY → meet-bty.com\n#meetdaily #bibletunes #bibletunesyouth #stillezeit #bibel',
-  2: 'MEETmoment · {bibelstelle}\nHier ist uns Gott heute im Text begegnet. Und dir? Schreib uns auf meet-bty.com\n#meetmoment #meetdaily #bibletunes #bibletunesyouth #bibel'
+  2: 'MEETmoment · {bibelstelle}\nHier ist uns Gott heute im Text begegnet. Und dir? Schreib uns auf meet-bty.com\n#meetmoment #meetdaily #bibletunes #bibletunesyouth #bibel',
+  3: '„{satz}“\n\nAus dem MEETmoment von heute mit {name} · {bibelstelle}\nJeden Morgen um 6:15 im WhatsApp-Kanal MEET DAILY → meet-bty.com\n#meetmoment #meetdaily #bibletunes #bibletunesyouth #bibel'
 };
 function igTemplate(n) { const s = settings['igT' + n]; return (typeof s === 'string' && s.trim()) ? s : IG_DEFAULT[n]; }
 function igCaption(n) { return igTemplate(n).replace(/\{bibelstelle\}/g, getRef() || 'Bibelstelle').replace(/\{datum\}/g, new Date().toLocaleDateString('de-CH')).replace(/\{name\}/g, speakerName()).replace(/\{thema\}/g, plan && plan.thema ? plan.thema : ''); }
-['1', '2'].forEach(n => { const ta = $('#igT' + n); ta.value = igTemplate(n); ta.addEventListener('input', () => { settings['igT' + n] = ta.value; saveSettings(); }); });
-async function copyText(txt) {
+['1', '2', '3'].forEach(n => { const ta = $('#igT' + n); ta.value = igTemplate(n); ta.addEventListener('input', () => { settings['igT' + n] = ta.value; saveSettings(); }); });
+async function copyText(txt, el) {
   try { await navigator.clipboard.writeText(txt); return true; } catch (e) { }
-  try { const ta = $('#igCaption'); ta.focus(); ta.select(); return document.execCommand && document.execCommand('copy'); } catch (e) { return false; }
+  try { const ta = el || $('#igCaption'); ta.focus(); ta.select(); return document.execCommand && document.execCommand('copy'); } catch (e) { return false; }
 }
 $('#btnIgCopy').addEventListener('click', async () => { toast((await copyText($('#igCaption').value)) ? 'Beschreibung kopiert' : 'Kopieren nicht möglich – Text markieren und manuell kopieren'); });
 $('#btnIg').addEventListener('click', async () => {
@@ -1454,6 +1504,7 @@ function showResult(blob, enc, procSecs, logLines) {
   const a = $('#lnkDownload'); a.hidden = canShare || !!caps.downloads; a.href = result.url; a.download = name;
   if (!isMp4) toast('Achtung: WebM statt MP4. WhatsApp nimmt das Video möglicherweise nicht an.', 5000);
   $('#igCaption').value = igCaption(current.n); $('#igBox').hidden = false; $('#igBox').open = current.n === 2;
+  $('#btnHl').hidden = current.n !== 2;
   show('result');
 }
 $('#btnShare').addEventListener('click', async () => {
@@ -1468,6 +1519,223 @@ $('#btnSave').addEventListener('click', async () => {
 });
 $('#btnAgain').addEventListener('click', () => enterStage(current));
 $('#btnHome').addEventListener('click', () => { show('home'); drawThumbs(); });
+
+/* ---------- MEETmoment-Highlight: ein Satz aus dem Video als Bild (Post 4:5 oder Story 9:16) ----------
+   Ablauf: Tonspur aus dem fertigen MP4 lösen (AAC 1:1, in Stücke von ~50 s) → Netlify-Funktion /highlight
+   (op=transcribe: Abschrift, op=pick: Satzvorschläge) → Karte im CI zeichnen → PNG teilen. Ohne Server
+   funktioniert die Karte trotzdem: Satz von Hand eintippen. Abschrift und Auswahl werden pro Tag gemerkt. */
+const HL_URL = 'https://meet-bty.com/.netlify/functions/highlight';
+const HL_CHUNK_SEC = 50;
+const HL_FORMATS = { post: { W: 1080, H: 1350 }, story: { W: 1080, H: 1920 } };
+const hl = { day: null, transcript: '', sentences: [], text: '', fileKey: '', file: null, busy: false };
+try { const c = JSON.parse(localStorage.getItem('meetstudio:hl') || 'null'); if (c && c.day === todayKey()) Object.assign(hl, { day: c.day, transcript: c.transcript || '', sentences: c.sentences || [], text: c.text || '', fileKey: c.fileKey || '' }); } catch (e) { }
+function hlSave() { try { localStorage.setItem('meetstudio:hl', JSON.stringify({ day: todayKey(), transcript: hl.transcript, sentences: hl.sentences, text: hl.text, fileKey: hl.fileKey })); } catch (e) { } hlHomeLabel(); }
+function hlHomeLabel() { $('#btnHlHome').textContent = (hl.transcript && hl.day === todayKey()) ? 'MEETmoment-Highlight von heute' : 'MEETmoment-Highlight aus einem fertigen Video'; }
+function hlUrl() { return settings.hlUrl || HL_URL; }
+function hlFormat() { return HL_FORMATS[settings.hlFormat] ? settings.hlFormat : 'post'; }
+function cleanQuote(t) { return (t || '').replace(/\s+/g, ' ').replace(/^[\s"„“”‚‘'«»]+|[\s"„“”‚‘'«»]+$/g, '').trim(); }
+function wrapWords(ctx, text, maxW) {
+  const words = text.split(' '), lines = []; let cur = '';
+  for (const w of words) { const t = cur ? cur + ' ' + w : w; if (!cur || ctx.measureText(t).width <= maxW) cur = t; else { lines.push(cur); cur = w; } }
+  if (cur) lines.push(cur); return lines;
+}
+function drawCoverImg(ctx, im, W, H) { const r = Math.max(W / im.naturalWidth, H / im.naturalHeight), dw = im.naturalWidth * r, dh = im.naturalHeight * r; ctx.drawImage(im, (W - dw) / 2, (H - dh) / 2, dw, dh); }
+/* Karte: MEET DAILY Logo + Datumszeile oben, Zitat so gross wie möglich in der Mitte (Anführungszeichen in Lime),
+   unten „MEETmoment mit Name“ + Bibelstelle in der gestrichelten Box, YOUTH b+ rechts unten */
+function drawHighlight(ctx, W, H, text, o) {
+  o = o || {}; const s = W / 1080, story = H / W > 1.5, x = 96 * s;
+  const ref = o.ref != null ? o.ref : getRef(), name = o.name || speakerName();
+  if (IMG.bg) drawCoverImg(ctx, IMG.bg, W, H); else { ctx.fillStyle = '#2F1041'; ctx.fillRect(0, 0, W, H); }
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  const topM = (story ? 240 : 96) * s, botM = (story ? 220 : 96) * s, logoH = (story ? 72 : 64) * s;
+  if (IMG.daily) ctx.drawImage(IMG.daily, x, topM, logoH * 4924 / 909, logoH);
+  let top = topM + logoH + 28 * s;
+  ctx.fillStyle = '#FF8A3D'; ctx.font = `400 ${32 * s}px ${FONT_MONO}`;
+  spacedText(ctx, dateLine(o.date).toUpperCase(), x, cssBaseline(ctx, top, 38 * s, 32 * s), 0.14 * 32 * s);
+  top += 38 * s;
+  const yh = 48 * s, yw = yh * 3094.54 / 1000, boxBottom = H - botM;
+  ctx.font = `400 ${42 * s}px ${FONT_MONO}`;
+  const rtxt = ref || 'Bibelstelle', tw = ctx.measureText(rtxt).width, bh = 50 * s + 48 * s, bw = Math.min(tw + 80 * s, W - 2 * x - yw - 32 * s), bo = 2 * s, bt = boxBottom - bh;
+  ctx.setLineDash([12 * s, 12 * s]); ctx.lineWidth = 4 * s; ctx.strokeStyle = '#D4F65A';
+  roundRect(ctx, x + bo, bt + bo, bw - 2 * bo, bh - 2 * bo, 22 * s - bo); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = ref ? '#FFFFFF' : 'rgba(255,255,255,.5)';
+  ctx.save(); ctx.beginPath(); ctx.rect(x, bt, bw, bh); ctx.clip(); ctx.fillText(rtxt, x + 40 * s, cssBaseline(ctx, bt + 24 * s, 50 * s, 42 * s)); ctx.restore();
+  const labTop = bt - 18 * s - 34 * s;
+  ctx.fillStyle = '#FF8A3D'; ctx.font = `400 ${28 * s}px ${FONT_MONO}`;
+  spacedText(ctx, ('MEETmoment mit ' + name).toUpperCase(), x, cssBaseline(ctx, labTop, 34 * s, 28 * s), 0.14 * 28 * s);
+  if (IMG.youth) ctx.drawImage(IMG.youth, W - 64 * s - yw, boxBottom - yh, yw, yh);
+  const q = cleanQuote(text) || 'Dein Satz aus dem MEETmoment';
+  const open = '“', close = '”', full = open + q + close;
+  const areaTop = top + 48 * s, areaBot = labTop - 48 * s, maxW = W - 2 * x, availH = areaBot - areaTop, minSize = 48 * s;
+  let size = (story ? 128 : 120) * s, lines = [], lh = 0;
+  const hasLS = 'letterSpacing' in ctx;
+  for (;;) {
+    ctx.font = `700 ${size}px ${FONT_DISPLAY}`;
+    if (hasLS) ctx.letterSpacing = (-0.02 * size) + 'px';
+    lines = wrapWords(ctx, full, maxW); lh = size * 1.04;
+    const wide = lines.some(l => ctx.measureText(l).width > maxW);
+    if (hasLS) ctx.letterSpacing = '0px';
+    if ((lines.length * lh <= availH && !wide) || size <= minSize) break;
+    size = Math.max(minSize, size - 4 * s);
+  }
+  const sp = -0.02 * size; let y = areaTop + (availH - lines.length * lh) / 2;
+  ctx.font = `700 ${size}px ${FONT_DISPLAY}`;
+  lines.forEach((l, i) => {
+    const base = cssBaseline(ctx, y + i * lh, lh, size);
+    let lx = x, body = l, tail = '';
+    if (i === 0 && body.startsWith(open)) { ctx.fillStyle = '#D4F65A'; lx += spacedText(ctx, open, lx, base, sp); body = body.slice(open.length); }
+    if (i === lines.length - 1 && body.endsWith(close)) { body = body.slice(0, -close.length); tail = close; }
+    ctx.fillStyle = '#FFFFFF'; const w = spacedText(ctx, body, lx, base, sp);
+    if (tail) { ctx.fillStyle = '#D4F65A'; spacedText(ctx, tail, lx + w, base, sp); }
+  });
+  return { size: Math.round(size / s), lines: lines.length };
+}
+/* Tonspur in Stücke: Pakete des fertigen MP4 nach Zeit gruppieren, jedes Stück wird ein eigenes kleines M4A (ohne Umkodierung) */
+async function hlAudioChunks(file, chunkSec) {
+  const an = await analyzeFile(file, { aborted: false }, () => { });
+  const a = an.audio;
+  if (!a || a.silent) throw new Error('keine Tonspur im Video');
+  if (a.codec !== 'mp4a.40.2') throw new Error('Tonspur ist nicht AAC (' + (a.codec || '?') + ')');
+  const ts = a.timescale, ss = a.samples, first = ss.length ? ss[0].cts : 0, groups = [];
+  for (const smp of ss) { const gi = Math.floor((smp.cts - first) / ts / chunkSec); while (groups.length <= gi) groups.push([]); groups[gi].push(smp); }
+  const mk = g => ({ samples: g, sec: (g[g.length - 1].cts + (g[g.length - 1].duration || 0) - g[0].cts) / ts, aud: a, file });
+  return groups.filter(g => g.length).map(mk);
+}
+async function hlMux(chunk) {
+  const { Muxer, ArrayBufferTarget } = window.Mp4Muxer; const a = chunk.aud, ts = a.timescale, ss = chunk.samples, first = ss[0].cts;
+  const mx = new Muxer({ target: new ArrayBufferTarget(), audio: { codec: 'aac', sampleRate: a.sampleRate, numberOfChannels: a.channels }, fastStart: 'in-memory', firstTimestampBehavior: 'offset' });
+  const meta = { decoderConfig: { codec: 'mp4a.40.2', sampleRate: a.sampleRate, numberOfChannels: a.channels, description: a.description } };
+  const add = (data, smp) => mx.addAudioChunkRaw(data, 'key', (smp.cts - first) / ts * 1e6, smp.duration / ts * 1e6, meta);
+  let i = 0;
+  while (i < ss.length) {
+    if (ss[i].data) { add(ss[i].data, ss[i]); i++; continue; }
+    let j = i, start = ss[i].offset, end = start + ss[i].size;
+    while (j + 1 < ss.length && ss[j + 1].offset === end && end - start < 2 * 1048576) { j++; end += ss[j].size; }
+    const buf = new Uint8Array(await chunk.file.slice(start, end).arrayBuffer()); let p = 0;
+    for (let k = i; k <= j; k++) { add(buf.slice(p, p + ss[k].size), ss[k]); p += ss[k].size; }
+    i = j + 1;
+  }
+  mx.finalize(); return new Blob([mx.target.buffer], { type: 'audio/mp4' });
+}
+async function hlCall(op, fields) {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(fields)) { if (v instanceof Blob) fd.append(k, v, k + '.m4a'); else if (v != null) fd.append(k, String(v)); }
+  let r;
+  try { r = await fetch(hlUrl() + '?op=' + op, { method: 'POST', headers: { 'x-studio-pin': encodeURIComponent(settings.studioPin || '') }, body: fd }); }
+  catch (e) { const err = new Error('Server nicht erreichbar (' + (e && e.message ? e.message : e) + ')'); err.status = 0; throw err; }
+  const txt = await r.text(); let j = null; try { j = JSON.parse(txt); } catch (e) { }
+  if (!r.ok) { const err = new Error((j && j.error) || ('HTTP ' + r.status + (txt ? ': ' + txt.slice(0, 160) : ''))); err.status = r.status; throw err; }
+  return j || {};
+}
+async function hlTranscribe(file, status) {
+  status('Ton wird aus dem Video gelöst …');
+  const chunks = await hlAudioChunks(file, HL_CHUNK_SEC);
+  let text = '', prev = '', done = 0, splits = 0;
+  while (chunks.length) {
+    const c = chunks.shift();
+    status(`Abschrift läuft … Teil ${done + 1} von ${done + 1 + chunks.length}`);
+    let t;
+    try { t = (await hlCall('transcribe', { audio: await hlMux(c), prompt: prev.slice(-300), ref: getRef() })).text || ''; }
+    catch (e) {
+      /* Zeitlimit oder zu gross: Stück halbieren und erneut versuchen */
+      const again = (e.status === 0 || e.status === 413 || e.status === 500 || e.status === 502 || e.status === 504) && c.samples.length > 60 && c.sec > 12 && splits < 8;
+      if (!again) throw e;
+      splits++;
+      const h = Math.ceil(c.samples.length / 2), ts = c.aud.timescale, mk = g => ({ samples: g, sec: (g[g.length - 1].cts + (g[g.length - 1].duration || 0) - g[0].cts) / ts, aud: c.aud, file: c.file });
+      chunks.unshift(mk(c.samples.slice(0, h)), mk(c.samples.slice(h))); continue;
+    }
+    text += (text ? ' ' : '') + t.trim(); prev = t; done++;
+  }
+  return text.replace(/\s+/g, ' ').trim();
+}
+async function hlPick(transcript) {
+  const j = await hlCall('pick', { transcript, ref: getRef(), name: speakerName(), thema: plan && plan.thema ? plan.thema : '' });
+  return (Array.isArray(j.sentences) ? j.sentences : []).filter(s => s && typeof s.text === 'string' && cleanQuote(s.text)).slice(0, 6).map(s => ({ text: cleanQuote(s.text), why: typeof s.why === 'string' ? s.why.slice(0, 60) : '' }));
+}
+function hlErrText(e) {
+  const st = e && e.status, m = e && e.message ? e.message : String(e);
+  if (st === 401) return 'Studio-PIN fehlt oder stimmt nicht. Unter Einstellungen → Studio-PIN eintragen (dieselbe wie STUDIO_PIN auf Netlify). Satz unten von Hand eintippen geht immer.';
+  if (st === 503) return 'Abschrift auf dem Server noch nicht eingerichtet: ' + m + '. Satz unten von Hand eintippen.';
+  return 'Abschrift nicht möglich: ' + m + '. Satz unten von Hand eintippen.';
+}
+const hlCanvas = $('#hlCanvas'), hlCtx = hlCanvas.getContext('2d');
+let hlRaf = 0;
+function drawHl() {
+  cancelAnimationFrame(hlRaf);
+  hlRaf = requestAnimationFrame(() => { const f = HL_FORMATS[hlFormat()]; if (hlCanvas.width !== f.W || hlCanvas.height !== f.H) { hlCanvas.width = f.W; hlCanvas.height = f.H; } drawHighlight(hlCtx, f.W, f.H, hl.text); });
+}
+function hlCaption() { return igTemplate(3).replace(/\{satz\}/g, cleanQuote(hl.text)).replace(/\{bibelstelle\}/g, getRef() || 'Bibelstelle').replace(/\{datum\}/g, new Date().toLocaleDateString('de-CH')).replace(/\{name\}/g, speakerName()).replace(/\{thema\}/g, plan && plan.thema ? plan.thema : ''); }
+function hlSetCaption() { $('#hlCaption').value = hlCaption(); }
+function hlStatus(msg, err) { const el = $('#hlStatus'); el.textContent = msg || ''; el.hidden = !msg; el.classList.toggle('err', !!err); }
+function hlRenderSugg() {
+  const box = $('#hlSugg'); box.replaceChildren();
+  hl.sentences.forEach(s => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'sugg'; b.textContent = s.text;
+    if (s.why) { const sm = document.createElement('small'); sm.textContent = s.why; b.appendChild(sm); }
+    b.setAttribute('aria-pressed', String(cleanQuote(s.text) === cleanQuote(hl.text)));
+    b.addEventListener('click', () => { hl.text = s.text; $('#hlText').value = s.text; hlSave(); hlRenderSugg(); hlSetCaption(); drawHl(); });
+    box.appendChild(b);
+  });
+  box.hidden = !hl.sentences.length;
+}
+function hlKey(f) { return f ? f.size + ':' + (f.lastModified || 0) : ''; }
+async function openHighlight(file, opts) {
+  opts = opts || {};
+  await assetsReady;
+  if (file) { hl.file = file; if (hl.fileKey && hl.fileKey !== hlKey(file)) { hl.transcript = ''; hl.sentences = []; hl.text = ''; } }
+  show('hl');
+  $('#hlText').value = hl.text; hlRenderSugg(); hlSetCaption(); drawHl();
+  $('#hlTrans').textContent = hl.transcript; $('#hlTransBox').hidden = !hl.transcript;
+  $('#btnHlBack').textContent = (result && current.n === 2) ? 'Zurück zum Video' : 'Zur Übersicht';
+  if (!(opts.force || !hl.transcript)) { hlStatus(''); return; }
+  if (!hl.file) { hlStatus('Kein Video gewählt. „Anderes Video wählen“, oder den Satz direkt eintippen.'); return; }
+  if (hl.busy) return;
+  hl.busy = true; $('#btnHlRedo').disabled = true; keepAwake();
+  try {
+    const transcript = await hlTranscribe(hl.file, m => hlStatus(m));
+    hl.transcript = transcript; hl.day = todayKey(); hl.fileKey = hlKey(hl.file); hl.sentences = []; hlSave();
+    $('#hlTrans').textContent = transcript; $('#hlTransBox').hidden = !transcript;
+    if (!transcript) { hlStatus('Im Video wurde keine Sprache erkannt. Satz bitte eintippen.', true); return; }
+    hlStatus('Sätze werden ausgewählt …');
+    hl.sentences = await hlPick(transcript);
+    if (!cleanQuote(hl.text) && hl.sentences.length) { hl.text = hl.sentences[0].text; $('#hlText').value = hl.text; }
+    hlSave(); hlRenderSugg(); hlSetCaption(); drawHl();
+    hlStatus(hl.sentences.length ? 'Vorschläge aus dem MEETmoment: antippen, bei Bedarf anpassen, dann teilen.' : 'Keine Vorschläge bekommen. Den Text unten durchlesen und einen Satz eintippen.');
+  } catch (e) { console.error(e); hlStatus(hlErrText(e), true); }
+  finally { hl.busy = false; $('#btnHlRedo').disabled = false; releaseWake(); }
+}
+function hlBlob() { return new Promise((res, rej) => hlCanvas.toBlob(b => b ? res(b) : rej(new Error('Bild konnte nicht erzeugt werden')), 'image/png')); }
+function hlFileName() { return `MEET-DAILY_${todayKey()}_Highlight-${hlFormat() === 'story' ? 'Story' : 'Post'}.png`; }
+$('#btnHlShare').addEventListener('click', async () => {
+  if (!cleanQuote(hl.text)) { toast('Erst einen Satz wählen oder eintippen'); return; }
+  const ok = await copyText($('#hlCaption').value, $('#hlCaption'));
+  let blob; try { blob = await hlBlob(); } catch (e) { toast(e.message); return; }
+  const file = new File([blob], hlFileName(), { type: 'image/png' });
+  if (caps.downloads) {
+    try { await caps.downloads.save({ filename: file.name, data: blob }); toast('Beschreibung ist kopiert. Im Teilen-Menü Instagram oder WhatsApp wählen.', 6000); }
+    catch (e) { if (!(e && e.code === 'declined')) toast('Speichern nicht möglich: ' + (e && e.message ? e.message : e)); }
+    return;
+  }
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); toast(ok ? 'Beschreibung ist in der Zwischenablage' : 'Geteilt', 4000); }
+    catch (e) { if (e && e.name !== 'AbortError') toast('Teilen nicht möglich: ' + e.message); }
+    return;
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  toast(ok ? 'Bild heruntergeladen, Beschreibung kopiert' : 'Bild heruntergeladen', 4000);
+});
+$('#btnHlCopy').addEventListener('click', async () => toast((await copyText($('#hlCaption').value, $('#hlCaption'))) ? 'Beschreibung kopiert' : 'Kopieren nicht möglich – Text markieren und manuell kopieren'));
+$('#btnHl').addEventListener('click', () => { if (result && result.file) openHighlight(result.file); });
+$('#btnHlHome').addEventListener('click', () => { if (hl.transcript && hl.day === todayKey()) openHighlight(null); else $('#hlPick').click(); });
+$('#btnHlFile').addEventListener('click', () => $('#hlPick').click());
+$('#hlPick').addEventListener('change', () => { const f = $('#hlPick').files[0]; $('#hlPick').value = ''; if (f) openHighlight(f, { force: true }); });
+$('#btnHlRedo').addEventListener('click', () => { if (hl.file) openHighlight(hl.file, { force: true }); else $('#hlPick').click(); });
+$('#hlText').addEventListener('input', () => { hl.text = $('#hlText').value; hlSave(); hlRenderSugg(); hlSetCaption(); drawHl(); });
+$('#btnHlBack').addEventListener('click', () => { if (result && current.n === 2) show('result'); else { show('home'); drawThumbs(); } });
+$('#studioPin').value = settings.studioPin || '';
+$('#studioPin').addEventListener('input', () => { settings.studioPin = $('#studioPin').value.trim(); saveSettings(); });
+hlHomeLabel();
 
 /* ---------- Home ---------- */
 $$('.choice').forEach(b => b.addEventListener('click', () => enterStage(VIDEOS[b.dataset.v])));
@@ -1497,9 +1765,8 @@ window.MEET = { selfTest: async (sec, v) => {
   const p = liveMode() === 'wc' ? startLiveWC() : startLiveRaw();
   await sleep(3200 + sec * 1000); if (recording) recording.stop();
   await p; osc.stop(); a.close();
-}, reprocess: (v) => { current = VIDEOS[v || 1]; return processFile(result.file, {}); }, result: () => result, processFromUrl: async (u, v) => { current = VIDEOS[v || 1]; const r = await fetch(u); const b = await r.blob(); return processFile(new File([b], 'test.mp4', { type: b.type || 'video/mp4' }), {}); }, settings, caps, drawCard, drawCard2, VIDEOS, IMG, loadPlan, planLookup, plan: () => plan };
+}, reprocess: (v) => { current = VIDEOS[v || 1]; return processFile(result.file, {}); }, result: () => result, processFromUrl: async (u, v) => { current = VIDEOS[v || 1]; const r = await fetch(u); const b = await r.blob(); return processFile(new File([b], 'test.mp4', { type: b.type || 'video/mp4' }), {}); }, settings, caps, drawCard, drawCard2, VIDEOS, IMG, loadPlan, planLookup, plan: () => plan, drawHighlight, openHighlight, hl: () => hl, hlAudioChunks, hlMux };
 })();
 </script>
 
-</body>
-</html>
+</body></html>
