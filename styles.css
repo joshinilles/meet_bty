@@ -316,6 +316,77 @@ textarea:focus,input:focus{outline:none;border-color:var(--lime)}
 }
 .a2hs-close:hover{color:#fff;background:rgba(255,255,255,.08)}
 
+/* ---- Links-Seite (/links): WhatsApp-Kanal MEET DAILY im Fokus, dann Social Media ---- */
+.links{gap:20px}
+.links-head{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.links-head .lead{max-width:34ch}
+.channel{
+  position:relative;
+  isolation:isolate;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  padding:20px 18px 18px;
+  border-radius:22px;
+  background:var(--field);
+  border:1px solid rgba(255,255,255,.06);
+}
+/* Sonnenaufgang – die Projektfarbe von MEET DAILY, sparsam als Schimmer in der Ecke */
+.channel--daily::before{
+  content:"";
+  position:absolute;
+  right:-30%;
+  top:-45%;
+  width:85%;
+  aspect-ratio:1;
+  border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,138,61,.38),rgba(255,138,61,0));
+  z-index:-1;
+  pointer-events:none;
+}
+.channel-logo{height:22px;width:auto;align-self:flex-start}
+.channel-head{display:flex;flex-direction:column;gap:6px}
+.channel h2{font-size:24px}
+a.btn{display:inline-flex;align-items:center;justify-content:center;text-align:center;line-height:1.15}
+.btn--wa{gap:10px}
+.btn--wa svg{width:22px;height:22px;flex:none}
+a.btn--primary:hover,a.btn--primary:focus-visible{color:var(--night)}
+.btn[aria-disabled="true"]{opacity:.45;cursor:default;pointer-events:none}
+.trust{display:flex;gap:8px;align-items:flex-start;margin:0;font-size:12.5px;line-height:1.4;color:var(--muted)}
+.trust svg{width:14px;height:14px;flex:none;margin-top:2px}
+.section{display:flex;flex-direction:column;gap:10px}
+.section>.label{padding-left:4px}
+.rows{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.row{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  min-height:68px;
+  padding:12px 16px 12px 12px;
+  border-radius:18px;
+  background:var(--field);
+  border:1.2px solid transparent;
+  color:#fff;
+  transition:border-color .2s,background .2s,transform .2s;
+}
+.row:hover,.row:focus-visible{border-color:var(--lime);background:var(--night3);color:#fff}
+.row:active{transform:scale(.985)}
+.row-icon{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.08);color:#fff;flex:none}
+.row-icon svg{width:22px;height:22px}
+.row-text{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.row-name{font-family:var(--head);font-weight:700;font-size:17px;letter-spacing:-.01em;line-height:1.1}
+.row-handle{font-family:var(--mono);font-size:12px;letter-spacing:.02em;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row-arrow{width:20px;height:20px;color:var(--lime);flex:none;transition:transform .2s}
+.row:hover .row-arrow{transform:translate(2px,-2px)}
+.links .foot{padding-top:10px}
+html.links-in .links>*{animation:rise .55s var(--spring) both}
+html.links-in .links>*:nth-child(1){animation-delay:.05s}
+html.links-in .links>*:nth-child(2){animation-delay:.14s}
+html.links-in .links>*:nth-child(3){animation-delay:.24s}
+html.links-in .links>*:nth-child(5){animation-delay:.32s}
+html.links-in .links>*:nth-child(6){animation-delay:.38s}
+
 /* ---- Grössere Screens: Bühne bleibt schmal, Rand atmet ---- */
 @media (min-width:700px){
   :root{--topbar:90px}
