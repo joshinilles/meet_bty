@@ -12,7 +12,7 @@ window.MEET_CONFIG = {
   links: {
     // Einladungslink des öffentlichen WhatsApp-Kanals MEET DAILY:
     // WhatsApp → Kanal öffnen → Kanalinfo → „Link kopieren“ (sieht so aus: https://whatsapp.com/channel/0029V…)
-    whatsapp: "",
+    whatsapp: "https://whatsapp.com/channel/0029Vb9lrj9E50UouYa6c20h",
 
     // Social Media. Laut CI soll der Handle überall @meet.bty heissen (Anzeigename „MEET · bibletunes youth“);
     // solange die Konten noch @bibletunes_youth heissen, bleiben die Links so. "handle" nur angeben, wenn der
