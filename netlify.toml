@@ -39,3 +39,10 @@
 
 [functions]
   directory = "netlify/functions"
+
+# Abhängigkeiten der Functions (node_modules) sind nicht Teil der Website
+[[redirects]]
+  from = "/node_modules/*"
+  to = "/404"
+  status = 404
+  force = true

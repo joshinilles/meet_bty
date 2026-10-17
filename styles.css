@@ -274,7 +274,65 @@ textarea:focus,input:focus{outline:none;border-color:var(--lime)}
 /* ---- 3 · Danke ---- */
 .screen--done{align-items:flex-start}
 .signet{width:72px;height:72px}
+.screen--done .stack{width:100%}
 .screen--done .btn--full{width:100%}
+
+/* ---- Haken: „Mein Moment darf anonym auf der MEET WALL erscheinen“ ---- */
+.check{
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  padding:14px 14px 14px 12px;
+  border-radius:16px;
+  background:rgba(255,255,255,.05);
+  border:1.2px solid rgba(255,255,255,.1);
+  cursor:pointer;
+  transition:border-color .2s,background .2s;
+  -webkit-tap-highlight-color:transparent;
+}
+.check:hover{border-color:rgba(212,246,90,.45)}
+.check input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.check-box{
+  flex:none;
+  width:24px;height:24px;
+  margin-top:1px;
+  border-radius:8px;
+  border:1.6px solid var(--muted);
+  display:grid;place-items:center;
+  color:var(--night);
+  transition:background .2s,border-color .2s,transform .2s var(--spring);
+}
+.check-box svg{opacity:0;transform:scale(.6);transition:opacity .15s,transform .25s var(--spring)}
+.check input:checked ~ .check-box{background:var(--lime);border-color:var(--lime)}
+.check input:checked ~ .check-box svg{opacity:1;transform:scale(1)}
+.check input:focus-visible ~ .check-box{outline:2px solid var(--lime);outline-offset:3px}
+.check:has(input:checked){border-color:rgba(212,246,90,.55);background:rgba(212,246,90,.06)}
+.check-text{display:block;font-size:14.5px;line-height:1.4;color:#fff}
+.check-text b{font-family:var(--head);font-weight:700;color:var(--lime);letter-spacing:-.01em;white-space:nowrap}
+.check-text small{display:block;margin-top:3px;font-size:12.5px;color:var(--muted)}
+
+/* ---- 4 · MEET WALL ---- */
+.screen--wall{gap:16px}
+.wall-head{display:flex;flex-direction:column;gap:8px;margin-top:2px}
+.wall-title{display:inline-flex;align-items:flex-end;gap:.06em;font-size:clamp(34px,10vw,42px)}
+.wall-bar{display:inline-block;width:.62em;height:.17em;margin-bottom:.02em;background:var(--lime);animation:meetCursor 1.8s ease-in-out infinite}
+.wall{display:flex;flex-direction:column;gap:10px}
+.wall-group{padding:12px 4px 2px}
+.wall-group:first-child{padding-top:2px}
+.moment{
+  padding:16px 16px 12px;
+  border-radius:18px;
+  background:var(--field);
+  border:1.2px solid transparent;
+  animation:rise .5s var(--spring) both;
+}
+.moment--own{border-color:var(--lime)}
+.moment-text{margin:0;font-size:16.5px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;text-wrap:pretty}
+.moment-meta{margin-top:8px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--muted)}
+.moment--own .moment-meta{color:var(--lime)}
+.wall-loading{text-align:center;padding:24px 0;color:var(--muted)}
+.wall-note{text-align:center;padding:8px 0}
+.screen--wall .btn--text{align-self:center}
 
 /* ---- Hinweis: MEET auf den Home-Bildschirm (nur Handy, siehe homescreen.js) ---- */
 .a2hs{

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2F1041">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex,nofollow">
+<title>MEET WALL · Freigabe</title>
+<link rel="icon" href="../../assets/favicon-512.png">
+<link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+/* Prüfseite der MEET WALL: wartende Momente freigeben oder ablehnen, freigegebene wieder von der Wand nehmen.
+   Nutzt dieselbe Studio-PIN wie das MEET DAILY Studio (gleicher Speicherplatz im Browser). */
+.mod{gap:16px;min-height:auto;padding-top:8px}
+.mod-head{display:flex;flex-direction:column;gap:8px}
+.pin{display:flex;gap:10px;align-items:center}
+.pin input[type="text"]{flex:1;font-family:var(--mono);letter-spacing:.12em}
+.tabs{display:flex;gap:6px;padding:4px;border-radius:999px;background:var(--field)}
+.tab{flex:1;min-height:40px;border:0;border-radius:999px;background:transparent;color:var(--soft);font-family:var(--head);font-weight:700;font-size:14px;cursor:pointer}
+.tab.is-on{background:var(--lime);color:var(--night)}
+.tab b{font-family:var(--mono);font-weight:500;font-size:12px;margin-left:6px;opacity:.8}
+.moment{animation:none}
+.moment-text{font-size:15.5px}
+.acts{display:flex;gap:8px;margin-top:12px}
+.acts .btn{flex:1;min-height:42px;border-radius:21px;font-size:14px}
+.btn--no{border:1.2px solid rgba(255,255,255,.3);background:transparent;color:#fff}
+.btn--no:hover{border-color:var(--sunl);color:var(--sunl)}
+.state{text-align:center;color:var(--muted);padding:20px 0;margin:0;font-size:14px}
+.moment.is-busy{opacity:.5;pointer-events:none}
+</style>
+</head>
+<body>
+<main class="page">
+<header class="topbar is-compact"><div class="topbar-in">
+  <a href="../" class="logo" aria-label="MEET DAILY Studio"><span class="logo-stack is-solid"><svg viewBox="200 200 3005.02 746" class="morph is-signet" role="img" aria-label="MEET"><g class="m-root"><circle class="m-circle" cx="860" cy="596" r="1000"/><path class="m-M" fill="#FFFFFF" d="M200 946V246H445L566 856H584L705 246H950V946H822V343H804L684 946H466L346 343H328V946Z"/><rect class="m-bar cursor" x="2605.02" y="819" width="600" height="127" fill="#D4F65A"/></g></svg></span></a>
+  <img src="../../assets/youth-bplus-weiss.svg" alt="YOUTH b+" class="sender">
+</div></header>
+<div class="screens">
+<section class="screen mod">
+  <div class="mod-head">
+    <div class="kicker">Freigabe</div>
+    <h1 class="wall-title">MEET WALL<span class="wall-bar" aria-hidden="true"></span></h1>
+    <p class="hint">Was hier freigegeben wird, steht anonym auf meet-bty.com. Namen von anderen, Adressen oder Verletzendes: nicht zeigen.</p>
+  </div>
+  <div class="pin">
+    <label class="sr-only" for="pin">Studio-PIN</label>
+    <input type="text" id="pin" placeholder="Studio-PIN" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="numeric">
+    <button type="button" class="btn btn--primary btn--sm" id="load" style="margin-top:0">Laden</button>
+  </div>
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab is-on" role="tab" id="tabPending" data-tab="pending">Wartet<b id="nPending">–</b></button>
+    <button type="button" class="tab" role="tab" id="tabApproved" data-tab="approved">Auf der Wand<b id="nApproved">–</b></button>
+  </div>
+  <p class="state" id="state">PIN eingeben und laden.</p>
+  <div class="wall" id="list"></div>
+</section>
+</div>
+</main>
+<script>
+(function () {
+  "use strict";
+  var API = "/.netlify/functions/wall";
+  var SETTINGS_KEY = "meetstudio:settings:v2"; // dieselbe PIN wie im Studio
+  var $ = function (id) { return document.getElementById(id); };
+  var el = { pin: $("pin"), load: $("load"), list: $("list"), state: $("state"), nP: $("nPending"), nA: $("nApproved"), tabs: [$("tabPending"), $("tabApproved")] };
+  var data = { pending: [], approved: [] };
+  var tab = "pending";
+  var MONTHS = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sep.", "Okt.", "Nov.", "Dez."];
+
+  function settings() { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") || {}; } catch (e) { return {}; } }
+  function savePin(pin) { try { var s = settings(); s.studioPin = pin; localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
+  el.pin.value = settings().studioPin || "";
+
+  function call(op, body) {
+    return fetch(API + "?op=" + op, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-studio-pin": encodeURIComponent(el.pin.value.trim()) },
+      body: JSON.stringify(body || {})
+    }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "HTTP " + r.status); return j; }); });
+  }
+
+  function state(t) { el.state.textContent = t; el.state.hidden = !t; }
+
+  function load() {
+    if (!el.pin.value.trim()) { state("Bitte zuerst die Studio-PIN eingeben."); return; }
+    savePin(el.pin.value.trim());
+    state("Wird geladen …");
+    el.list.innerHTML = "";
+    Promise.all([call("pending"), call("approved")])
+      .then(function (r) {
+        data.pending = r[0].items || [];
+        data.approved = r[1].items || [];
+        render();
+      })
+      .catch(function (e) { state(e.message); });
+  }
+
+  function when(ts) {
+    var d = new Date(ts); if (isNaN(d)) return "";
+    var hh = (d.getHours() < 10 ? "0" : "") + d.getHours(), mm = (d.getMinutes() < 10 ? "0" : "") + d.getMinutes();
+    return d.getDate() + ". " + MONTHS[d.getMonth()] + " · " + hh + ":" + mm;
+  }
+
+  function render() {
+    el.nP.textContent = data.pending.length;
+    el.nA.textContent = data.approved.length;
+    el.tabs.forEach(function (t) { t.classList.toggle("is-on", t.dataset.tab === tab); });
+    el.list.innerHTML = "";
+    var items = data[tab];
+    if (!items.length) { state(tab === "pending" ? "Nichts wartet. Alles geprüft." : "Noch nichts auf der Wand."); return; }
+    state("");
+    items.forEach(function (m) {
+      var c = document.createElement("article");
+      c.className = "moment";
+      var t = document.createElement("p"); t.className = "moment-text"; t.textContent = m.text;
+      var meta = document.createElement("div"); meta.className = "moment-meta"; meta.textContent = [m.passage, when(m.ts)].filter(Boolean).join(" · ");
+      var acts = document.createElement("div"); acts.className = "acts";
+      if (tab === "pending") {
+        acts.appendChild(btn("Freigeben", "btn btn--primary", function () { act(c, "approve", m); }));
+        acts.appendChild(btn("Nicht zeigen", "btn btn--no", function () { act(c, "reject", m); }));
+      } else {
+        acts.appendChild(btn("Von der Wand nehmen", "btn btn--no", function () { act(c, "unpublish", m); }));
+      }
+      c.appendChild(t); c.appendChild(meta); c.appendChild(acts);
+      el.list.appendChild(c);
+    });
+  }
+
+  function btn(label, cls, fn) { var b = document.createElement("button"); b.type = "button"; b.className = cls; b.textContent = label; b.addEventListener("click", fn); return b; }
+
+  function act(card, op, m) {
+    card.classList.add("is-busy");
+    call(op, { id: m.id })
+      .then(function () {
+        data.pending = data.pending.filter(function (x) { return x.id !== m.id; });
+        data.approved = data.approved.filter(function (x) { return x.id !== m.id; });
+        if (op === "approve") data.approved.unshift(m);
+        render();
+      })
+      .catch(function (e) { card.classList.remove("is-busy"); state(e.message); });
+  }
+
+  el.load.addEventListener("click", load);
+  el.pin.addEventListener("keydown", function (e) { if (e.key === "Enter") load(); });
+  el.tabs.forEach(function (t) { t.addEventListener("click", function () { tab = t.dataset.tab; render(); }); });
+  if (el.pin.value) load();
+})();
+</script>
+</body>
+</html>

@@ -6,6 +6,7 @@ Statische Seite ohne Build-Schritt: HTML, CSS, ein wenig JavaScript, Brand-Asset
 Version 2 (ab 9. Oktober 2026): drei Screens statt einer langen Seite, inspiriert von der fraenk-App.
 Heute (Bibelstelle, eine Frage, ein Button), Schreiben (nur das Textfeld), Danke.
 Die alte Version 1 liegt als Tag `v1.0` und Branch `v1-langseite` im Repo.
+Der Stand vor der MEET WALL (17. Oktober 2026) liegt als Tag `v2.0-vor-wall` und Branch `v2-vor-wall` im Repo.
 
 Gestaltung nach dem Claude-Design-Entwurf „MEET Impuls“ und dem MEET-Brand-Kit
 (Nachtviolett `#2F1041`, Lime `#D4F65A`, körniger Verlauf, Space Grotesk / Geist / Geist Mono).
@@ -20,6 +21,11 @@ Gestaltung nach dem Claude-Design-Entwurf „MEET Impuls“ und dem MEET-Brand-K
 | `motion.js` | Logo-Intro, Sticky-Kopf mit Morph M_ ↔ MEET_, Leerstellen-Logik |
 | `homescreen.js` | Hinweis „Leg MEET auf deinen Home-Bildschirm“ – nur auf dem Handy, nicht in der hinzugefügten App; Wegklicken merkt sich das Gerät (`localStorage`, Schlüssel `meet:homescreen-hint`) |
 | `config.js` | **Hier täglich die Bibelstelle ändern** (`passage`), stille Zeichen-Obergrenze, **Kanal-Links für `/links`** (`links`) |
+| `studio/wall/index.html` | **Freigabeseite der MEET WALL** (Studio-PIN): wartende Momente freigeben oder ablehnen, freigegebene wieder von der Wand nehmen |
+| `netlify/functions/wall.mjs` | Liefert die freigegebenen Momente an die Seite (GET, anonym) und nimmt die Freigabe-Entscheidungen entgegen (POST mit PIN) |
+| `netlify/functions/submission-created.mjs` | Läuft bei jeder Formular-Einsendung; legt MEET-Momente mit gesetztem Haken als „wartend“ im Speicher ab |
+| `netlify/lib/wall-store.mjs` | Speicher der Wand: Netlify Blobs (Store `meet-wall`), lokal ersatzweise Dateien |
+| `package.json` | Einzige Abhängigkeit `@netlify/blobs` für die Functions; `node_modules` wird nicht versioniert und auf der Website gesperrt |
 | `links/index.html` | Unterseite **meet-bty.com/links**: alle Kanäle auf einen Blick – WhatsApp-Kanal MEET DAILY im Fokus, darunter Instagram, TikTok, YouTube |
 | `links/links.js` | Baut die Kanal-Liste aus `config.js` (`links`), Plattform-Symbole, Kopf beim Scrollen |
 | `manifest.webmanifest` | Web-App auf dem Home-Bildschirm (Icon = Signet; `assets/apple-touch-icon.png`, `icon-192.png`, `icon-maskable-512.png` sind vollflächig violett, weil iPhone und Android durchsichtige Ecken sonst schwarz oder weiss füllen) |
@@ -52,7 +58,25 @@ Einmalig in Netlify prüfen:
 1. Site → **Forms** → Form detection aktivieren (falls noch nicht geschehen) und einmal neu deployen.
 2. Unter **Forms → Notifications** eine E-Mail-Benachrichtigung einrichten, damit das Team jede Nachricht sofort bekommt.
 
-Lokal (file:// oder localhost) wird nichts gesendet, die Erfolgskarte erscheint trotzdem als Vorschau.
+Lokal (file:// oder localhost) darf der Versand scheitern, die Erfolgskarte erscheint trotzdem als Vorschau.
+
+## MEET WALL (Momente der anderen)
+
+Wer einen MEET-Moment schreibt, kann den Haken „Mein Moment darf anonym auf der MEET WALL erscheinen“ setzen
+(Opt-in, nur beim MEET-Moment, nicht bei Fragen). Die Wand selbst ist nur vom Danke-Screen aus erreichbar: erst teilen, dann sehen.
+Sie zeigt ausschliesslich **freigegebene** Momente, anonym (Text, Bibelstelle, Uhrzeit), gruppiert nach Tag.
+Der eigene Moment steht sofort oben („wird gerade geprüft“), das merkt sich nur das Gerät (`localStorage`, Schlüssel `meet:wall-own`, 7 Tage).
+
+Ablauf im Hintergrund:
+
+1. Formular → Netlify Forms wie bisher (E-Mail-Benachrichtigung unverändert), neues Feld `wall` = `ja`.
+2. Netlify ruft `submission-created.mjs` auf; Momente mit Haken landen als `p/<id>` („wartet“) im Blobs-Store `meet-wall`.
+3. **Freigabe** unter `https://meet-bty.com/studio/wall/` mit der Studio-PIN (dieselbe wie im Studio, Umgebungsvariable `STUDIO_PIN`).
+   „Freigeben“ schreibt den Moment in `index.json`, das die Wand liest; „Nicht zeigen“ legt ihn als abgelehnt ab. Freigegebene lassen sich jederzeit wieder von der Wand nehmen.
+4. Die Seite holt `/.netlify/functions/wall` (eine Minute im Browser-Cache, höchstens 150 Einträge, 20 pro Seite).
+
+Voraussetzungen auf Netlify: `STUDIO_PIN` gesetzt; Blobs braucht keine Einrichtung. Datenschutz: freigegebene Momente sind öffentlich, aber ohne Namen;
+auf Wunsch (Mail) in der Freigabeseite „Von der Wand nehmen“.
 
 ## Lokal ansehen
 

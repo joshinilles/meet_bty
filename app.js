@@ -1,5 +1,6 @@
-/* MEET · meet-bty.com – drei Screens: Heute, Schreiben, Danke
-   Ein Screen, eine Aufgabe. Versand als Netlify Form (POST auf "/", form-name "meet-impuls"). */
+/* MEET · meet-bty.com – vier Screens: Heute, Schreiben, Danke, MEET WALL
+   Ein Screen, eine Aufgabe. Versand als Netlify Form (POST auf "/", form-name "meet-impuls").
+   Die MEET WALL (freigegebene Momente der anderen) ist nur vom Danke-Screen aus erreichbar: erst teilen, dann sehen. */
 (function () {
   "use strict";
 
@@ -36,14 +37,16 @@
   var $ = function (id) { return document.getElementById(id); };
   var el = {
     topbar: $("topbar"), logoLink: $("logoLink"),
-    screens: { home: $("screen-home"), write: $("screen-write"), done: $("screen-done") },
+    screens: { home: $("screen-home"), write: $("screen-write"), done: $("screen-done"), wall: $("screen-wall") },
     dateLabel: $("dateLabel"), passage: $("passage"),
     goMoment: $("goMoment"), goQuestion: $("goQuestion"), back: $("back"),
     form: $("panel"), fArt: $("fArt"), fPassage: $("fPassage"), fDate: $("fDate"),
     kicker: $("kicker"), heading: $("heading"), text: $("text"),
     addName: $("addName"), name: $("name"), error: $("error"), send: $("send"),
+    wallRow: $("wallRow"), wall: $("wall"),
     sentKicker: $("sentKicker"), sentHeading: $("sentHeading"), sentBody: $("sentBody"),
-    reset: $("reset")
+    reset: $("reset"), goWall: $("goWall"),
+    wallBack: $("wallBack"), wallList: $("wallList"), wallNote: $("wallNote"), wallMore: $("wallMore"), wallHome: $("wallHome")
   };
 
   var reduce = false;
@@ -116,6 +119,7 @@
     el.text.placeholder = c.placeholder;
     el.send.textContent = c.send;
     el.fArt.value = c.label;
+    el.wallRow.hidden = mode !== "moment"; // der Haken gilt nur für MEET-Momente
     el.text.value = state.texts[mode];
     hideError();
     updateSend();
@@ -160,18 +164,21 @@
 
     var data = new URLSearchParams(new FormData(el.form));
     data.set("nachricht", text);
+    if (state.mode !== "moment") data.delete("wall");
+    var wantsWall = state.mode === "moment" && el.wall.checked;
 
-    var request = isLocalPreview()
-      ? Promise.resolve({ ok: true }) // lokal: nur Vorschau, nichts wird gesendet
-      : fetch("/", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: data.toString()
-        });
+    var request = fetch("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: data.toString()
+    });
+    // lokal (file:// oder localhost): der Versand darf scheitern, die Erfolgskarte erscheint trotzdem als Vorschau
+    if (isLocalPreview()) request = request.catch(function () { return { ok: true }; }).then(function () { return { ok: true }; });
 
     request
       .then(function (res) {
         if (!res.ok) throw new Error("HTTP " + res.status);
+        if (wantsWall) rememberOwn(text, cfg.passage);
         onSent(state.mode);
       })
       .catch(function (err) {
@@ -195,11 +202,145 @@
     state.texts[mode] = "";
     el.text.value = "";
     el.text.blur();
+    el.wall.checked = false;
+    el.goWall.hidden = mode !== "moment"; // die Wand gibt es nur nach einem geteilten MEET-Moment
     show("done", "fwd");
     try { history.replaceState({ screen: "done" }, ""); } catch (e) {}
   }
 
   el.reset.addEventListener("click", goHome);
+
+  // ---- MEET WALL: freigegebene Momente der anderen ----
+  var WALL_URL = "/.netlify/functions/wall";
+  var OWN_KEY = "meet:wall-own";
+  var PAGE = 20;
+  var wallState = { items: [], shown: 0, loaded: false };
+
+  // Eigene Momente mit Haken merkt sich das Gerät (7 Tage), damit sie oben auf der Wand stehen, bevor sie geprüft sind
+  function readOwn() {
+    try {
+      var list = JSON.parse(localStorage.getItem(OWN_KEY) || "[]");
+      var cut = Date.now() - 7 * 864e5;
+      return list.filter(function (m) { return m && m.text && Date.parse(m.ts) > cut; });
+    } catch (e) { return []; }
+  }
+  function rememberOwn(text, passage) {
+    var list = readOwn();
+    list.unshift({ text: text, passage: passage, ts: new Date().toISOString() });
+    try { localStorage.setItem(OWN_KEY, JSON.stringify(list.slice(0, 5))); } catch (e) {}
+  }
+
+  function goWall() {
+    show("wall", "fwd");
+    try { history.pushState({ screen: "wall" }, ""); } catch (e) {}
+    if (!wallState.loaded) loadWall();
+  }
+
+  function loadWall() {
+    el.wallNote.hidden = true;
+    el.wallMore.hidden = true;
+    el.wallList.innerHTML = "";
+    renderOwn([]);
+    var loading = document.createElement("p");
+    loading.className = "hint wall-loading";
+    loading.textContent = "Wand wird geladen …";
+    el.wallList.appendChild(loading);
+    fetch(WALL_URL, { headers: { Accept: "application/json" } })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (j) {
+        wallState.items = (j && j.items) || [];
+        wallState.shown = 0;
+        wallState.loaded = true;
+        renderWall();
+      })
+      .catch(function (err) {
+        console.warn("[MEET] Wand nicht geladen:", err);
+        el.wallList.innerHTML = "";
+        renderOwn([]);
+        note("Die Wand lässt sich gerade nicht laden. Probier es später noch einmal.");
+      });
+  }
+
+  function note(text) { el.wallNote.textContent = text; el.wallNote.hidden = false; }
+
+  function renderWall() {
+    el.wallList.innerHTML = "";
+    var items = wallState.items;
+    renderOwn(items);
+    if (!items.length) {
+      note("Noch keine Momente auf der Wand. Deiner könnte der erste sein.");
+      return;
+    }
+    el.wallNote.hidden = true;
+    var ownTexts = readOwn().map(function (o) { return o.text; });
+    var end = Math.min(items.length, wallState.shown + PAGE);
+    var lastGroup = null;
+    for (var i = 0; i < end; i++) {
+      var m = items[i];
+      if (ownTexts.indexOf(m.text) >= 0) continue; // eigene stehen schon oben unter „Von dir“
+      var g = groupLabel(m);
+      if (g !== lastGroup) {
+        var h = document.createElement("div");
+        h.className = "label wall-group";
+        h.textContent = g;
+        el.wallList.appendChild(h);
+        lastGroup = g;
+      }
+      el.wallList.appendChild(card(m.text, timeLabel(m.ts), false));
+    }
+    wallState.shown = end;
+    el.wallMore.hidden = end >= items.length;
+  }
+
+  function renderOwn(approved) {
+    var own = readOwn();
+    if (!own.length) return;
+    var h = document.createElement("div");
+    h.className = "label wall-group";
+    h.textContent = "Von dir";
+    el.wallList.appendChild(h);
+    own.forEach(function (o) {
+      var live = approved.some(function (m) { return m.text === o.text; });
+      el.wallList.appendChild(card(o.text, live ? "Dein Moment · auf der Wand" : "Dein Moment · wird gerade geprüft", true));
+    });
+  }
+
+  function card(text, meta, own) {
+    var c = document.createElement("article");
+    c.className = "moment" + (own ? " moment--own" : "");
+    var t = document.createElement("p");
+    t.className = "moment-text";
+    t.textContent = text;
+    var m = document.createElement("div");
+    m.className = "moment-meta";
+    m.textContent = meta;
+    c.appendChild(t);
+    c.appendChild(m);
+    return c;
+  }
+
+  function dayKey(d) { return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+  function groupLabel(m) {
+    var d = m.ts ? new Date(m.ts) : null;
+    var day = "";
+    if (d && !isNaN(d)) {
+      var today = new Date(), yest = new Date(Date.now() - 864e5);
+      day = dayKey(d) === dayKey(today) ? "Heute" : dayKey(d) === dayKey(yest) ? "Gestern" : d.getDate() + ". " + MONTHS[d.getMonth()];
+    }
+    return [day, m.passage].filter(Boolean).join(" · ");
+  }
+  function timeLabel(ts) {
+    var d = ts ? new Date(ts) : null;
+    if (!d || isNaN(d)) return "";
+    return (d.getHours() < 10 ? "0" : "") + d.getHours() + ":" + (d.getMinutes() < 10 ? "0" : "") + d.getMinutes();
+  }
+
+  el.goWall.addEventListener("click", goWall);
+  el.wallMore.addEventListener("click", renderWall);
+  el.wallBack.addEventListener("click", function () {
+    if (history.state && history.state.screen === "wall") history.back(); else goHome();
+  });
+  el.wallHome.addEventListener("click", goHome);
 
   setMode("moment");
 })();

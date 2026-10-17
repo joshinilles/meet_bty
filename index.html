@@ -115,6 +115,12 @@
       <input type="text" id="name" name="vorname" placeholder="Dein Name" autocomplete="given-name" maxlength="40" hidden>
     </div>
 
+    <label class="check" id="wallRow">
+      <input type="checkbox" name="wall" value="ja" id="wall">
+      <span class="check-box" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span>
+      <span class="check-text">Mein Moment darf anonym auf der <b>MEET WALL</b> erscheinen<small>Ohne Namen. Wir lesen jeden Moment, bevor er erscheint.</small></span>
+    </label>
+
     <p class="error" id="error" hidden>Das hat gerade nicht geklappt. Bitte probier es gleich noch einmal.</p>
 
     <button type="submit" class="btn btn--primary btn--full" id="send" disabled>Teilen</button>
@@ -129,7 +135,25 @@
   <h1 id="sentHeading">Danke fürs Teilen!</h1>
   <p class="lead" id="sentBody">Vielleicht posten wir deinen MEET-Moment im Kanal.</p>
   <div class="grow"></div>
-  <button type="button" class="btn btn--ghost btn--full" id="reset">Zurück zu heute</button>
+  <div class="stack">
+    <button type="button" class="btn btn--primary btn--full" id="goWall" hidden>Zur MEET WALL</button>
+    <button type="button" class="btn btn--ghost btn--full" id="reset">Zurück zu heute</button>
+  </div>
+</section>
+
+<!-- 4 · MEET WALL: freigegebene Momente der anderen, anonym – erreichbar nach dem Teilen -->
+<section class="screen screen--wall" id="screen-wall" hidden aria-labelledby="wallTitle">
+  <button type="button" class="back" id="wallBack">Heute</button>
+  <div class="wall-head">
+    <div class="kicker">Momente der anderen</div>
+    <h1 id="wallTitle" class="wall-title">MEET WALL<span class="wall-bar" aria-hidden="true"></span></h1>
+    <p class="hint">Was andere bei MEET erlebt haben. Anonym, von uns gelesen, bevor es hier steht.</p>
+  </div>
+  <div class="wall" id="wallList" aria-live="polite"></div>
+  <p class="hint wall-note" id="wallNote" hidden></p>
+  <button type="button" class="btn btn--ghost btn--full" id="wallMore" hidden>Mehr laden</button>
+  <div class="grow"></div>
+  <button type="button" class="btn btn--text" id="wallHome">Zurück zu heute</button>
 </section>
 
 </div>
