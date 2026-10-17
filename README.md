@@ -64,8 +64,9 @@ Lokal (file:// oder localhost) darf der Versand scheitern, die Erfolgskarte ersc
 
 Wer einen MEET-Moment schreibt, kann den Haken „Mein Moment darf anonym auf der MEET WALL erscheinen“ setzen
 (Opt-in, nur beim MEET-Moment, nicht bei Fragen). Die Wand selbst ist nur vom Danke-Screen aus erreichbar: erst teilen, dann sehen.
-Sie zeigt ausschliesslich **freigegebene** Momente, anonym (Text, Bibelstelle, Uhrzeit), gruppiert nach Tag.
-Der eigene Moment steht sofort oben („wird gerade geprüft“), das merkt sich nur das Gerät (`localStorage`, Schlüssel `meet:wall-own`, 7 Tage).
+Sie zeigt ausschliesslich **freigegebene** Momente, anonym (Text, Uhrzeit), als Pinnwand: kurze Momente nebeneinander, lange über die ganze Breite.
+Standardmässig nur der heutige Tag; „Momente der letzten Tage ansehen“ (dezenter Textlink) blendet frühere Tage gruppiert ein.
+Der eigene Moment steht sofort oben („Dein Moment · ist unterwegs“, nach der Freigabe „auf der Wand“), das merkt sich nur das Gerät (`localStorage`, Schlüssel `meet:wall-own`, 7 Tage).
 
 Ablauf im Hintergrund:
 

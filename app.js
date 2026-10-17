@@ -46,7 +46,8 @@
     wallRow: $("wallRow"), wall: $("wall"),
     sentKicker: $("sentKicker"), sentHeading: $("sentHeading"), sentBody: $("sentBody"),
     reset: $("reset"), goWall: $("goWall"),
-    wallBack: $("wallBack"), wallList: $("wallList"), wallNote: $("wallNote"), wallMore: $("wallMore"), wallHome: $("wallHome")
+    wallBack: $("wallBack"), wallKicker: $("wallKicker"), wallList: $("wallList"), wallNote: $("wallNote"),
+    wallMore: $("wallMore"), wallPast: $("wallPast"), wallHome: $("wallHome")
   };
 
   var reduce = false;
@@ -214,7 +215,8 @@
   var WALL_URL = "/.netlify/functions/wall";
   var OWN_KEY = "meet:wall-own";
   var PAGE = 20;
-  var wallState = { items: [], shown: 0, loaded: false };
+  // Die Wand zeigt den heutigen Tag; frühere Tage erst nach Tippen auf „Momente der letzten Tage ansehen“
+  var wallState = { items: [], shown: 0, loaded: false, past: false };
 
   // Eigene Momente mit Haken merkt sich das Gerät (7 Tage), damit sie oben auf der Wand stehen, bevor sie geprüft sind
   function readOwn() {
@@ -239,6 +241,7 @@
   function loadWall() {
     el.wallNote.hidden = true;
     el.wallMore.hidden = true;
+    el.wallPast.hidden = true;
     el.wallList.innerHTML = "";
     renderOwn([]);
     var loading = document.createElement("p");
@@ -263,27 +266,30 @@
 
   function note(text) { el.wallNote.textContent = text; el.wallNote.hidden = false; }
 
+  function isToday(m) { var d = m.ts ? new Date(m.ts) : null; return !!d && !isNaN(d) && dayKey(d) === dayKey(new Date()); }
+
   function renderWall() {
     el.wallList.innerHTML = "";
-    var items = wallState.items;
-    renderOwn(items);
+    var all = wallState.items;
+    var ownTexts = readOwn().map(function (o) { return o.text; });
+    var items = all.filter(function (m) { return ownTexts.indexOf(m.text) < 0 && (wallState.past || isToday(m)); });
+    var hasPast = all.some(function (m) { return !isToday(m); });
+    renderOwn(all);
+    el.wallKicker.textContent = wallState.past ? "Heute und die letzten Tage" : "Heute · " + cfg.passage;
+    el.wallPast.hidden = wallState.past || !hasPast;
     if (!items.length) {
-      note("Noch keine Momente auf der Wand. Deiner könnte der erste sein.");
+      note(wallState.past ? "Noch keine Momente auf der Wand. Deiner könnte der erste sein." : "Heute noch keine Momente auf der Wand. Deiner könnte der erste sein.");
+      el.wallMore.hidden = true;
       return;
     }
     el.wallNote.hidden = true;
-    var ownTexts = readOwn().map(function (o) { return o.text; });
     var end = Math.min(items.length, wallState.shown + PAGE);
     var lastGroup = null;
     for (var i = 0; i < end; i++) {
       var m = items[i];
-      if (ownTexts.indexOf(m.text) >= 0) continue; // eigene stehen schon oben unter „Von dir“
-      var g = groupLabel(m);
-      if (g !== lastGroup) {
-        var h = document.createElement("div");
-        h.className = "label wall-group";
-        h.textContent = g;
-        el.wallList.appendChild(h);
+      var g = wallState.past ? groupLabel(m) : "";
+      if (g && g !== lastGroup) {
+        el.wallList.appendChild(groupHead(g));
         lastGroup = g;
       }
       el.wallList.appendChild(card(m.text, timeLabel(m.ts), false));
@@ -292,22 +298,28 @@
     el.wallMore.hidden = end >= items.length;
   }
 
+  function groupHead(text) {
+    var h = document.createElement("div");
+    h.className = "label wall-group";
+    h.textContent = text;
+    return h;
+  }
+
   function renderOwn(approved) {
     var own = readOwn();
     if (!own.length) return;
-    var h = document.createElement("div");
-    h.className = "label wall-group";
-    h.textContent = "Von dir";
-    el.wallList.appendChild(h);
+    el.wallList.appendChild(groupHead("Von dir"));
     own.forEach(function (o) {
       var live = approved.some(function (m) { return m.text === o.text; });
-      el.wallList.appendChild(card(o.text, live ? "Dein Moment · auf der Wand" : "Dein Moment · wird gerade geprüft", true));
+      el.wallList.appendChild(card(o.text, live ? "Dein Moment · auf der Wand" : "Dein Moment · ist unterwegs", true));
     });
   }
 
+  // Pinnwand: kurze Momente teilen sich eine Reihe, lange bekommen die ganze Breite
   function card(text, meta, own) {
     var c = document.createElement("article");
-    c.className = "moment" + (own ? " moment--own" : "");
+    var wide = own || text.length > 90 || text.indexOf("\n") >= 0;
+    c.className = "moment" + (own ? " moment--own" : "") + (wide ? " moment--wide" : "");
     var t = document.createElement("p");
     t.className = "moment-text";
     t.textContent = text;
@@ -337,6 +349,7 @@
 
   el.goWall.addEventListener("click", goWall);
   el.wallMore.addEventListener("click", renderWall);
+  el.wallPast.addEventListener("click", function () { wallState.past = true; wallState.shown = 0; renderWall(); });
   el.wallBack.addEventListener("click", function () {
     if (history.state && history.state.screen === "wall") history.back(); else goHome();
   });

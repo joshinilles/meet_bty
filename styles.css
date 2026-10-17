@@ -311,27 +311,73 @@ textarea:focus,input:focus{outline:none;border-color:var(--lime)}
 .check-text b{font-family:var(--head);font-weight:700;color:var(--lime);letter-spacing:-.01em;white-space:nowrap}
 .check-text small{display:block;margin-top:3px;font-size:12.5px;color:var(--muted)}
 
-/* ---- 4 · MEET WALL ---- */
+/* ---- 4 · MEET WALL: Pinnwand – kurze Momente nebeneinander, lange über die ganze Breite ---- */
 .screen--wall{gap:16px}
 .wall-head{display:flex;flex-direction:column;gap:8px;margin-top:2px}
 .wall-title{display:inline-flex;align-items:flex-end;gap:.06em;font-size:clamp(34px,10vw,42px)}
 .wall-bar{display:inline-block;width:.62em;height:.17em;margin-bottom:.02em;background:var(--lime);animation:meetCursor 1.8s ease-in-out infinite}
-.wall{display:flex;flex-direction:column;gap:10px}
-.wall-group{padding:12px 4px 2px}
-.wall-group:first-child{padding-top:2px}
+.wall{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  grid-auto-flow:dense;
+  gap:14px 12px;
+  padding:6px 2px 10px;
+}
+.wall-group{grid-column:1 / -1;padding:10px 4px 0}
+.wall-group:first-child{padding-top:0}
 .moment{
-  padding:16px 16px 12px;
-  border-radius:18px;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  padding:22px 14px 12px;
+  border-radius:16px;
   background:var(--field);
   border:1.2px solid transparent;
   animation:rise .5s var(--spring) both;
 }
+.moment--wide{grid-column:1 / -1;padding:24px 16px 12px}
+/* der Pin oben, leicht schief wie an einer Korkwand */
+.moment::before{
+  content:"";
+  position:absolute;
+  top:-5px;left:50%;
+  width:12px;height:12px;
+  margin-left:-6px;
+  border-radius:50%;
+  background:var(--sun);
+  box-shadow:0 2px 4px rgba(0,0,0,.45),inset 0 -2px 2px rgba(0,0,0,.25);
+}
+.wall > .moment:nth-child(5n+1){transform:rotate(-1.1deg)}
+.wall > .moment:nth-child(5n+2){transform:rotate(.9deg)}
+.wall > .moment:nth-child(5n+3){transform:rotate(-.5deg)}
+.wall > .moment:nth-child(5n+4){transform:rotate(1.2deg)}
+.wall > .moment:nth-child(5n+5){transform:rotate(-.8deg)}
+.wall > .moment:nth-child(4n+2){background:var(--night3)}
+.wall > .moment:nth-child(7n+4){background:rgba(96,33,132,.55)}
+.wall > .moment:nth-child(3n+2)::before{background:var(--lime)}
+.wall > .moment:nth-child(4n+3)::before{background:var(--pink)}
 .moment--own{border-color:var(--lime)}
-.moment-text{margin:0;font-size:16.5px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;text-wrap:pretty}
-.moment-meta{margin-top:8px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--muted)}
+.moment--own::before{background:var(--lime)}
+.moment-text{margin:0;flex:1;font-size:15px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;text-wrap:pretty}
+.moment--wide .moment-text{font-size:16.5px;line-height:1.5}
+.moment-meta{margin-top:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted)}
 .moment--own .moment-meta{color:var(--lime)}
-.wall-loading{text-align:center;padding:24px 0;color:var(--muted)}
+.wall-loading{grid-column:1 / -1;text-align:center;padding:24px 0;color:var(--muted)}
 .wall-note{text-align:center;padding:8px 0}
+.wall-past{
+  align-self:center;
+  background:transparent;
+  border:0;
+  padding:10px 12px;
+  border-radius:10px;
+  font-size:13px;
+  color:var(--muted);
+  text-decoration:underline;
+  text-decoration-color:rgba(185,166,204,.4);
+  text-underline-offset:.25em;
+  cursor:pointer;
+}
+.wall-past:hover{color:#fff}
 .screen--wall .btn--text{align-self:center}
 
 /* ---- Hinweis: MEET auf den Home-Bildschirm (nur Handy, siehe homescreen.js) ---- */
