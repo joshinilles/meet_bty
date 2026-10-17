@@ -14,13 +14,12 @@ window.MEET_CONFIG = {
     // WhatsApp → Kanal öffnen → Kanalinfo → „Link kopieren“ (sieht so aus: https://whatsapp.com/channel/0029V…)
     whatsapp: "https://whatsapp.com/channel/0029Vb9lrj9E50UouYa6c20h",
 
-    // Social Media. Laut CI soll der Handle überall @meet.bty heissen (Anzeigename „MEET · bibletunes youth“);
-    // solange die Konten noch @bibletunes_youth heissen, bleiben die Links so. "handle" nur angeben, wenn der
+    // Social Media: Handle überall @meet_bty (Anzeigename „MEET_“). "handle" nur angeben, wenn der
     // angezeigte Name vom Link abweichen soll – sonst wird er aus dem Link gelesen.
     social: [
-      { id: "instagram", name: "Instagram", url: "https://www.instagram.com/bibletunes_youth" },
-      { id: "tiktok",    name: "TikTok",    url: "https://www.tiktok.com/@bibletunes_youth" },
-      { id: "youtube",   name: "YouTube",   url: "https://www.youtube.com/@bibletunes_youth" }
+      { id: "instagram", name: "Instagram", url: "https://www.instagram.com/meet_bty" },
+      { id: "tiktok",    name: "TikTok",    url: "https://www.tiktok.com/@meet_bty" },
+      { id: "youtube",   name: "YouTube",   url: "https://www.youtube.com/@meet_bty" }
       // Podcast MEET US – folgt, sobald eingerichtet (Komma oben ergänzen, Zeilen einkommentieren):
       // { id: "podcast", name: "Spotify",        url: "", handle: "MEET US" },
       // { id: "podcast", name: "Apple Podcasts", url: "", handle: "MEET US" }
