@@ -75,7 +75,9 @@ Ablauf im Hintergrund:
 1. Formular → Netlify Forms wie bisher (E-Mail-Benachrichtigung unverändert), neues Feld `wall` = `ja`.
 2. Netlify ruft `submission-created.mjs` auf; Momente mit Haken landen als `p/<id>` („wartet“) im Blobs-Store `meet-wall`.
 3. **Freigabe** unter `https://meet-bty.com/studio/wall/` mit der Studio-PIN (dieselbe wie im Studio, Umgebungsvariable `STUDIO_PIN`).
-   „Freigeben“ schreibt den Moment in `index.json`, das die Wand liest; „Nicht zeigen“ legt ihn als abgelehnt ab. Freigegebene lassen sich jederzeit wieder von der Wand nehmen.
+   „Freigeben“ schreibt den Moment in `index.json`, das die Wand liest. „Nicht zeigen“ und „Von der Wand nehmen“ verlangen eine kurze Begründung
+   (Vorschläge zum Antippen oder eigener Text); sie wird unter `r/<Hash des Textes>` abgelegt, und das Gerät des Absenders fragt sie über `?op=mine`
+   (ohne PIN, nur bei exakt bekanntem Text) ab und zeigt sie unter dem eigenen Moment: „diesmal nicht auf der Wand“ plus Begründung.
 4. Die Seite holt `/.netlify/functions/wall` bei jedem Öffnen der Wand (15 s Cache, höchstens 150 Einträge, 20 pro Seite).
 
 Voraussetzungen auf Netlify: `STUDIO_PIN` gesetzt; Blobs braucht keine Einrichtung. Datenschutz: freigegebene Momente sind öffentlich, aber ohne Namen;

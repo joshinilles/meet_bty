@@ -379,6 +379,10 @@ textarea:focus,input:focus{outline:none;border-color:var(--lime)}
 .moment--wide .moment-text{font-size:16.5px;line-height:1.5}
 .moment-meta{margin-top:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted)}
 .moment--own .moment-meta{color:var(--lime)}
+.moment--no{border-color:var(--sunl)}
+.moment--no::before{background:var(--sun)}
+.moment--no .moment-meta{color:var(--sunl)}
+.moment-reason{margin:8px 0 0;padding-top:8px;border-top:1px solid rgba(255,196,155,.25);font-size:13.5px;line-height:1.45;color:var(--soft)}
 .wall-loading{grid-column:1 / -1;text-align:center;padding:24px 0;color:var(--muted)}
 .wall-note{text-align:center;padding:8px 0}
 .wall-past{

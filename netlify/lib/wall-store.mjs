@@ -2,8 +2,10 @@
 // Schlüssel:  p/<id>      wartender Moment (noch nicht geprüft)
 //             d/<id>      entschiedener Moment (status "frei" oder "nein")
 //             index.json  freigegebene Momente, neueste zuerst, höchstens INDEX_MAX Einträge – das liest die Wand
+//             r/<hash>    abgelehnter Moment (Hash des Textes → Begründung), damit das Gerät des Absenders Bescheid weiss
 // Lokal (Entwicklungs-Server) ersetzt MEET_WALL_LOCAL_DIR die Blobs durch Dateien auf der Platte.
 import { getStore } from '@netlify/blobs';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -17,6 +19,10 @@ export function wallStore() {
   }
   return store;
 }
+
+// Texte werden für den Abgleich normalisiert (Leerraum, Gross/klein spielen keine Rolle)
+export const normText = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase();
+export const textHash = (t) => createHash('sha256').update(normText(t)).digest('hex');
 
 export const newId = () => Date.now().toString(36).padStart(9, '0') + '-' + Math.random().toString(36).slice(2, 8);
 

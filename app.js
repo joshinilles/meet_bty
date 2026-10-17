@@ -273,8 +273,34 @@
   }
   function rememberOwn(text, passage) {
     var list = readOwn();
-    list.unshift({ text: text, passage: passage, ts: new Date().toISOString() });
-    try { localStorage.setItem(OWN_KEY, JSON.stringify(list.slice(0, 5))); } catch (e) {}
+    list.unshift({ text: text, passage: passage, ts: new Date().toISOString(), status: "wartet" });
+    saveOwn(list);
+  }
+  function saveOwn(list) { try { localStorage.setItem(OWN_KEY, JSON.stringify(list.slice(0, 5))); } catch (e) {} }
+
+  // Fragt nach, was aus den eigenen Momenten geworden ist (frei, abgelehnt mit Begründung, oder noch unterwegs)
+  function checkOwn() {
+    var own = readOwn();
+    var open = own.filter(function (o) { return o.status !== "nein" && !wallState.items.some(function (m) { return m.text === o.text; }); });
+    if (!open.length) return Promise.resolve(false);
+    return fetch(WALL_URL + "?op=mine", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ texts: open.map(function (o) { return o.text; }) })
+    })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (j) {
+        var changed = false;
+        (j.items || []).forEach(function (st, i) {
+          var o = own.filter(function (x) { return x.text === open[i].text; })[0];
+          if (!o || !st || o.status === st.status) return;
+          o.status = st.status;
+          o.reason = st.reason || "";
+          changed = true;
+        });
+        if (changed) saveOwn(own);
+        return changed;
+      });
   }
 
   // Die Wand lädt bei jedem Öffnen neu (Freigaben sollen sofort sichtbar sein) und holt offen alle 60 s nach
@@ -304,7 +330,8 @@
       el.wallList.appendChild(loading);
     }
     fetchWall()
-      .then(function () { wallState.shown = 0; renderWall(); markSeen(); })
+      .then(function () { wallState.shown = 0; renderWall(); markSeen(); return checkOwn(); })
+      .then(function (changed) { if (changed) { wallState.shown = 0; renderWall(); } })
       .catch(function (err) {
         console.warn("[MEET] Wand nicht geladen:", err);
         if (wallState.loaded) return;
@@ -364,7 +391,18 @@
     el.wallList.appendChild(groupHead("Von dir"));
     own.forEach(function (o) {
       var live = approved.some(function (m) { return m.text === o.text; });
-      el.wallList.appendChild(card(o.text, live ? "Dein MEETmoment · Danke fürs Teilen!" : "Dein MEETmoment · ist unterwegs", true));
+      if (live) { el.wallList.appendChild(card(o.text, "Dein MEETmoment · Danke fürs Teilen!", true)); return; }
+      if (o.status === "nein") {
+        var c = card(o.text, "Dein MEETmoment · diesmal nicht auf der Wand", true);
+        c.classList.add("moment--no");
+        var why = document.createElement("p");
+        why.className = "moment-reason";
+        why.textContent = (o.reason || "Diesmal passt er nicht auf die Wand.") + " Danke trotzdem fürs Teilen, wir haben ihn gelesen.";
+        c.appendChild(why);
+        el.wallList.appendChild(c);
+        return;
+      }
+      el.wallList.appendChild(card(o.text, "Dein MEETmoment · ist unterwegs", true));
     });
     return own.length;
   }

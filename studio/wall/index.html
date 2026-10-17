@@ -21,13 +21,22 @@
 .tab{flex:1;min-height:40px;border:0;border-radius:999px;background:transparent;color:var(--soft);font-family:var(--head);font-weight:700;font-size:14px;cursor:pointer}
 .tab.is-on{background:var(--lime);color:var(--night)}
 .tab b{font-family:var(--mono);font-weight:500;font-size:12px;margin-left:6px;opacity:.8}
-.moment{animation:none}
+.wall{display:flex;flex-direction:column;gap:12px}
+.wall>.moment{animation:none;transform:none;background:var(--field)}
+.wall>.moment::before{background:var(--sun)}
 .moment-text{font-size:15.5px}
 .acts{display:flex;gap:8px;margin-top:12px}
 .acts .btn{flex:1;min-height:42px;border-radius:21px;font-size:14px}
 .btn--no{border:1.2px solid rgba(255,255,255,.3);background:transparent;color:#fff}
 .btn--no:hover{border-color:var(--sunl);color:var(--sunl)}
 .state{text-align:center;color:var(--muted);padding:20px 0;margin:0;font-size:14px}
+.why{display:flex;flex-direction:column;gap:10px;margin-top:12px;padding:12px;border-radius:14px;background:rgba(255,138,61,.1);border:1px solid rgba(255,138,61,.35)}
+.why .label{color:var(--sunl)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;border-radius:999px;padding:7px 11px;font-size:13px;cursor:pointer}
+.chip.is-on{background:var(--lime);border-color:var(--lime);color:var(--night)}
+.why input[type="text"]{min-height:44px;font-size:15px}
+.why .hint{font-size:12.5px;color:var(--muted)}
 .moment.is-busy{opacity:.5;pointer-events:none}
 </style>
 </head>
@@ -42,7 +51,7 @@
   <div class="mod-head">
     <div class="kicker">Freigabe</div>
     <h1 class="wall-title">MEET WALL<span class="wall-bar" aria-hidden="true"></span></h1>
-    <p class="hint">Was hier freigegeben wird, steht anonym auf meet-bty.com. Namen von anderen, Adressen oder Verletzendes: nicht zeigen.</p>
+    <p class="hint">Was hier freigegeben wird, steht anonym auf meet-bty.com. Namen von anderen, Adressen oder Verletzendes: nicht zeigen. Wer abgelehnt wird, sieht auf seinem Gerät die kurze Begründung.</p>
   </div>
   <div class="pin">
     <label class="sr-only" for="pin">Studio-PIN</label>
@@ -68,6 +77,13 @@
   var data = { pending: [], approved: [] };
   var tab = "pending";
   var MONTHS = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sep.", "Okt.", "Nov.", "Dez."];
+  // Vorschläge für die Begründung – der Absender liest sie wörtlich auf seiner Karte
+  var REASONS = [
+    "Bitte ohne Namen von anderen Personen.",
+    "Das ist uns zu persönlich für die Wand.",
+    "Das passt nicht zum heutigen Bibeltext.",
+    "Bitte etwas kürzer, dann gern noch einmal."
+  ];
 
   function settings() { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") || {}; } catch (e) { return {}; } }
   function savePin(pin) { try { var s = settings(); s.studioPin = pin; localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
@@ -119,20 +135,50 @@
       var acts = document.createElement("div"); acts.className = "acts";
       if (tab === "pending") {
         acts.appendChild(btn("Freigeben", "btn btn--primary", function () { act(c, "approve", m); }));
-        acts.appendChild(btn("Nicht zeigen", "btn btn--no", function () { act(c, "reject", m); }));
+        acts.appendChild(btn("Nicht zeigen", "btn btn--no", function () { askWhy(c, "reject", m); }));
       } else {
-        acts.appendChild(btn("Von der Wand nehmen", "btn btn--no", function () { act(c, "unpublish", m); }));
+        acts.appendChild(btn("Von der Wand nehmen", "btn btn--no", function () { askWhy(c, "unpublish", m); }));
       }
       c.appendChild(t); c.appendChild(meta); c.appendChild(acts);
       el.list.appendChild(c);
     });
   }
 
+  // Ablehnen geht nur mit Begründung: Vorschlag antippen oder selbst schreiben
+  function askWhy(card, op, m) {
+    var old = card.querySelector(".why");
+    if (old) { old.remove(); return; }
+    var box = document.createElement("div"); box.className = "why";
+    var lab = document.createElement("div"); lab.className = "label"; lab.textContent = op === "reject" ? "Warum nicht? Das sieht der Absender." : "Warum runter? Das sieht der Absender.";
+    var chips = document.createElement("div"); chips.className = "chips";
+    var input = document.createElement("input"); input.type = "text"; input.placeholder = "Eigene kurze Begründung …"; input.maxLength = 160;
+    REASONS.forEach(function (r) {
+      var ch = document.createElement("button"); ch.type = "button"; ch.className = "chip"; ch.textContent = r;
+      ch.addEventListener("click", function () {
+        var on = ch.classList.contains("is-on");
+        chips.querySelectorAll(".chip").forEach(function (x) { x.classList.remove("is-on"); });
+        if (!on) { ch.classList.add("is-on"); input.value = r; } else { input.value = ""; }
+      });
+      chips.appendChild(ch);
+    });
+    input.addEventListener("input", function () { chips.querySelectorAll(".chip").forEach(function (x) { x.classList.toggle("is-on", x.textContent === input.value); }); });
+    var row = document.createElement("div"); row.className = "acts"; row.style.marginTop = "0";
+    row.appendChild(btn(op === "reject" ? "Ablehnen" : "Von der Wand nehmen", "btn btn--primary", function () {
+      var reason = input.value.trim();
+      if (!reason) { state("Bitte eine kurze Begründung angeben."); input.focus(); return; }
+      act(card, op, m, reason);
+    }));
+    row.appendChild(btn("Abbrechen", "btn btn--no", function () { box.remove(); }));
+    box.appendChild(lab); box.appendChild(chips); box.appendChild(input); box.appendChild(row);
+    card.appendChild(box);
+    input.focus();
+  }
+
   function btn(label, cls, fn) { var b = document.createElement("button"); b.type = "button"; b.className = cls; b.textContent = label; b.addEventListener("click", fn); return b; }
 
-  function act(card, op, m) {
+  function act(card, op, m, reason) {
     card.classList.add("is-busy");
-    call(op, { id: m.id })
+    call(op, { id: m.id, reason: reason || "" })
       .then(function () {
         data.pending = data.pending.filter(function (x) { return x.id !== m.id; });
         data.approved = data.approved.filter(function (x) { return x.id !== m.id; });
