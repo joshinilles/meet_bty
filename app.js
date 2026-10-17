@@ -5,7 +5,7 @@
   "use strict";
 
   var cfg = Object.assign(
-    { passage: "Johannes 4,1–26", maxChars: 2000 },
+    { passage: "Johannes 4,1–26", maxChars: 2000, wallUnlock: "always" },
     window.MEET_CONFIG || {}
   );
 
@@ -45,7 +45,7 @@
     addName: $("addName"), name: $("name"), error: $("error"), send: $("send"),
     wallRow: $("wallRow"), wall: $("wall"),
     sentKicker: $("sentKicker"), sentHeading: $("sentHeading"), sentBody: $("sentBody"),
-    reset: $("reset"), goWall: $("goWall"),
+    reset: $("reset"), goWall: $("goWall"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
     wallBack: $("wallBack"), wallKicker: $("wallKicker"), wallList: $("wallList"), wallNote: $("wallNote"),
     wallMore: $("wallMore"), wallPast: $("wallPast"), wallHome: $("wallHome")
   };
@@ -180,6 +180,7 @@
       .then(function (res) {
         if (!res.ok) throw new Error("HTTP " + res.status);
         if (wantsWall) rememberOwn(text, cfg.passage);
+        if (state.mode === "moment") unlockWall();
         onSent(state.mode);
       })
       .catch(function (err) {
@@ -214,9 +215,53 @@
   // ---- MEET WALL: freigegebene Momente der anderen ----
   var WALL_URL = "/.netlify/functions/wall";
   var OWN_KEY = "meet:wall-own";
+  var UNLOCK_KEY = "meet:wall-unlocked"; // Tag des (letzten) Teilens – schaltet den Zugang auf dem Heute-Screen frei
+  var SEEN_KEY = "meet:wall-seen";       // Zeitpunkt des letzten Blicks auf die Wand – für „n neu“
   var PAGE = 20;
+  var POLL_MS = 60000;
   // Die Wand zeigt den heutigen Tag; frühere Tage erst nach Tippen auf „Momente der letzten Tage ansehen“
-  var wallState = { items: [], shown: 0, loaded: false, past: false };
+  var wallState = { items: [], shown: 0, loaded: false, past: false, timer: null };
+
+  function today() { return dayKey(new Date()); }
+  function unlockWall() {
+    try { localStorage.setItem(UNLOCK_KEY, today()); } catch (e) {}
+    updateHomeWall();
+    if (!wallState.loaded) fetchWall().catch(function () {});
+  }
+  function wallUnlocked() {
+    var v = null;
+    try { v = localStorage.getItem(UNLOCK_KEY); } catch (e) {}
+    if (!v) return false;
+    return cfg.wallUnlock === "day" ? v === today() : true;
+  }
+  function lastSeen() { var v = 0; try { v = Date.parse(localStorage.getItem(SEEN_KEY) || "") || 0; } catch (e) {} return v; }
+  function markSeen() { try { localStorage.setItem(SEEN_KEY, new Date().toISOString()); } catch (e) {} updateHomeWall(); }
+
+  // Heute-Screen: Zugang zur Wand (nur freigeschaltete Geräte) samt Zahl der neuen Momente seit dem letzten Blick
+  function updateHomeWall() {
+    var on = wallUnlocked();
+    el.homeWall.hidden = !on;
+    if (!on) return;
+    var ownTexts = readOwn().map(function (o) { return o.text; });
+    var seen = lastSeen();
+    var fresh = wallState.items.filter(function (m) { return isToday(m) && ownTexts.indexOf(m.text) < 0 && Date.parse(m.ts) > seen; }).length;
+    var todays = wallState.items.filter(isToday).length;
+    el.homeWallNew.hidden = !fresh;
+    el.homeWallNew.textContent = fresh + " neu";
+    el.homeWallSub.textContent = !wallState.loaded ? "Was andere heute erlebt haben"
+      : todays ? todays + (todays === 1 ? " Moment heute" : " Momente heute") : "Heute noch leer – deiner könnte der erste sein";
+  }
+
+  function fetchWall() {
+    return fetch(WALL_URL, { headers: { Accept: "application/json" } })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (j) {
+        wallState.items = (j && j.items) || [];
+        wallState.loaded = true;
+        updateHomeWall();
+        return wallState.items;
+      });
+  }
 
   // Eigene Momente mit Haken merkt sich das Gerät (7 Tage), damit sie oben auf der Wand stehen, bevor sie geprüft sind
   function readOwn() {
@@ -232,32 +277,37 @@
     try { localStorage.setItem(OWN_KEY, JSON.stringify(list.slice(0, 5))); } catch (e) {}
   }
 
+  // Die Wand lädt bei jedem Öffnen neu (Freigaben sollen sofort sichtbar sein) und holt offen alle 60 s nach
   function goWall() {
     show("wall", "fwd");
     try { history.pushState({ screen: "wall" }, ""); } catch (e) {}
-    if (!wallState.loaded) loadWall();
+    loadWall();
+    clearInterval(wallState.timer);
+    wallState.timer = setInterval(function () {
+      if (state.screen !== "wall" || document.hidden) return;
+      fetchWall().then(function () { wallState.shown = 0; renderWall(); markSeen(); }).catch(function () {});
+    }, POLL_MS);
   }
+  window.addEventListener("meet:screen", function () { if (state.screen !== "wall") clearInterval(wallState.timer); });
 
   function loadWall() {
     el.wallNote.hidden = true;
     el.wallMore.hidden = true;
     el.wallPast.hidden = true;
     el.wallList.innerHTML = "";
-    renderOwn([]);
-    var loading = document.createElement("p");
-    loading.className = "hint wall-loading";
-    loading.textContent = "Wand wird geladen …";
-    el.wallList.appendChild(loading);
-    fetch(WALL_URL, { headers: { Accept: "application/json" } })
-      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(function (j) {
-        wallState.items = (j && j.items) || [];
-        wallState.shown = 0;
-        wallState.loaded = true;
-        renderWall();
-      })
+    if (wallState.loaded) { wallState.shown = 0; renderWall(); } // Bekanntes sofort zeigen, frisch nachladen
+    else {
+      renderOwn([]);
+      var loading = document.createElement("p");
+      loading.className = "hint wall-loading";
+      loading.textContent = "Wand wird geladen …";
+      el.wallList.appendChild(loading);
+    }
+    fetchWall()
+      .then(function () { wallState.shown = 0; renderWall(); markSeen(); })
       .catch(function (err) {
         console.warn("[MEET] Wand nicht geladen:", err);
+        if (wallState.loaded) return;
         el.wallList.innerHTML = "";
         renderOwn([]);
         note("Die Wand lässt sich gerade nicht laden. Probier es später noch einmal.");
@@ -348,6 +398,7 @@
   }
 
   el.goWall.addEventListener("click", goWall);
+  el.homeWall.addEventListener("click", goWall);
   el.wallMore.addEventListener("click", renderWall);
   el.wallPast.addEventListener("click", function () { wallState.past = true; wallState.shown = 0; renderWall(); });
   el.wallBack.addEventListener("click", function () {
@@ -356,4 +407,9 @@
   el.wallHome.addEventListener("click", goHome);
 
   setMode("moment");
+  updateHomeWall();
+  if (wallUnlocked()) fetchWall().catch(function () {}); // Zahl der neuen Momente für den Heute-Screen
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && wallUnlocked()) fetchWall().then(function () { if (state.screen === "wall") { wallState.shown = 0; renderWall(); markSeen(); } }).catch(function () {});
+  });
 })();

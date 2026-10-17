@@ -148,8 +148,9 @@ html.ready .screen--home>*:nth-child(1){animation-delay:.18s}
 html.ready .screen--home>*:nth-child(2){animation-delay:.26s}
 html.ready .screen--home>*:nth-child(3){animation-delay:.34s}
 html.ready .screen--home>*:nth-child(5){animation-delay:.44s}
-html.ready .screen--home>*:nth-child(6){animation-delay:.52s}
-html.ready .screen--home>*:nth-child(7){animation-delay:.58s}
+html.ready .screen--home>*:nth-child(6){animation-delay:.5s}
+html.ready .screen--home>*:nth-child(7){animation-delay:.56s}
+html.ready .screen--home>*:nth-child(8){animation-delay:.62s}
 @keyframes rise{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
 
 /* ---- Screens: einer sichtbar, Wechsel schiebt seitlich ---- */
@@ -310,6 +311,22 @@ textarea:focus,input:focus{outline:none;border-color:var(--lime)}
 .check-text{display:block;font-size:14.5px;line-height:1.4;color:#fff}
 .check-text b{font-family:var(--head);font-weight:700;color:var(--lime);letter-spacing:-.01em;white-space:nowrap}
 .check-text small{display:block;margin-top:3px;font-size:12.5px;color:var(--muted)}
+
+/* ---- Heute-Screen: Zugang zur Wand, sobald das Gerät einmal geteilt hat ---- */
+.row--wall{width:100%;text-align:left;cursor:pointer;font:inherit;min-height:64px;margin-top:2px}
+.row--wall .row-icon{color:var(--lime)}
+.row--wall .row-handle{white-space:normal}
+.row-badge{
+  flex:none;
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.04em;
+  padding:5px 9px;
+  border-radius:999px;
+  background:var(--lime);
+  color:var(--night);
+  font-weight:600;
+}
 
 /* ---- 4 · MEET WALL: Pinnwand – kurze Momente nebeneinander, lange über die ganze Breite ---- */
 .screen--wall{gap:16px}

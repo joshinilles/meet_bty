@@ -17,7 +17,7 @@ export default async (req) => {
   if (req.method === 'GET') {
     try {
       const items = (await readIndex()).map(publicView);
-      return json({ items, updated: new Date().toISOString() }, 200, { 'Cache-Control': 'public, max-age=60' });
+      return json({ items, updated: new Date().toISOString() }, 200, { 'Cache-Control': 'public, max-age=15' });
     } catch (e) {
       return json({ error: 'Wand gerade nicht erreichbar: ' + msg(e) }, 502);
     }

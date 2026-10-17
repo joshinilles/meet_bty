@@ -63,7 +63,9 @@ Lokal (file:// oder localhost) darf der Versand scheitern, die Erfolgskarte ersc
 ## MEET WALL (Momente der anderen)
 
 Wer einen MEET-Moment schreibt, kann den Haken „Mein Moment darf anonym auf der MEET WALL erscheinen“ setzen
-(Opt-in, nur beim MEET-Moment, nicht bei Fragen). Die Wand selbst ist nur vom Danke-Screen aus erreichbar: erst teilen, dann sehen.
+(Opt-in, nur beim MEET-Moment, nicht bei Fragen). Die Wand öffnet sich nach dem Teilen vom Danke-Screen aus: erst teilen, dann sehen.
+Danach zeigt der Heute-Screen auf diesem Gerät dauerhaft einen Zugang „MEET WALL“ mit der Zahl der neuen Momente seit dem letzten Blick
+(`config.js` → `wallUnlock`: `"always"` = Gerät bleibt freigeschaltet, `"day"` = jeden Tag erst teilen). Offen lädt die Wand jede Minute nach.
 Sie zeigt ausschliesslich **freigegebene** Momente, anonym (Text, Uhrzeit), als Pinnwand: kurze Momente nebeneinander, lange über die ganze Breite.
 Standardmässig nur der heutige Tag; „Momente der letzten Tage ansehen“ (dezenter Textlink) blendet frühere Tage gruppiert ein.
 Der eigene Moment steht sofort oben („Dein Moment · ist unterwegs“, nach der Freigabe „auf der Wand“), das merkt sich nur das Gerät (`localStorage`, Schlüssel `meet:wall-own`, 7 Tage).
@@ -74,7 +76,7 @@ Ablauf im Hintergrund:
 2. Netlify ruft `submission-created.mjs` auf; Momente mit Haken landen als `p/<id>` („wartet“) im Blobs-Store `meet-wall`.
 3. **Freigabe** unter `https://meet-bty.com/studio/wall/` mit der Studio-PIN (dieselbe wie im Studio, Umgebungsvariable `STUDIO_PIN`).
    „Freigeben“ schreibt den Moment in `index.json`, das die Wand liest; „Nicht zeigen“ legt ihn als abgelehnt ab. Freigegebene lassen sich jederzeit wieder von der Wand nehmen.
-4. Die Seite holt `/.netlify/functions/wall` (eine Minute im Browser-Cache, höchstens 150 Einträge, 20 pro Seite).
+4. Die Seite holt `/.netlify/functions/wall` bei jedem Öffnen der Wand (15 s Cache, höchstens 150 Einträge, 20 pro Seite).
 
 Voraussetzungen auf Netlify: `STUDIO_PIN` gesetzt; Blobs braucht keine Einrichtung. Datenschutz: freigegebene Momente sind öffentlich, aber ohne Namen;
 auf Wunsch (Mail) in der Freigabeseite „Von der Wand nehmen“.
