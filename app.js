@@ -324,11 +324,14 @@
     var ownTexts = readOwn().map(function (o) { return o.text; });
     var items = all.filter(function (m) { return ownTexts.indexOf(m.text) < 0 && (wallState.past || isToday(m)); });
     var hasPast = all.some(function (m) { return !isToday(m); });
-    renderOwn(all);
+    var ownShown = renderOwn(all);
     el.wallKicker.textContent = wallState.past ? "Heute und die letzten Tage" : "Heute · " + cfg.passage;
     el.wallPast.hidden = wallState.past || !hasPast;
     if (!items.length) {
-      note(wallState.past ? "Noch keine Momente auf der Wand. Deiner könnte der erste sein." : "Heute noch keine Momente auf der Wand. Deiner könnte der erste sein.");
+      // Leer: entweder gibt es wirklich nichts, oder nur die eigenen Momente stehen schon oben
+      note(ownShown ? "Von anderen ist heute noch nichts da. Schau später noch mal rein."
+        : wallState.past ? "Noch keine Momente auf der Wand. Deiner könnte der erste sein."
+        : "Heute noch keine Momente auf der Wand. Deiner könnte der erste sein.");
       el.wallMore.hidden = true;
       return;
     }
@@ -357,12 +360,13 @@
 
   function renderOwn(approved) {
     var own = readOwn();
-    if (!own.length) return;
+    if (!own.length) return 0;
     el.wallList.appendChild(groupHead("Von dir"));
     own.forEach(function (o) {
       var live = approved.some(function (m) { return m.text === o.text; });
-      el.wallList.appendChild(card(o.text, live ? "Dein Moment · auf der Wand" : "Dein Moment · ist unterwegs", true));
+      el.wallList.appendChild(card(o.text, live ? "Dein MEETmoment · Danke fürs Teilen!" : "Dein MEETmoment · ist unterwegs", true));
     });
+    return own.length;
   }
 
   // Pinnwand: kurze Momente teilen sich eine Reihe, lange bekommen die ganze Breite

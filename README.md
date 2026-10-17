@@ -68,7 +68,7 @@ Danach zeigt der Heute-Screen auf diesem Gerät dauerhaft einen Zugang „MEET W
 (`config.js` → `wallUnlock`: `"always"` = Gerät bleibt freigeschaltet, `"day"` = jeden Tag erst teilen). Offen lädt die Wand jede Minute nach.
 Sie zeigt ausschliesslich **freigegebene** Momente, anonym (Text, Uhrzeit), als Pinnwand: kurze Momente nebeneinander, lange über die ganze Breite.
 Standardmässig nur der heutige Tag; „Momente der letzten Tage ansehen“ (dezenter Textlink) blendet frühere Tage gruppiert ein.
-Der eigene Moment steht sofort oben („Dein Moment · ist unterwegs“, nach der Freigabe „auf der Wand“), das merkt sich nur das Gerät (`localStorage`, Schlüssel `meet:wall-own`, 7 Tage).
+Der eigene Moment steht sofort oben („Dein MEETmoment · ist unterwegs“, nach der Freigabe „Danke fürs Teilen!“), das merkt sich nur das Gerät (`localStorage`, Schlüssel `meet:wall-own`, 7 Tage).
 
 Ablauf im Hintergrund:
 
