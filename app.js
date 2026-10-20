@@ -530,7 +530,15 @@
       var today = new Date(), yest = new Date(Date.now() - 864e5);
       day = dayKey(d) === dayKey(today) ? "Heute" : dayKey(d) === dayKey(yest) ? "Gestern" : d.getDate() + ". " + MONTHS[d.getMonth()];
     }
-    return [day, m.passage].filter(Boolean).join(" · ");
+    return [day, passageFor(d) || m.passage].filter(Boolean).join(" · ");
+  }
+  // Bibelstelle eines Tages aus dem Jahresplan (zuletzt geladene Fassung); heute notfalls die Stelle der Startseite
+  function passageFor(d) {
+    if (!d || isNaN(d)) return "";
+    var iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    var hit = "";
+    try { var c = JSON.parse(localStorage.getItem(PLAN_CACHE) || "null"); if (c && c.csv) hit = planLookup(c.csv, iso) || ""; } catch (e) {}
+    return hit || (dayKey(d) === dayKey(new Date()) ? cfg.passage : "");
   }
   function timeLabel(ts) {
     var d = ts ? new Date(ts) : null;
