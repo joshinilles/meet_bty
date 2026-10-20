@@ -143,6 +143,11 @@
   <h1 id="sentHeading">Danke fürs Teilen!</h1>
   <p class="lead" id="sentBody">Vielleicht posten wir deinen MEET-Moment im Kanal.</p>
   <div class="grow"></div>
+  <!-- Nach einer Frage: Push-Benachrichtigung, sobald die Antwort da ist (nur wo der Browser das kann) -->
+  <div class="push" id="pushBox" hidden>
+    <button type="button" class="btn btn--ghost btn--full" id="pushAsk">Sag mir Bescheid, wenn die Antwort da ist</button>
+    <p class="hint push-hint" id="pushHint" hidden></p>
+  </div>
   <div class="stack">
     <button type="button" class="btn btn--primary btn--full" id="goWall" hidden>Zur MEET WALL</button>
     <button type="button" class="btn btn--ghost btn--full" id="reset">Zurück zu heute</button>

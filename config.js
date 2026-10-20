@@ -33,5 +33,9 @@ window.MEET_CONFIG = {
       // { id: "podcast", name: "Spotify",        url: "", handle: "MEET US" },
       // { id: "podcast", name: "Apple Podcasts", url: "", handle: "MEET US" }
     ]
-  }
+  },
+
+  // Push-Benachrichtigung („Sag mir Bescheid, wenn die Antwort da ist“): öffentlicher VAPID-Schlüssel.
+  // Der private Schlüssel liegt NUR auf Netlify (Umgebungsvariable VAPID_PRIVATE_KEY, dazu VAPID_SUBJECT = mailto:…).
+  pushKey: "BMFvrYJWGGKhSuFYq4USrEY9Tw4ZLJQhvNOssjrgCkATdZh4P-JnenHfSAsGv769FwDbw9EF7KIKDa1N24CKtQc"
 };

@@ -5,6 +5,8 @@
 //             q/<id>      offene Frage zum Text (nur für die Prüfseite, mit Vorname – nie auf der Wand)
 //             qd/<id>     erledigte Frage (beantwortet oder ohne Antwort abgelegt; Antwort in .answer)
 //             qa/<hash>   beantwortete Frage (Hash des Fragetexts → Antwort), damit das Gerät des Fragenden sie abrufen kann
+//             s/<hash>    Push-Abo des Geräts, das diese Frage gestellt hat (Hash des Fragetexts → Web-Push-Subscription);
+//                         wird nach der Antwort-Push wieder gelöscht
 //             r/<hash>    abgelehnter Moment (Hash des Textes → Begründung), damit das Gerät des Absenders Bescheid weiss
 // Lokal (Entwicklungs-Server) ersetzt MEET_WALL_LOCAL_DIR die Blobs durch Dateien auf der Platte.
 import { getStore } from '@netlify/blobs';

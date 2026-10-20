@@ -3,6 +3,7 @@
   "private": true,
   "description": "meet-bty.com – statische Seite, Netlify Functions (Studio, MEET WALL)",
   "dependencies": {
-    "@netlify/blobs": "^11.1.4"
+    "@netlify/blobs": "^11.1.4",
+    "web-push": "^3.6.7"
   }
 }

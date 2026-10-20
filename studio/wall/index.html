@@ -89,6 +89,7 @@
   var tab = "pending";
   var showPast = false; // „Auf der Wand“ zeigt zuerst nur den heutigen Tag, wie die Wand selbst
   var showDone = false; // „Fragen“: erledigte (beantwortete) Fragen auf Wunsch darunter
+  var pushNote = "";    // Rückmeldung nach dem Antworten (Push verschickt oder nicht), einmalig über der Liste
   var WHO = ["Niklas", "Vincent"]; // wer antwortet – steht beim Fragenden über der Antwort
   var WHO_KEY = "meetwall:answerBy";  // zuletzt gewählter Name bleibt auf diesem Gerät vorausgewählt
   function whoDefault() { try { return localStorage.getItem(WHO_KEY) || ""; } catch (e) { return ""; } }
@@ -163,8 +164,9 @@
       if (!showPast) items = items.filter(function (m) { return dayOfItem(m) === todayKey; });
     }
     var hasDone = tab === "questions" && data.done.length > 0;
-    if (!items.length && !(tab === "approved" && hasPast) && !hasDone) { state(tab === "pending" ? "Nichts wartet. Alles geprüft." : tab === "questions" ? "Keine offenen Fragen." : "Noch nichts auf der Wand."); return; }
-    state(items.length ? "" : tab === "questions" ? "Keine offenen Fragen." : "Heute ist noch nichts auf der Wand.");
+    if (!items.length && !(tab === "approved" && hasPast) && !hasDone) { state(pushNote || (tab === "pending" ? "Nichts wartet. Alles geprüft." : tab === "questions" ? "Keine offenen Fragen." : "Noch nichts auf der Wand.")); pushNote = ""; return; }
+    state(pushNote || (items.length ? "" : tab === "questions" ? "Keine offenen Fragen." : "Heute ist noch nichts auf der Wand."));
+    pushNote = "";
     var lastDay = null;
     items.forEach(function (m) {
       if (tab === "approved") {
@@ -294,7 +296,8 @@
   function act(card, op, m, reason, answer, by) {
     card.classList.add("is-busy");
     call(op, { id: m.id, reason: reason || "", answer: answer || "", by: by || "" })
-      .then(function () {
+      .then(function (r) {
+        if (op === "question-answer") pushNote = r && r.pushed ? "Antwort gesendet · Push-Benachrichtigung ist raus." : "Antwort gesendet · dieses Gerät hat keine Push-Benachrichtigung angemeldet, die Antwort steht aber in der App.";
         data.pending = data.pending.filter(function (x) { return x.id !== m.id; });
         data.approved = data.approved.filter(function (x) { return x.id !== m.id; });
         data.questions = data.questions.filter(function (x) { return x.id !== m.id; });

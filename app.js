@@ -45,7 +45,7 @@
     addName: $("addName"), name: $("name"), error: $("error"), send: $("send"),
     wallRow: $("wallRow"), wall: $("wall"),
     sentKicker: $("sentKicker"), sentHeading: $("sentHeading"), sentBody: $("sentBody"),
-    reset: $("reset"), goWall: $("goWall"), homeAsks: $("homeAsks"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
+    reset: $("reset"), goWall: $("goWall"), pushBox: $("pushBox"), pushAsk: $("pushAsk"), pushHint: $("pushHint"), homeAsks: $("homeAsks"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
     wallBack: $("wallBack"), wallKicker: $("wallKicker"), wallList: $("wallList"), wallNote: $("wallNote"),
     wallMore: $("wallMore"), wallPast: $("wallPast"), wallHome: $("wallHome")
   };
@@ -271,6 +271,7 @@
     el.text.blur();
     el.wall.checked = false;
     el.goWall.hidden = mode !== "moment"; // die Wand gibt es nur nach einem geteilten MEET-Moment
+    showPushOffer(mode === "question");
     show("done", "fwd");
     try { history.replaceState({ screen: "done" }, ""); } catch (e) {}
   }
@@ -278,6 +279,86 @@
   el.reset.addEventListener("click", goHome);
 
   var WALL_URL = "/.netlify/functions/wall";
+
+  // ---- Push-Benachrichtigung: „Sag mir Bescheid, wenn die Antwort da ist“ ----
+  // Geht nur, wo der Browser Web Push kann; auf dem iPhone erst, wenn MEET auf dem Home-Bildschirm liegt.
+  var PUSH_KEY = "meet:push"; // "ja" = dieses Gerät hat Push erlaubt und ein Abo hinterlegt
+  var pushOk = !!(window.isSecureContext && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && cfg.pushKey);
+  var isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent || "");
+  var standalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  var swReady = pushOk ? navigator.serviceWorker.register("/sw.js").then(function () { return navigator.serviceWorker.ready; }).catch(function () { pushOk = false; return null; }) : Promise.resolve(null);
+
+  function pushRemembered() { try { return localStorage.getItem(PUSH_KEY) === "ja"; } catch (e) { return false; } }
+  function b64ToBytes(b64) {
+    var pad = "=".repeat((4 - b64.length % 4) % 4);
+    var raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  // Abo holen (oder anlegen) und für die offenen Fragen dieses Geräts hinterlegen
+  function subscribePush() {
+    return swReady.then(function (reg) {
+      if (!reg) throw new Error("kein Service Worker");
+      return reg.pushManager.getSubscription().then(function (sub) {
+        return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(cfg.pushKey) });
+      });
+    }).then(function (sub) {
+      var open = readAsks().filter(function (q) { return q.status !== "beantwortet"; }).map(function (q) { return q.text; });
+      return fetch(WALL_URL + "?op=subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ sub: sub.toJSON ? sub.toJSON() : sub, questions: open })
+      }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+    }).then(function () { try { localStorage.setItem(PUSH_KEY, "ja"); } catch (e) {} return true; });
+  }
+  function showPushOffer(on) {
+    el.pushBox.hidden = true;
+    el.pushHint.hidden = true;
+    el.pushAsk.hidden = false;
+    el.pushAsk.classList.remove("is-on");
+    el.pushAsk.disabled = false;
+    el.pushAsk.textContent = "Sag mir Bescheid, wenn die Antwort da ist";
+    if (!on) return;
+    if (pushOk) {
+      if (Notification.permission === "denied") return;
+      el.pushBox.hidden = false;
+      if (Notification.permission === "granted" && pushRemembered()) {
+        // Gerät hat schon zugestimmt: neue Frage still mit anmelden
+        el.pushAsk.hidden = true;
+        el.pushHint.textContent = "Wir sagen dir Bescheid, sobald die Antwort da ist.";
+        el.pushHint.hidden = false;
+        subscribePush().catch(function () {});
+      }
+      return;
+    }
+    if (isIOS && !standalone) {
+      // Safari auf dem iPhone kann Push erst als App auf dem Home-Bildschirm
+      el.pushBox.hidden = false;
+      el.pushAsk.hidden = true;
+      el.pushHint.textContent = "Leg MEET auf deinen Home-Bildschirm, dann können wir dir Bescheid sagen, sobald die Antwort da ist.";
+      el.pushHint.hidden = false;
+    }
+  }
+  el.pushAsk.addEventListener("click", function () {
+    el.pushAsk.disabled = true;
+    el.pushAsk.textContent = "Einen Moment …";
+    Promise.resolve(Notification.requestPermission()).then(function (perm) {
+      if (perm !== "granted") throw new Error("keine Erlaubnis");
+      return subscribePush();
+    }).then(function () {
+      el.pushAsk.hidden = true;
+      el.pushHint.textContent = "Wir sagen dir Bescheid, sobald die Antwort da ist.";
+      el.pushHint.hidden = false;
+    }).catch(function (err) {
+      console.warn("[MEET] Push nicht eingerichtet:", err);
+      el.pushAsk.hidden = true;
+      el.pushHint.textContent = Notification.permission === "denied"
+        ? "Benachrichtigungen sind für MEET ausgeschaltet. Die Antwort findest du trotzdem hier unter „Deine Frage“."
+        : "Das hat gerade nicht geklappt. Die Antwort findest du trotzdem hier unter „Deine Frage“.";
+      el.pushHint.hidden = false;
+    });
+  });
 
   // ---- Deine Frage: gestellte Fragen merkt sich das Gerät (30 Tage) und zeigt sie auf dem Heute-Screen,
   //      mit der Antwort, sobald sie auf der Freigabeseite geschrieben wurde ----

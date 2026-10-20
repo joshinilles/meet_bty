@@ -328,6 +328,11 @@ textarea:focus,input:focus{outline:none;border-color:var(--lime)}
   font-weight:600;
 }
 
+/* ---- Danke-Screen: Push-Benachrichtigung für die Antwort auf eine Frage ---- */
+.push{display:flex;flex-direction:column;gap:8px;width:100%;margin-bottom:6px}
+.push-hint{text-align:center;font-size:13px;color:var(--muted)}
+.push .btn.is-on{border-color:var(--lime);color:var(--lime)}
+
 /* ---- Heute-Screen: „Deine Frage“ – gestellte Fragen dieses Geräts samt Antwort ---- */
 .asks{display:flex;flex-direction:column;gap:10px;margin-top:2px}
 .ask{

@@ -9,6 +9,8 @@
 //   POST ?op=questions-done (PIN)                      → { items: erledigte Fragen, neueste zuerst (mit Antwort) }
 //   POST ?op=question-answer, Body {id, answer, by}     → { ok, id }  (Frage beantworten: q/ → qd/, Antwort unter qa/<hash> für den Fragenden; by = Name)
 //   POST ?op=question-done, Body {id}                   → { ok, id }  (Frage ohne Antwort ablegen: q/ → qd/)
+//   POST ?op=subscribe, Body {sub:{endpoint,keys}, questions:[…]} (ohne PIN)
+//        → { ok, n }  Push-Abo für die eigenen offenen Fragen hinterlegen (s/<hash>); bei der Antwort geht eine Push raus
 //   POST ?op=mine, Body {texts:[…], questions:[…]} (ohne PIN)
 //        → { items: [{status: frei|nein|wartet, reason}], questions: [{status: offen|beantwortet, answer, by, answeredAt}] }
 //          Stand der eigenen Momente und Fragen (nur bei exakt bekanntem Text)
@@ -36,6 +38,23 @@ export default async (req) => {
   let body = {}; try { body = await req.json(); } catch (e) { }
 
   // Ohne PIN: das Gerät des Absenders fragt nach dem Stand seiner eigenen Momente (nur bei exakt bekanntem Text)
+  // Ohne PIN: Push-Abo für die eigenen Fragen hinterlegen („Sag mir Bescheid, wenn die Antwort da ist“)
+  if (op === 'subscribe') {
+    const sub = body.sub && typeof body.sub === 'object' ? body.sub : null;
+    const qs = Array.isArray(body.questions) ? body.questions.filter((t) => typeof t === 'string' && t.trim()).slice(0, 5) : [];
+    if (!sub || typeof sub.endpoint !== 'string' || !/^https:\/\//.test(sub.endpoint) || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
+      return json({ error: 'Push-Abo unvollständig' }, 400);
+    }
+    if (!qs.length) return json({ ok: true, n: 0 });
+    try {
+      const clean = { endpoint: sub.endpoint.slice(0, 1000), keys: { p256dh: String(sub.keys.p256dh).slice(0, 200), auth: String(sub.keys.auth).slice(0, 100) } };
+      await Promise.all(qs.map((t) => writeJson('s/' + textHash(t), { sub: clean, at: new Date().toISOString() })));
+      return json({ ok: true, n: qs.length });
+    } catch (e) {
+      return json({ error: msg(e) }, 502);
+    }
+  }
+
   if (op === 'mine') {
     const strs = (a) => (Array.isArray(a) ? a.filter((t) => typeof t === 'string').slice(0, 5) : []);
     const texts = strs(body.texts), qs = strs(body.questions);
@@ -102,7 +121,10 @@ export default async (req) => {
       }
       await writeJson('qd/' + id, q);
       await remove('q/' + id);
-      return json({ ok: true, id });
+      // Push an das Gerät, das gefragt hat (falls es eins hinterlegt hat); scheitert leise, die Antwort steht trotzdem
+      let pushed = false;
+      if (op === 'question-answer') pushed = await pushAnswer(q);
+      return json({ ok: true, id, pushed });
     }
 
     if (op === 'approve' || op === 'reject') {
@@ -139,4 +161,56 @@ export default async (req) => {
 };
 
 const msg = (e) => (e && e.message ? e.message : String(e));
+
+// Schickt die Antwort als Push-Benachrichtigung an das Gerät, das die Frage gestellt hat.
+// Braucht auf Netlify VAPID_PRIVATE_KEY (und VAPID_SUBJECT, mailto:…); der öffentliche Schlüssel steht in config.js (pushKey).
+// Rückgabe: true = Push verschickt, false = kein Abo / keine Schlüssel / Versand gescheitert.
+async function pushAnswer(q) {
+  const key = 's/' + textHash(q.text);
+  const priv = process.env.VAPID_PRIVATE_KEY || '';
+  const pub = process.env.VAPID_PUBLIC_KEY || await publicKeyFromConfig();
+  if (!priv || !pub) { console.warn('[push] VAPID-Schlüssel fehlen (VAPID_PRIVATE_KEY auf Netlify setzen)'); return false; }
+  const s = await readJson(key, null);
+  if (!s || !s.sub) return false;
+  try {
+    const webpush = (await import('web-push')).default;
+    webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:hallo@bibletunes.com', pub, priv);
+    const body = String(q.answer || '').replace(/\s+/g, ' ').trim();
+    const payload = JSON.stringify({
+      title: q.by ? 'Antwort von ' + q.by : 'Deine Frage wurde beantwortet',
+      body: body.length > 140 ? body.slice(0, 137).trimEnd() + '…' : body,
+      url: '/',
+      tag: 'meet-antwort-' + q.id
+    });
+    await webpush.sendNotification(s.sub, payload, { TTL: 7 * 86400, urgency: 'normal' });
+    await remove(key);
+    return true;
+  } catch (e) {
+    const code = e && e.statusCode;
+    console.warn('[push] Versand gescheitert:', code || '', msg(e));
+    if (code === 404 || code === 410) await remove(key); // Abo ist weg (App gelöscht, Erlaubnis entzogen)
+    return false;
+  }
+}
+
+// Der öffentliche Schlüssel steht in config.js; die Funktion liest ihn von dort, damit er nur an einer Stelle gepflegt wird
+let pubKeyCache = '';
+async function publicKeyFromConfig() {
+  if (pubKeyCache) return pubKeyCache;
+  try {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const url = await import('node:url');
+    const here = path.dirname(url.fileURLToPath(import.meta.url));
+    const candidates = [path.join(here, '../../config.js'), path.join(here, '../config.js'), path.join(here, 'config.js'), path.join(process.cwd(), 'config.js')];
+    for (const file of candidates) {
+      try {
+        const txt = await fs.readFile(file, 'utf8');
+        const m = txt.match(/pushKey:\s*"([A-Za-z0-9_-]{80,100})"/);
+        if (m) return (pubKeyCache = m[1]);
+      } catch (e) { }
+    }
+  } catch (e) { }
+  return '';
+}
 export const config = { path: '/.netlify/functions/wall' };

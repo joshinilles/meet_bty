@@ -39,6 +39,14 @@
 
 [functions]
   directory = "netlify/functions"
+  # config.js liegt den Functions bei: die Antwort-Push liest dort den öffentlichen Push-Schlüssel (pushKey)
+  included_files = ["config.js"]
+
+# Service Worker (Push-Benachrichtigungen): nie lange zwischenspeichern, damit Änderungen sofort greifen
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
 
 # Abhängigkeiten der Functions (node_modules) sind nicht Teil der Website
 [[redirects]]
