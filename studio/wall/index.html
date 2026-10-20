@@ -89,6 +89,9 @@
   var tab = "pending";
   var showPast = false; // „Auf der Wand“ zeigt zuerst nur den heutigen Tag, wie die Wand selbst
   var showDone = false; // „Fragen“: erledigte (beantwortete) Fragen auf Wunsch darunter
+  var WHO = ["Niklas", "Vincent"]; // wer antwortet – steht beim Fragenden über der Antwort
+  var WHO_KEY = "meetwall:answerBy";  // zuletzt gewählter Name bleibt auf diesem Gerät vorausgewählt
+  function whoDefault() { try { return localStorage.getItem(WHO_KEY) || ""; } catch (e) { return ""; } }
   var MONTHS_LONG = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
   var MONTHS = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sep.", "Okt.", "Nov.", "Dez."];
   // Vorschläge für die Begründung – der Absender liest sie wörtlich auf seiner Karte
@@ -207,7 +210,7 @@
           c.appendChild(n); c.appendChild(t); c.appendChild(meta);
           if (m.answer) {
             var a = document.createElement("p"); a.className = "q-answer";
-            var b = document.createElement("b"); b.textContent = "Antwort · " + when(m.answeredAt || m.doneAt);
+            var b = document.createElement("b"); b.textContent = (m.by ? "Antwort von " + m.by : "Antwort") + " · " + when(m.answeredAt || m.doneAt);
             a.appendChild(b); a.appendChild(document.createTextNode(m.answer));
             c.appendChild(a);
           } else {
@@ -230,14 +233,28 @@
     var box = document.createElement("div"); box.className = "why why--answer";
     var lab = document.createElement("div"); lab.className = "label"; lab.textContent = m.name ? "Antwort an " + m.name + " – das liest nur sie oder er." : "Antwort – das liest nur die Person, die gefragt hat.";
     var input = document.createElement("textarea"); input.placeholder = "Eure Antwort …"; input.maxLength = 1200; input.value = m.answer || "";
+    // Wer antwortet? Auswahl als Chips, zuletzt gewählter Name vorausgewählt
+    var whoLab = document.createElement("div"); whoLab.className = "label"; whoLab.textContent = "Antwort von";
+    var chips = document.createElement("div"); chips.className = "chips";
+    var who = m.by || whoDefault();
+    WHO.forEach(function (n) {
+      var ch = document.createElement("button"); ch.type = "button"; ch.className = "chip" + (n === who ? " is-on" : ""); ch.textContent = n;
+      ch.addEventListener("click", function () {
+        who = n;
+        chips.querySelectorAll(".chip").forEach(function (x) { x.classList.toggle("is-on", x.textContent === n); });
+      });
+      chips.appendChild(ch);
+    });
     var row = document.createElement("div"); row.className = "acts"; row.style.marginTop = "0";
     row.appendChild(btn("Antwort senden", "btn btn--primary", function () {
       var answer = input.value.trim();
       if (!answer) { state("Bitte eine Antwort schreiben."); input.focus(); return; }
-      act(card, "question-answer", m, "", answer);
+      if (!who) { state("Bitte angeben, wer antwortet."); return; }
+      try { localStorage.setItem(WHO_KEY, who); } catch (e) {}
+      act(card, "question-answer", m, "", answer, who);
     }));
     row.appendChild(btn("Abbrechen", "btn btn--no", function () { box.remove(); }));
-    box.appendChild(lab); box.appendChild(input); box.appendChild(row);
+    box.appendChild(lab); box.appendChild(input); box.appendChild(whoLab); box.appendChild(chips); box.appendChild(row);
     card.appendChild(box);
     input.focus();
   }
@@ -274,9 +291,9 @@
 
   function btn(label, cls, fn) { var b = document.createElement("button"); b.type = "button"; b.className = cls; b.textContent = label; b.addEventListener("click", fn); return b; }
 
-  function act(card, op, m, reason, answer) {
+  function act(card, op, m, reason, answer, by) {
     card.classList.add("is-busy");
-    call(op, { id: m.id, reason: reason || "", answer: answer || "" })
+    call(op, { id: m.id, reason: reason || "", answer: answer || "", by: by || "" })
       .then(function () {
         data.pending = data.pending.filter(function (x) { return x.id !== m.id; });
         data.approved = data.approved.filter(function (x) { return x.id !== m.id; });
@@ -285,7 +302,7 @@
         if (op === "approve") data.approved.unshift(m);
         if (op === "question-answer" || op === "question-done") {
           m.doneAt = new Date().toISOString();
-          if (op === "question-answer") { m.answer = answer; m.answeredAt = m.doneAt; }
+          if (op === "question-answer") { m.answer = answer; m.by = by || ""; m.answeredAt = m.doneAt; }
           data.done.unshift(m);
         }
         render();

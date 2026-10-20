@@ -315,6 +315,7 @@
           if (!q || !st || st.status !== "beantwortet") return;
           q.status = "beantwortet";
           q.answer = st.answer || "";
+          q.by = st.by || "";
           q.answeredAt = st.answeredAt || new Date().toISOString();
           changed = true;
         });
@@ -339,7 +340,7 @@
       c.appendChild(head); c.appendChild(t);
       if (done) {
         var a = document.createElement("p"); a.className = "ask-answer";
-        var b = document.createElement("b"); b.textContent = "Unsere Antwort";
+        var b = document.createElement("b"); b.textContent = q.by ? "Antwort von " + q.by : "Unsere Antwort";
         a.appendChild(b); a.appendChild(document.createTextNode(q.answer || "Danke für deine Frage!"));
         c.appendChild(a);
       } else {

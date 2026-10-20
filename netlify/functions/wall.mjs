@@ -7,10 +7,10 @@
 //   POST ?op=reject | unpublish, Body {id, reason}      → { ok, id }  (reason = kurze Begründung für den Absender)
 //   POST ?op=questions (PIN)                           → { items: offene Fragen zum Text (mit Name, nie auf der Wand) }
 //   POST ?op=questions-done (PIN)                      → { items: erledigte Fragen, neueste zuerst (mit Antwort) }
-//   POST ?op=question-answer, Body {id, answer}         → { ok, id }  (Frage beantworten: q/ → qd/, Antwort unter qa/<hash> für den Fragenden)
+//   POST ?op=question-answer, Body {id, answer, by}     → { ok, id }  (Frage beantworten: q/ → qd/, Antwort unter qa/<hash> für den Fragenden; by = Name)
 //   POST ?op=question-done, Body {id}                   → { ok, id }  (Frage ohne Antwort ablegen: q/ → qd/)
 //   POST ?op=mine, Body {texts:[…], questions:[…]} (ohne PIN)
-//        → { items: [{status: frei|nein|wartet, reason}], questions: [{status: offen|beantwortet, answer, answeredAt}] }
+//        → { items: [{status: frei|nein|wartet, reason}], questions: [{status: offen|beantwortet, answer, by, answeredAt}] }
 //          Stand der eigenen Momente und Fragen (nur bei exakt bekanntem Text)
 // PIN: Header x-studio-pin = Umgebungsvariable STUDIO_PIN (dieselbe wie im MEET DAILY Studio).
 import { readJson, writeJson, remove, listKeys, readIndex, writeIndex, publicView, normText, textHash } from '../lib/wall-store.mjs';
@@ -48,7 +48,7 @@ export default async (req) => {
       }));
       const questions = await Promise.all(qs.map(async (t) => {
         const a = await readJson('qa/' + textHash(t), null);
-        return a ? { status: 'beantwortet', answer: a.answer || '', answeredAt: a.answeredAt || '' } : { status: 'offen' };
+        return a ? { status: 'beantwortet', answer: a.answer || '', by: a.by || '', answeredAt: a.answeredAt || '' } : { status: 'offen' };
       }));
       return json({ items, questions });
     } catch (e) {
@@ -64,6 +64,7 @@ export default async (req) => {
   const id = typeof body.id === 'string' && /^[a-z0-9-]{6,40}$/.test(body.id) ? body.id : '';
   const reason = typeof body.reason === 'string' ? body.reason.replace(/\s+/g, ' ').trim().slice(0, 160) : '';
   const answer = typeof body.answer === 'string' ? body.answer.replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').trim().slice(0, 1200) : '';
+  const by = typeof body.by === 'string' ? body.by.replace(/\s+/g, ' ').trim().slice(0, 40) : '';
 
   try {
     if (op === 'pending') {
@@ -95,8 +96,9 @@ export default async (req) => {
       q.doneAt = new Date().toISOString();
       if (op === 'question-answer') {
         q.answer = answer;
+        q.by = by;
         q.answeredAt = q.doneAt;
-        await writeJson('qa/' + textHash(q.text), { answer, answeredAt: q.answeredAt, id });
+        await writeJson('qa/' + textHash(q.text), { answer, by, answeredAt: q.answeredAt, id });
       }
       await writeJson('qd/' + id, q);
       await remove('q/' + id);
