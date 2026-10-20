@@ -328,6 +328,38 @@ textarea:focus,input:focus{outline:none;border-color:var(--lime)}
   font-weight:600;
 }
 
+/* ---- Heute-Screen: „Deine Frage“ – gestellte Fragen dieses Geräts samt Antwort ---- */
+.asks{display:flex;flex-direction:column;gap:10px;margin-top:2px}
+.ask{
+  position:relative;
+  display:flex;flex-direction:column;gap:8px;
+  padding:14px 16px 13px;
+  border-radius:16px;
+  background:var(--field);
+  border:1.2px solid rgba(255,255,255,.08);
+  animation:rise .5s var(--spring) both;
+}
+.ask--answered{border-color:rgba(212,246,90,.55);background:rgba(212,246,90,.06)}
+.ask-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ask-head .label{margin:0}
+.ask-state{
+  flex:none;
+  font-family:var(--mono);font-size:11px;letter-spacing:.04em;font-weight:600;
+  padding:5px 9px;border-radius:999px;
+  background:rgba(255,255,255,.1);color:var(--soft);
+}
+.ask--answered .ask-state{background:var(--lime);color:var(--night)}
+.ask-text{margin:0;font-size:15px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;text-wrap:pretty;color:#fff}
+.ask-answer{
+  margin:2px 0 0;padding:10px 12px;
+  border-left:3px solid var(--lime);border-radius:0 10px 10px 0;
+  background:rgba(255,255,255,.06);
+  font-size:14.5px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;text-wrap:pretty;color:#fff;
+}
+.ask-answer b{display:block;font-family:var(--head);font-weight:700;font-size:12.5px;letter-spacing:.02em;color:var(--lime);margin-bottom:3px}
+.ask-hint{margin:0;font-size:12.5px;line-height:1.4;color:var(--muted)}
+.ask-when{margin:0;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted)}
+
 /* ---- 4 · MEET WALL: Pinnwand – kurze Momente nebeneinander, lange über die ganze Breite ---- */
 .screen--wall{gap:16px}
 .wall-head{display:flex;flex-direction:column;gap:8px;margin-top:2px}

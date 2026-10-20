@@ -42,6 +42,12 @@
 .wall>.wall-group{padding-top:6px}
 .wall>.wall-past{align-self:center;margin-top:4px}
 .q-name{font-family:var(--head);font-weight:700;font-size:13px;color:var(--lime);margin-bottom:6px}
+.why--answer{background:rgba(212,246,90,.08);border-color:rgba(212,246,90,.4)}
+.why--answer .label{color:var(--lime)}
+.why textarea{min-height:110px;font-size:15px;line-height:1.45;resize:vertical}
+.q-answer{margin:10px 0 0;padding:10px 12px;border-left:3px solid var(--lime);border-radius:0 10px 10px 0;background:rgba(255,255,255,.06);font-size:14px;line-height:1.5;white-space:pre-wrap;color:#fff}
+.q-answer b{display:block;font-family:var(--head);font-size:12px;color:var(--lime);margin-bottom:2px}
+.q-none{margin:10px 0 0;font-size:13px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -55,7 +61,7 @@
   <div class="mod-head">
     <div class="kicker">Freigabe</div>
     <h1 class="wall-title">MEET WALL<span class="wall-bar" aria-hidden="true"></span></h1>
-    <p class="hint">Was hier freigegeben wird, steht anonym auf meet-bty.com. Namen von anderen, Adressen oder Verletzendes: nicht zeigen. Wer abgelehnt wird, sieht auf seinem Gerät die kurze Begründung. Unter „Fragen“ stehen die Fragen zum Text – nur für uns, nie auf der Wand.</p>
+    <p class="hint">Was hier freigegeben wird, steht anonym auf meet-bty.com. Namen von anderen, Adressen oder Verletzendes: nicht zeigen. Wer abgelehnt wird, sieht auf seinem Gerät die kurze Begründung. Unter „Fragen“ stehen die Fragen zum Text – nur für uns, nie auf der Wand. Was du dort als Antwort schreibst, sieht nur die Person, die gefragt hat, auf ihrem Gerät unter „Deine Frage“.</p>
   </div>
   <div class="pin">
     <label class="sr-only" for="pin">Studio-PIN</label>
@@ -79,9 +85,10 @@
   var SETTINGS_KEY = "meetstudio:settings:v2"; // dieselbe PIN wie im Studio
   var $ = function (id) { return document.getElementById(id); };
   var el = { pin: $("pin"), load: $("load"), list: $("list"), state: $("state"), nP: $("nPending"), nA: $("nApproved"), nQ: $("nQuestions"), tabs: [$("tabPending"), $("tabApproved"), $("tabQuestions")] };
-  var data = { pending: [], approved: [], questions: [] };
+  var data = { pending: [], approved: [], questions: [], done: [] };
   var tab = "pending";
   var showPast = false; // „Auf der Wand“ zeigt zuerst nur den heutigen Tag, wie die Wand selbst
+  var showDone = false; // „Fragen“: erledigte (beantwortete) Fragen auf Wunsch darunter
   var MONTHS_LONG = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
   var MONTHS = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sep.", "Okt.", "Nov.", "Dez."];
   // Vorschläge für die Begründung – der Absender liest sie wörtlich auf seiner Karte
@@ -111,11 +118,12 @@
     savePin(el.pin.value.trim());
     state("Wird geladen …");
     el.list.innerHTML = "";
-    Promise.all([call("pending"), call("approved"), call("questions")])
+    Promise.all([call("pending"), call("approved"), call("questions"), call("questions-done")])
       .then(function (r) {
         data.pending = r[0].items || [];
         data.approved = r[1].items || [];
         data.questions = r[2].items || [];
+        data.done = r[3].items || [];
         render();
       })
       .catch(function (e) { state(e.message); });
@@ -151,8 +159,9 @@
       hasPast = items.some(function (m) { return dayOfItem(m) !== todayKey; });
       if (!showPast) items = items.filter(function (m) { return dayOfItem(m) === todayKey; });
     }
-    if (!items.length && !(tab === "approved" && hasPast)) { state(tab === "pending" ? "Nichts wartet. Alles geprüft." : tab === "questions" ? "Keine offenen Fragen." : "Noch nichts auf der Wand."); return; }
-    state(items.length ? "" : "Heute ist noch nichts auf der Wand.");
+    var hasDone = tab === "questions" && data.done.length > 0;
+    if (!items.length && !(tab === "approved" && hasPast) && !hasDone) { state(tab === "pending" ? "Nichts wartet. Alles geprüft." : tab === "questions" ? "Keine offenen Fragen." : "Noch nichts auf der Wand."); return; }
+    state(items.length ? "" : tab === "questions" ? "Keine offenen Fragen." : "Heute ist noch nichts auf der Wand.");
     var lastDay = null;
     items.forEach(function (m) {
       if (tab === "approved") {
@@ -166,7 +175,8 @@
       var meta = document.createElement("div"); meta.className = "moment-meta"; meta.textContent = [m.passage, when(m.ts)].filter(Boolean).join(" · ");
       var acts = document.createElement("div"); acts.className = "acts";
       if (tab === "questions") {
-        acts.appendChild(btn("Erledigt", "btn btn--no", function () { act(c, "question-done", m); }));
+        acts.appendChild(btn("Antworten", "btn btn--primary", function () { askAnswer(c, m); }));
+        acts.appendChild(btn("Ohne Antwort ablegen", "btn btn--no", function () { act(c, "question-done", m); }));
       } else if (tab === "pending") {
         acts.appendChild(btn("Freigeben", "btn btn--primary", function () { act(c, "approve", m); }));
         acts.appendChild(btn("Nicht zeigen", "btn btn--no", function () { askWhy(c, "reject", m); }));
@@ -182,6 +192,54 @@
       past.addEventListener("click", function () { showPast = !showPast; render(); });
       el.list.appendChild(past);
     }
+    if (hasDone) {
+      var tg = document.createElement("button"); tg.type = "button"; tg.className = "wall-past";
+      tg.textContent = showDone ? "Erledigte Fragen ausblenden" : "Erledigte Fragen ansehen (" + data.done.length + ")";
+      tg.addEventListener("click", function () { showDone = !showDone; render(); });
+      el.list.appendChild(tg);
+      if (showDone) {
+        el.list.appendChild(groupHead("Erledigt"));
+        data.done.forEach(function (m) {
+          var c = document.createElement("article"); c.className = "moment moment--q";
+          var n = document.createElement("div"); n.className = "q-name"; n.textContent = m.name ? "Frage von " + m.name : "Frage ohne Namen";
+          var t = document.createElement("p"); t.className = "moment-text"; t.textContent = m.text;
+          var meta = document.createElement("div"); meta.className = "moment-meta"; meta.textContent = [m.passage, when(m.ts)].filter(Boolean).join(" · ");
+          c.appendChild(n); c.appendChild(t); c.appendChild(meta);
+          if (m.answer) {
+            var a = document.createElement("p"); a.className = "q-answer";
+            var b = document.createElement("b"); b.textContent = "Antwort · " + when(m.answeredAt || m.doneAt);
+            a.appendChild(b); a.appendChild(document.createTextNode(m.answer));
+            c.appendChild(a);
+          } else {
+            var none = document.createElement("p"); none.className = "q-none"; none.textContent = "Ohne Antwort abgelegt · " + when(m.doneAt);
+            c.appendChild(none);
+          }
+          var acts = document.createElement("div"); acts.className = "acts";
+          acts.appendChild(btn(m.answer ? "Antwort ändern" : "Doch antworten", "btn btn--no", function () { askAnswer(c, m); }));
+          c.appendChild(acts);
+          el.list.appendChild(c);
+        });
+      }
+    }
+  }
+
+  // Antworten: die Antwort landet auf dem Gerät der Person, die gefragt hat (unter „Deine Frage“ auf der Startseite)
+  function askAnswer(card, m) {
+    var old = card.querySelector(".why");
+    if (old) { old.remove(); return; }
+    var box = document.createElement("div"); box.className = "why why--answer";
+    var lab = document.createElement("div"); lab.className = "label"; lab.textContent = m.name ? "Antwort an " + m.name + " – das liest nur sie oder er." : "Antwort – das liest nur die Person, die gefragt hat.";
+    var input = document.createElement("textarea"); input.placeholder = "Eure Antwort …"; input.maxLength = 1200; input.value = m.answer || "";
+    var row = document.createElement("div"); row.className = "acts"; row.style.marginTop = "0";
+    row.appendChild(btn("Antwort senden", "btn btn--primary", function () {
+      var answer = input.value.trim();
+      if (!answer) { state("Bitte eine Antwort schreiben."); input.focus(); return; }
+      act(card, "question-answer", m, "", answer);
+    }));
+    row.appendChild(btn("Abbrechen", "btn btn--no", function () { box.remove(); }));
+    box.appendChild(lab); box.appendChild(input); box.appendChild(row);
+    card.appendChild(box);
+    input.focus();
   }
 
   // Ablehnen geht nur mit Begründung: Vorschlag antippen oder selbst schreiben
@@ -216,14 +274,20 @@
 
   function btn(label, cls, fn) { var b = document.createElement("button"); b.type = "button"; b.className = cls; b.textContent = label; b.addEventListener("click", fn); return b; }
 
-  function act(card, op, m, reason) {
+  function act(card, op, m, reason, answer) {
     card.classList.add("is-busy");
-    call(op, { id: m.id, reason: reason || "" })
+    call(op, { id: m.id, reason: reason || "", answer: answer || "" })
       .then(function () {
         data.pending = data.pending.filter(function (x) { return x.id !== m.id; });
         data.approved = data.approved.filter(function (x) { return x.id !== m.id; });
         data.questions = data.questions.filter(function (x) { return x.id !== m.id; });
+        data.done = data.done.filter(function (x) { return x.id !== m.id; });
         if (op === "approve") data.approved.unshift(m);
+        if (op === "question-answer" || op === "question-done") {
+          m.doneAt = new Date().toISOString();
+          if (op === "question-answer") { m.answer = answer; m.answeredAt = m.doneAt; }
+          data.done.unshift(m);
+        }
         render();
       })
       .catch(function (e) { card.classList.remove("is-busy"); state(e.message); });

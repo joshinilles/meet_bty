@@ -6,8 +6,12 @@
 //   POST ?op=approve, Body {id}                         → { ok, id }
 //   POST ?op=reject | unpublish, Body {id, reason}      → { ok, id }  (reason = kurze Begründung für den Absender)
 //   POST ?op=questions (PIN)                           → { items: offene Fragen zum Text (mit Name, nie auf der Wand) }
-//   POST ?op=question-done, Body {id}                   → { ok, id }  (Frage als erledigt ablegen: q/ → qd/)
-//   POST ?op=mine, Body {texts:[…]} (ohne PIN)          → { items: [{status: frei|nein|wartet, reason}] } – Status der eigenen Momente
+//   POST ?op=questions-done (PIN)                      → { items: erledigte Fragen, neueste zuerst (mit Antwort) }
+//   POST ?op=question-answer, Body {id, answer}         → { ok, id }  (Frage beantworten: q/ → qd/, Antwort unter qa/<hash> für den Fragenden)
+//   POST ?op=question-done, Body {id}                   → { ok, id }  (Frage ohne Antwort ablegen: q/ → qd/)
+//   POST ?op=mine, Body {texts:[…], questions:[…]} (ohne PIN)
+//        → { items: [{status: frei|nein|wartet, reason}], questions: [{status: offen|beantwortet, answer, answeredAt}] }
+//          Stand der eigenen Momente und Fragen (nur bei exakt bekanntem Text)
 // PIN: Header x-studio-pin = Umgebungsvariable STUDIO_PIN (dieselbe wie im MEET DAILY Studio).
 import { readJson, writeJson, remove, listKeys, readIndex, writeIndex, publicView, normText, textHash } from '../lib/wall-store.mjs';
 
@@ -33,15 +37,20 @@ export default async (req) => {
 
   // Ohne PIN: das Gerät des Absenders fragt nach dem Stand seiner eigenen Momente (nur bei exakt bekanntem Text)
   if (op === 'mine') {
-    const texts = Array.isArray(body.texts) ? body.texts.filter((t) => typeof t === 'string').slice(0, 5) : [];
+    const strs = (a) => (Array.isArray(a) ? a.filter((t) => typeof t === 'string').slice(0, 5) : []);
+    const texts = strs(body.texts), qs = strs(body.questions);
     try {
-      const approved = new Set((await readIndex()).map((m) => normText(m.text)));
+      const approved = texts.length ? new Set((await readIndex()).map((m) => normText(m.text))) : new Set();
       const items = await Promise.all(texts.map(async (t) => {
         if (approved.has(normText(t))) return { status: 'frei' };
         const r = await readJson('r/' + textHash(t), null);
         return r ? { status: 'nein', reason: r.reason || '' } : { status: 'wartet' };
       }));
-      return json({ items });
+      const questions = await Promise.all(qs.map(async (t) => {
+        const a = await readJson('qa/' + textHash(t), null);
+        return a ? { status: 'beantwortet', answer: a.answer || '', answeredAt: a.answeredAt || '' } : { status: 'offen' };
+      }));
+      return json({ items, questions });
     } catch (e) {
       return json({ error: msg(e) }, 502);
     }
@@ -54,6 +63,7 @@ export default async (req) => {
 
   const id = typeof body.id === 'string' && /^[a-z0-9-]{6,40}$/.test(body.id) ? body.id : '';
   const reason = typeof body.reason === 'string' ? body.reason.replace(/\s+/g, ' ').trim().slice(0, 160) : '';
+  const answer = typeof body.answer === 'string' ? body.answer.replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').trim().slice(0, 1200) : '';
 
   try {
     if (op === 'pending') {
@@ -69,12 +79,25 @@ export default async (req) => {
       items.sort((a, b) => (a.ts < b.ts ? 1 : -1));
       return json({ items });
     }
+    if (op === 'questions-done') {
+      const keys = await listKeys('qd/');
+      const items = (await Promise.all(keys.map((k) => readJson(k, null)))).filter(Boolean);
+      items.sort((a, b) => ((a.doneAt || a.ts) < (b.doneAt || b.ts) ? 1 : -1));
+      return json({ items: items.slice(0, 100) });
+    }
     if (!id) return json({ error: 'id fehlt' }, 400);
 
-    if (op === 'question-done') {
-      const q = await readJson('q/' + id, null);
+    // Frage beantworten (Antwort landet beim Fragenden) oder ohne Antwort ablegen
+    if (op === 'question-answer' || op === 'question-done') {
+      if (op === 'question-answer' && !answer) return json({ error: 'Bitte eine Antwort schreiben' }, 400);
+      const q = await readJson('q/' + id, null) || await readJson('qd/' + id, null);
       if (!q) return json({ error: 'Frage nicht gefunden' }, 404);
       q.doneAt = new Date().toISOString();
+      if (op === 'question-answer') {
+        q.answer = answer;
+        q.answeredAt = q.doneAt;
+        await writeJson('qa/' + textHash(q.text), { answer, answeredAt: q.answeredAt, id });
+      }
       await writeJson('qd/' + id, q);
       await remove('q/' + id);
       return json({ ok: true, id });

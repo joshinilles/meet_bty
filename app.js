@@ -28,7 +28,7 @@
       send: "Frage stellen",
       sentKicker: "Frage gestellt",
       sentHeading: function (n) { return n ? "Danke für deine Frage, " + n + "!" : "Danke für deine Frage!"; },
-      sentBody: "Wir greifen deine Frage im Kanal oder in MEET US auf."
+      sentBody: "Wir greifen deine Frage im Kanal oder in MEET US auf. Unsere Antwort findest du hier auf der Startseite unter „Deine Frage“."
     }
   };
 
@@ -45,7 +45,7 @@
     addName: $("addName"), name: $("name"), error: $("error"), send: $("send"),
     wallRow: $("wallRow"), wall: $("wall"),
     sentKicker: $("sentKicker"), sentHeading: $("sentHeading"), sentBody: $("sentBody"),
-    reset: $("reset"), goWall: $("goWall"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
+    reset: $("reset"), goWall: $("goWall"), homeAsks: $("homeAsks"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
     wallBack: $("wallBack"), wallKicker: $("wallKicker"), wallList: $("wallList"), wallNote: $("wallNote"),
     wallMore: $("wallMore"), wallPast: $("wallPast"), wallHome: $("wallHome")
   };
@@ -245,6 +245,7 @@
         if (!res.ok) throw new Error("HTTP " + res.status);
         if (wantsWall) rememberOwn(text, cfg.passage);
         if (state.mode === "moment") unlockWall();
+        if (state.mode === "question") rememberAsk(text, cfg.passage);
         onSent(state.mode);
       })
       .catch(function (err) {
@@ -276,8 +277,89 @@
 
   el.reset.addEventListener("click", goHome);
 
-  // ---- MEET WALL: freigegebene Momente der anderen ----
   var WALL_URL = "/.netlify/functions/wall";
+
+  // ---- Deine Frage: gestellte Fragen merkt sich das Gerät (30 Tage) und zeigt sie auf dem Heute-Screen,
+  //      mit der Antwort, sobald sie auf der Freigabeseite geschrieben wurde ----
+  var ASK_KEY = "meet:asks";
+  var ASK_DAYS = 30;
+  function readAsks() {
+    try {
+      var list = JSON.parse(localStorage.getItem(ASK_KEY) || "[]");
+      var cut = Date.now() - ASK_DAYS * 864e5;
+      return list.filter(function (q) { return q && q.text && Date.parse(q.ts) > cut; });
+    } catch (e) { return []; }
+  }
+  function saveAsks(list) { try { localStorage.setItem(ASK_KEY, JSON.stringify(list.slice(0, 5))); } catch (e) {} }
+  function rememberAsk(text, passage) {
+    var list = readAsks().filter(function (q) { return q.text !== text; });
+    list.unshift({ text: text, passage: passage, ts: new Date().toISOString(), status: "offen" });
+    saveAsks(list);
+    renderAsks();
+  }
+  // Fragt nach, ob eine der offenen Fragen inzwischen beantwortet wurde
+  function checkAsks() {
+    var asks = readAsks();
+    var open = asks.filter(function (q) { return q.status !== "beantwortet"; });
+    if (!open.length || !window.fetch) return Promise.resolve(false);
+    return fetch(WALL_URL + "?op=mine", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ questions: open.map(function (q) { return q.text; }) })
+    })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (j) {
+        var changed = false;
+        (j.questions || []).forEach(function (st, i) {
+          var q = asks.filter(function (x) { return x.text === open[i].text; })[0];
+          if (!q || !st || st.status !== "beantwortet") return;
+          q.status = "beantwortet";
+          q.answer = st.answer || "";
+          q.answeredAt = st.answeredAt || new Date().toISOString();
+          changed = true;
+        });
+        if (changed) { saveAsks(asks); renderAsks(); }
+        return changed;
+      })
+      .catch(function () { return false; });
+  }
+  function renderAsks() {
+    var asks = readAsks().slice(0, 3);
+    el.homeAsks.innerHTML = "";
+    el.homeAsks.hidden = !asks.length;
+    asks.forEach(function (q) {
+      var done = q.status === "beantwortet";
+      var c = document.createElement("article");
+      c.className = "ask" + (done ? " ask--answered" : "");
+      var head = document.createElement("div"); head.className = "ask-head";
+      var lab = document.createElement("span"); lab.className = "label"; lab.textContent = "Deine Frage";
+      var st = document.createElement("span"); st.className = "ask-state"; st.textContent = done ? "Beantwortet" : "Noch offen";
+      head.appendChild(lab); head.appendChild(st);
+      var t = document.createElement("p"); t.className = "ask-text"; t.textContent = q.text;
+      c.appendChild(head); c.appendChild(t);
+      if (done) {
+        var a = document.createElement("p"); a.className = "ask-answer";
+        var b = document.createElement("b"); b.textContent = "Unsere Antwort";
+        a.appendChild(b); a.appendChild(document.createTextNode(q.answer || "Danke für deine Frage!"));
+        c.appendChild(a);
+      } else {
+        var h = document.createElement("p"); h.className = "ask-hint"; h.textContent = "Wir lesen deine Frage. Die Antwort erscheint hier.";
+        c.appendChild(h);
+      }
+      var w = document.createElement("p"); w.className = "ask-when";
+      w.textContent = [askDay(q.ts), q.passage].filter(Boolean).join(" · ");
+      c.appendChild(w);
+      el.homeAsks.appendChild(c);
+    });
+  }
+  function askDay(ts) {
+    var d = ts ? new Date(ts) : null;
+    if (!d || isNaN(d)) return "";
+    var today = new Date(), yest = new Date(Date.now() - 864e5);
+    return dayKey(d) === dayKey(today) ? "Heute" : dayKey(d) === dayKey(yest) ? "Gestern" : d.getDate() + ". " + MONTHS[d.getMonth()];
+  }
+
+  // ---- MEET WALL: freigegebene Momente der anderen ----
   var OWN_KEY = "meet:wall-own";
   var UNLOCK_KEY = "meet:wall-unlocked"; // Tag des (letzten) Teilens – schaltet den Zugang auf dem Heute-Screen frei
   var SEEN_KEY = "meet:wall-seen";       // Zeitpunkt des letzten Blicks auf die Wand – für „n neu“
@@ -557,8 +639,11 @@
 
   setMode("moment");
   updateHomeWall();
+  renderAsks();
+  checkAsks();
   if (wallUnlocked()) fetchWall().catch(function () {}); // Zahl der neuen Momente für den Heute-Screen
   document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) checkAsks();
     if (!document.hidden && wallUnlocked()) fetchWall().then(function () { if (state.screen === "wall") { wallState.shown = 0; renderWall(); markSeen(); } }).catch(function () {});
   });
 })();
