@@ -11,13 +11,14 @@ import path from 'node:path';
 
 export const INDEX_MAX = 150;
 
-let store;
+// Der Blobs-Store wird bei JEDEM Zugriff neu angelegt: Netlify gibt der Funktion pro Aufruf ein kurzlebiges
+// Zugriffstoken; ein einmal gemerkter Store nutzt in einer warm gehaltenen Instanz das alte Token weiter
+// und scheitert dann mit „Failed to decode token: Token expired“ (so geschehen am 20.10.2026).
+let localStore;
 export function wallStore() {
-  if (!store) {
-    const dir = process.env.MEET_WALL_LOCAL_DIR;
-    store = dir ? fileStore(dir) : getStore({ name: 'meet-wall', consistency: 'strong' });
-  }
-  return store;
+  const dir = process.env.MEET_WALL_LOCAL_DIR;
+  if (dir) return (localStore = localStore || fileStore(dir));
+  return getStore({ name: 'meet-wall', consistency: 'strong' });
 }
 
 // Texte werden für den Abgleich normalisiert (Leerraum, Gross/klein spielen keine Rolle)
