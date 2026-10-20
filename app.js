@@ -284,7 +284,7 @@
   var PAGE = 20;
   var POLL_MS = 60000;
   // Die Wand zeigt den heutigen Tag; frühere Tage erst nach Tippen auf „Momente der letzten Tage ansehen“
-  var wallState = { items: [], shown: 0, loaded: false, past: false, timer: null };
+  var wallState = { items: [], shown: 0, loaded: false, stale: false, past: false, timer: null };
 
   function today() { return dayKey(new Date()); }
   function unlockWall() {
@@ -316,12 +316,26 @@
       : todays ? todays + (todays === 1 ? " Moment heute" : " Momente heute") : "Heute noch leer – deiner könnte der erste sein";
   }
 
+  var LIST_KEY = "meet:wall-list"; // letzte erfolgreich geladene Wand – Rückfall, wenn der Server gerade nicht antwortet
   function fetchWall() {
     return fetch(WALL_URL, { headers: { Accept: "application/json" } })
       .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(function (j) {
         wallState.items = (j && j.items) || [];
         wallState.loaded = true;
+        wallState.stale = false;
+        try { localStorage.setItem(LIST_KEY, JSON.stringify({ items: wallState.items, at: Date.now() })); } catch (e) {}
+        updateHomeWall();
+        return wallState.items;
+      })
+      .catch(function (err) {
+        if (wallState.loaded) throw err;
+        var c = null;
+        try { c = JSON.parse(localStorage.getItem(LIST_KEY) || "null"); } catch (e) {}
+        if (!c || !c.items || !c.items.length) throw err;
+        wallState.items = c.items;
+        wallState.loaded = true;
+        wallState.stale = true;
         updateHomeWall();
         return wallState.items;
       });
@@ -387,7 +401,7 @@
     el.wallList.innerHTML = "";
     if (wallState.loaded) { wallState.shown = 0; renderWall(); } // Bekanntes sofort zeigen, frisch nachladen
     else {
-      renderOwn([]);
+      renderOwn(ownToday());
       var loading = document.createElement("p");
       loading.className = "hint wall-loading";
       loading.textContent = "Wand wird geladen …";
@@ -400,7 +414,7 @@
         console.warn("[MEET] Wand nicht geladen:", err);
         if (wallState.loaded) return;
         el.wallList.innerHTML = "";
-        renderOwn([]);
+        renderOwn(ownToday());
         note("Die Wand lässt sich gerade nicht laden. Probier es später noch einmal.");
       });
   }
@@ -431,33 +445,43 @@
     return c;
   }
 
+  function ownToday() {
+    return readOwn().map(function (o) { return ownEntry(o, wallState.items); }).filter(isToday);
+  }
+
+  // Eine Liste, nach Tagen gegliedert („Heute · Bibelstelle“, „Gestern · …“, Datum). Innerhalb eines Tages
+  // stehen die eigenen Momente zuerst, dann die der anderen, neueste oben. Ohne „letzte Tage“ nur der heutige Tag.
   function renderWall() {
     el.wallList.innerHTML = "";
     var all = wallState.items;
-    var ownAll = readOwn().map(function (o) { return ownEntry(o, all); });
-    var ownTexts = ownAll.map(function (e) { return e.text; });
-    var ownToday = ownAll.filter(isToday), ownPast = ownAll.filter(function (e) { return !isToday(e); });
-    var others = all.filter(function (m) { return ownTexts.indexOf(m.text) < 0 && (wallState.past || isToday(m)); });
-    var items = wallState.past ? others.concat(ownPast).sort(function (a, b) { return (Date.parse(b.ts) || 0) - (Date.parse(a.ts) || 0); }) : others;
-    var hasPast = all.some(function (m) { return !isToday(m); }) || ownPast.length > 0;
-    var ownShown = renderOwn(ownToday);
+    var own = readOwn().map(function (o) { return ownEntry(o, all); });
+    var ownTexts = own.map(function (e) { return e.text; });
+    var others = all.filter(function (m) { return ownTexts.indexOf(m.text) < 0; });
+    var byTs = function (a, b) { return (Date.parse(b.ts) || 0) - (Date.parse(a.ts) || 0); };
+    var items = own.sort(byTs).concat(others.sort(byTs)).sort(function (a, b) {
+      var da = dayOf(a), db = dayOf(b);
+      return da === db ? 0 : da < db ? 1 : -1; // Tage absteigend, Reihenfolge innerhalb eines Tages bleibt (eigene zuerst)
+    });
+    if (!wallState.past) items = items.filter(isToday);
+    var hasPast = all.concat(own).some(function (m) { return !isToday(m); });
+    var ownShown = items.filter(function (m) { return m.own; }).length;
     el.wallKicker.textContent = wallState.past ? "Heute und die letzten Tage" : "Heute · " + cfg.passage;
     el.wallPast.hidden = wallState.past || !hasPast;
     if (!items.length) {
-      // Leer: entweder gibt es wirklich nichts, oder nur die eigenen Momente stehen schon oben
-      note(ownShown ? "Von anderen ist heute noch nichts da. Schau später noch mal rein."
-        : wallState.past ? "Noch keine Momente auf der Wand. Deiner könnte der erste sein."
+      note(wallState.past ? "Noch keine Momente auf der Wand. Deiner könnte der erste sein."
         : "Heute noch keine Momente auf der Wand. Deiner könnte der erste sein.");
       el.wallMore.hidden = true;
       return;
     }
-    el.wallNote.hidden = true;
+    if (ownShown && items.length === ownShown && !wallState.past) note("Von anderen ist heute noch nichts da. Schau später noch mal rein.");
+    else if (wallState.stale) note("Die Wand zeigt den zuletzt geladenen Stand – der Server antwortet gerade nicht.");
+    else el.wallNote.hidden = true;
     var end = Math.min(items.length, wallState.shown + PAGE);
     var lastGroup = null;
     for (var i = 0; i < end; i++) {
       var m = items[i];
-      var g = wallState.past ? groupLabel(m) : "";
-      if (g && g !== lastGroup) {
+      var g = groupLabel(m);
+      if (g !== lastGroup) {
         el.wallList.appendChild(groupHead(g));
         lastGroup = g;
       }
@@ -476,7 +500,7 @@
 
   function renderOwn(entries) {
     if (!entries.length) return 0;
-    el.wallList.appendChild(groupHead("Von dir"));
+    el.wallList.appendChild(groupHead("Heute · " + cfg.passage));
     entries.forEach(function (e) { el.wallList.appendChild(ownCard(e)); });
     return entries.length;
   }
@@ -498,9 +522,10 @@
   }
 
   function dayKey(d) { return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+  function dayOf(m) { var d = m.ts ? new Date(m.ts) : null; return d && !isNaN(d) ? d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate() : 0; }
   function groupLabel(m) {
     var d = m.ts ? new Date(m.ts) : null;
-    var day = "";
+    var day = "Ohne Datum";
     if (d && !isNaN(d)) {
       var today = new Date(), yest = new Date(Date.now() - 864e5);
       day = dayKey(d) === dayKey(today) ? "Heute" : dayKey(d) === dayKey(yest) ? "Gestern" : d.getDate() + ". " + MONTHS[d.getMonth()];
