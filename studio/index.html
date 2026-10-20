@@ -221,6 +221,8 @@ textarea.cap:focus{border-color:var(--pink)}
           <div class="seg" data-set="live"><button data-val="auto">Auto</button><button data-val="wc">Direkt</button><button data-val="raw">Kamera-Datei</button></div></div>
         <div class="row"><span>Titelkarte am Anfang<small>Nur das erste Bild zählt als Vorschau. 0,1 s = 3 Frames</small></span>
           <div class="seg" data-set="cardSec"><button data-val="0.1">0,1 s</button><button data-val="0.2">0,2 s</button><button data-val="0.5">0,5 s</button><button data-val="1">1 s</button></div></div>
+        <div class="row"><span>Übergang nach der Karte<small>Die Karte löst sich körnig von oben nach unten auf, darunter läuft das Video schon</small></span>
+          <div class="seg" data-set="transSec"><button data-val="0">Hart</button><button data-val="0.5">0,5 s</button><button data-val="0.8">0,8 s</button><button data-val="1.2">1,2 s</button></div></div>
         <div class="row"><span>Logo-Ecken im Video<small>MEET DAILY links, YOUTH b+ rechts (nicht nötig, die Karte reicht)</small></span>
           <div class="seg" data-set="corners"><button data-val="false">Aus</button><button data-val="true">An</button></div></div>
         <div class="row"><span>Kamera-Vorschau spiegeln<small>Nur die Vorschau, nicht der Export</small></span>
@@ -404,7 +406,7 @@ function speaker() { return SPEAKERS[settings.speaker] ? settings.speaker : 'vin
 function speakerName() { return SPEAKERS[speaker()].name; }
 
 /* ---------- Settings ---------- */
-const DEFAULTS = { speaker: 'vincent', hlFormat: 'post', live: 'auto', cardSec: 0.2, corners: false, mirrorPreview: true, mirrorExport: false, quality: '1080', encoder: 'auto', speed: 2 };
+const DEFAULTS = { speaker: 'vincent', hlFormat: 'post', live: 'auto', cardSec: 0.2, transSec: 0.8, corners: false, mirrorPreview: true, mirrorExport: false, quality: '1080', encoder: 'auto', speed: 2 };
 const settings = Object.assign({}, DEFAULTS);
 try { Object.assign(settings, JSON.parse(localStorage.getItem('meetstudio:settings:v2') || '{}')); } catch (e) { }
 function saveSettings() { try { localStorage.setItem('meetstudio:settings:v2', JSON.stringify(settings)); } catch (e) { } }
@@ -467,6 +469,48 @@ function dateLine(d) {
   d = d || new Date();
   return d.toLocaleDateString('de-DE', { weekday: 'long' }) + ' · ' + String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear();
 }
+/* Schriftgrösse (in 1080er-Einheiten) schrittweise verkleinern, bis der Text in maxW passt; setzt ctx.font und gibt die Grösse zurück */
+function fitFont(ctx, text, size, min, weight, family, s, maxW) {
+  for (;;) { ctx.font = `${weight} ${size * s}px ${family}`; if (ctx.measureText(text).width <= maxW || size <= min) return size; size -= 2; }
+}
+
+/* ---------- Übergang: Titelkarte löst sich körnig von oben nach unten auf, darunter läuft das Video schon ----------
+   wipePrepare(canvas) merkt sich die fertig gezeichnete Karte; wipeDraw(ctx, W, H, t) legt sie über das aktuelle Bild,
+   wobei nach t Sekunden (0 … settings.transSec) der obere Teil schon weg ist. Kante = Zufallsraster mit 4-px-Korn bei 1080. */
+const wipe = { card: null, tmp: null, mask: null, noise: null, G: 1, gw: 0, gh: 0 };
+function wipePrepare(src) {
+  const W = src.width, H = src.height;
+  if (!wipe.card || wipe.card.width !== W || wipe.card.height !== H) {
+    wipe.card = document.createElement('canvas'); wipe.card.width = W; wipe.card.height = H;
+    wipe.tmp = document.createElement('canvas'); wipe.tmp.width = W; wipe.tmp.height = H;
+    wipe.G = Math.max(1, Math.round(4 * W / 1080)); wipe.gw = Math.ceil(W / wipe.G); wipe.gh = Math.ceil(H / wipe.G);
+    wipe.mask = document.createElement('canvas'); wipe.mask.width = wipe.gw; wipe.mask.height = wipe.gh;
+    wipe.noise = new Uint8Array(wipe.gw * wipe.gh); for (let i = 0; i < wipe.noise.length; i++) wipe.noise[i] = Math.random() * 256;
+    wipe.img = wipe.mask.getContext('2d').createImageData(wipe.gw, wipe.gh);
+  }
+  wipe.card.getContext('2d').drawImage(src, 0, 0);
+}
+function wipeDraw(ctx, W, H, tSec) {
+  const dur = Number(settings.transSec) || 0;
+  if (!wipe.card || dur <= 0 || tSec >= dur) return;
+  let p = Math.max(0, tSec / dur); p = p * p * (3 - 2 * p);
+  const band = 0.4, e = p * (1 + band), gw = wipe.gw, gh = wipe.gh, d = wipe.img.data, nz = wipe.noise;
+  for (let gy = 0; gy < gh; gy++) {
+    const thr = (e - (gy + 0.5) / gh) / band;
+    const row = gy * gw;
+    if (thr <= 0) { for (let gx = 0; gx < gw; gx++) d[(row + gx) * 4 + 3] = 255; }
+    else if (thr >= 1) { for (let gx = 0; gx < gw; gx++) d[(row + gx) * 4 + 3] = 0; }
+    else { const t = thr * 255; for (let gx = 0; gx < gw; gx++) d[(row + gx) * 4 + 3] = nz[row + gx] > t ? 255 : 0; }
+  }
+  wipe.mask.getContext('2d').putImageData(wipe.img, 0, 0);
+  const tc = wipe.tmp.getContext('2d');
+  tc.globalCompositeOperation = 'source-over'; tc.clearRect(0, 0, W, H);
+  tc.drawImage(wipe.card, 0, p * 0.03 * H); /* leichtes Absinken, damit die Karte „wegfällt“ */
+  tc.globalCompositeOperation = 'destination-in'; tc.imageSmoothingEnabled = false; tc.drawImage(wipe.mask, 0, 0, W, H); tc.imageSmoothingEnabled = true;
+  tc.globalCompositeOperation = 'source-over';
+  ctx.drawImage(wipe.tmp, 0, 0);
+}
+
 /* Video 2 · MEETmoment: Karte mit Datum, Name und Foto des Sprechers (Design Okt 2026, 1080×1920, Rand 96, oben 240) */
 function drawCard2(ctx, W, H, ref, who) {
   const s = W / 1080, sp = SPEAKERS[who] || SPEAKERS.vincent;
@@ -484,12 +528,13 @@ function drawCard2(ctx, W, H, ref, who) {
   ctx.fillStyle = '#D4F65A'; spacedText(ctx, sp.name, x, cssBaseline(ctx, top + lh, lh, 136 * s), -0.02 * 136 * s);
   top += 2 * lh + 56 * s;
   const text = ref || 'Bibelstelle';
-  ctx.font = `400 ${54 * s}px ${FONT_MONO}`;
+  /* Schrift verkleinern, bis die Bibelstelle in die Box passt (statt abzuschneiden) */
+  const fs = fitFont(ctx, text, 54, 30, 400, FONT_MONO, s, W - 2 * x - 98 * s);
   const tw = ctx.measureText(text).width, bw = Math.min(tw + 98 * s, W - 2 * x), bh = 64.8 * s + 62 * s, bo = 2.5 * s;
   ctx.setLineDash([15 * s, 15 * s]); ctx.lineWidth = 5 * s; ctx.strokeStyle = '#D4F65A';
   roundRect(ctx, x + bo, top + bo, bw - 2 * bo, bh - 2 * bo, 28 * s - bo); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle = ref ? '#FFFFFF' : 'rgba(255,255,255,.5)';
-  ctx.save(); ctx.beginPath(); ctx.rect(x, top, bw, bh); ctx.clip(); ctx.fillText(text, x + 49 * s, cssBaseline(ctx, top + 31 * s, 64.8 * s, 54 * s)); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.rect(x, top, bw, bh); ctx.clip(); ctx.fillText(text, x + 49 * s, cssBaseline(ctx, top + 31 * s, 64.8 * s, fs * s)); ctx.restore();
   const im = IMG[who] || IMG.vincent;
   if (im) { const ph = sp.h * s, pw = ph * im.naturalWidth / im.naturalHeight; ctx.drawImage(im, W + sp.right * s - pw, H - ph, pw, ph); }
   if (IMG.youth) { const yh = 48 * s, yw = yh * 3094.54 / 1000; ctx.drawImage(IMG.youth, W - 64 * s - yw, H - 64 * s - yh, yw, yh); }
@@ -512,12 +557,14 @@ function drawCard(ctx, W, H, v, ref) {
   const titleBottom = 580 + (lines.length - 1) * ts * 0.98, subY = Math.min(1010, titleBottom + 160);
   ctx.font = `400 ${76 * s}px ${FONT_BODY}`; ctx.fillText(v.sub, x, subY * s);
   const text = ref || 'Bibelstelle';
-  ctx.font = `400 ${78 * s}px ${FONT_MONO}`;
-  const tw = ctx.measureText(text).width, padX = 66 * s, padY = 46 * s, bh = 78 * s + padY * 2, bw = Math.min(tw + padX * 2, W - 2 * x), by = (subY + 60) * s;
+  const padX = 66 * s, padY = 46 * s, bh = 78 * s + padY * 2, by = (subY + 60) * s;
+  /* Schrift verkleinern, bis die Bibelstelle in die Box passt (statt abzuschneiden); Boxhöhe bleibt */
+  const fs = fitFont(ctx, text, 78, 40, 400, FONT_MONO, s, W - 2 * x - padX * 2);
+  const tw = ctx.measureText(text).width, bw = Math.min(tw + padX * 2, W - 2 * x);
   ctx.setLineDash([24 * s, 16 * s]); ctx.lineWidth = 10 * s; ctx.strokeStyle = '#D4F65A';
   roundRect(ctx, x, by, bw, bh, 40 * s); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle = ref ? '#D4F65A' : 'rgba(212,246,90,.45)';
-  ctx.save(); ctx.beginPath(); ctx.rect(x, by, bw, bh); ctx.clip(); ctx.fillText(text, x + padX, by + padY + 78 * s * 0.76); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.rect(x, by, bw, bh); ctx.clip(); ctx.fillText(text, x + padX, by + bh / 2 + fs * s * 0.26); ctx.restore();
   drawCorners(ctx, W, H, false);
 }
 function drawCover(ctx, src, sw, sh, W, H, mirror) {
@@ -948,7 +995,7 @@ async function startLiveWC() {
     await countdown(3);
     session = new WCSession({ W, H, fps, bitrate, live: true, deferMux: true });
     await session.start();
-    drawCard(octx, W, H, current, getRef());
+    drawCard(octx, W, H, current, getRef()); wipePrepare(out);
     const n = Math.round(cardSec * fps);
     for (let i = 0; i < n; i++) session.addFrame(out, i / fps * 1e6, i === 0);
     const atrack = stream.getAudioTracks()[0]; if (!atrack) throw new Error('kein Mikrofon in der Kamera-Spur');
@@ -968,6 +1015,7 @@ async function startLiveWC() {
         try {
           drawCover(octx, cam, cam.videoWidth, cam.videoHeight, W, H, mirror);
           if (settings.corners) drawCorners(octx, W, H, true);
+          wipeDraw(octx, W, H, tUs / 1e6);
           if (session.busy < 8) { session.addFrame(out, cardSec * 1e6 + tUs, frames === 0); frames++; lastTs = tUs; } else skipped++;
         } catch (e) { ldiag('Frame-Fehler: ' + (e && e.message)); }
       }
@@ -1263,7 +1311,7 @@ function drawFrameCover(ctx, frame, rot, W, H, mirror) {
   ctx.save(); ctx.translate(W / 2, H / 2); if (mirror) ctx.scale(-1, 1); if (rot) ctx.rotate(rot * Math.PI / 180); ctx.drawImage(frame, -dw / 2, -dh / 2, dw, dh); ctx.restore();
 }
 /* Hardware-Weg: Pakete aus der Datei → VideoDecoder → Canvas → VideoEncoder. Liefert false, wenn der Decoder den Codec nicht kann. */
-async function decodePath(vt, file, ctl, diag, session, W, H, cardSec, onProgress, mirror) {
+async function decodePath(vt, file, ctl, diag, session, W, H, cardSec, onProgress, mirror, wipeFn) {
   if (!window.VideoDecoder || !window.EncodedVideoChunk) return false;
   const cfg = { codec: vt.codec, codedWidth: vt.width, codedHeight: vt.height };
   if (vt.description) cfg.description = vt.description;
@@ -1273,7 +1321,7 @@ async function decodePath(vt, file, ctl, diag, session, W, H, cardSec, onProgres
   diag(`Decoder: ${vt.codec} · ${vt.width}×${vt.height}${vt.rotation ? ' · gedreht ' + vt.rotation + '°' : ''} · ${vt.samples.length} Frames`);
   let err = null, frames = 0; const cardUs = cardSec * 1e6;
   const vdec = new VideoDecoder({
-    output: f => { try { drawFrameCover(octx, f, vt.rotation, W, H, mirror); if (settings.corners) drawCorners(octx, W, H, true); session.addFrame(out, cardUs + f.timestamp, false); frames++; if ((frames & 7) === 0) onProgress(f.timestamp / 1e6); } catch (e) { err = e; } finally { f.close(); } },
+    output: f => { try { drawFrameCover(octx, f, vt.rotation, W, H, mirror); if (settings.corners) drawCorners(octx, W, H, true); if (wipeFn) wipeFn(f.timestamp / 1e6); session.addFrame(out, cardUs + f.timestamp, false); frames++; if ((frames & 7) === 0) onProgress(f.timestamp / 1e6); } catch (e) { err = e; } finally { f.close(); } },
     error: e => err = e
   });
   vdec.configure(cfg);
@@ -1357,7 +1405,7 @@ async function processFiles(files, opt) {
       totalDur = parts.reduce((a, p) => a + Math.max(p.video ? spanSec(p.video.samples, p.video.timescale) : 0, p.audio && !p.audio.silent ? spanSec(p.audio.samples, p.audio.timescale) : 0), 0);
       session = new WCSession({ W, H, fps, bitrate, live: false, audioRaw: firstAud });
       await session.start();
-      drawCard(octx, W, H, current, getRef());
+      drawCard(octx, W, H, current, getRef()); wipePrepare(out);
       const n = Math.round(cardSec * fps);
       for (let i = 0; i < n; i++) session.addFrame(out, i / fps * 1e6, i === 0);
       if (firstAud) session.addRawSilence(cardSec);
@@ -1368,7 +1416,7 @@ async function processFiles(files, opt) {
         const part = parts[pi], file = files[pi];
         let vSpan = 0, aSpan = 0, decoded = false;
         if (part.video && caps.wcDec) {
-          decoded = await decodePath(part.video, file, ctl, diag, session, W, H, cardSec + offSec, t => progress(t, offSec), mirror);
+          decoded = await decodePath(part.video, file, ctl, diag, session, W, H, cardSec + offSec, t => progress(t, offSec), mirror, pi === 0 ? t => wipeDraw(octx, W, H, t) : null);
           if (decoded) { frames += decoded; vSpan = spanSec(part.video.samples, part.video.timescale); diag(`Abschnitt ${pi + 1}: ${decoded} Frames über Hardware nach ${el(t0).toFixed(1)} s`); }
         }
         if (!decoded) {
@@ -1382,7 +1430,7 @@ async function processFiles(files, opt) {
           const tick = (now, md) => {
             if (ctl.aborted || v.ended) return;
             const tt = md ? md.mediaTime : v.currentTime;
-            if (tt > lastT) { lastT = tt; drawCover(octx, v, v.videoWidth, v.videoHeight, W, H, mirror); if (settings.corners) drawCorners(octx, W, H, true); session.addFrame(out, (cardSec + offSec + tt) * 1e6, false); segFrames++; progress(tt, offSec); }
+            if (tt > lastT) { lastT = tt; drawCover(octx, v, v.videoWidth, v.videoHeight, W, H, mirror); if (settings.corners) drawCorners(octx, W, H, true); if (pi === 0) wipeDraw(octx, W, H, tt); session.addFrame(out, (cardSec + offSec + tt) * 1e6, false); segFrames++; progress(tt, offSec); }
             if (session.busy > 24 && !paused) { paused = true; v.pause(); }
             schedule();
           };
@@ -1408,6 +1456,7 @@ async function processFiles(files, opt) {
       await session.start();
       const tc = performance.now();
       await new Promise(res => { const loop = () => { if (ctl.aborted) return res(); drawCard(octx, W, H, current, getRef()); session.addFrame(); if (performance.now() - tc >= cardSec * 1000) res(); else requestAnimationFrame(loop); }; loop(); });
+      wipePrepare(out);
       for (let pi = 0; pi < files.length; pi++) {
         const v = await openVideo(files[pi]);
         totalDur += isFinite(v.duration) ? v.duration : 0;
@@ -1421,7 +1470,7 @@ async function processFiles(files, opt) {
         }
         pump = setInterval(() => { if (!ctl.aborted && !ended && v.paused) v.play().catch(() => { }); }, 300);
         diag('Abschnitt ' + (pi + 1) + ' läuft mit 1× · Ton: ' + audioMode);
-        await new Promise((res, rej) => { ctl.promise.catch(rej); const loop = () => { if (ctl.aborted) return; if (ended) return res(); drawCover(octx, v, v.videoWidth, v.videoHeight, W, H, mirror); if (settings.corners) drawCorners(octx, W, H, true); session.addFrame(); frames++; progress(v.currentTime, 0); requestAnimationFrame(loop); }; loop(); });
+        await new Promise((res, rej) => { ctl.promise.catch(rej); const loop = () => { if (ctl.aborted) return; if (ended) return res(); drawCover(octx, v, v.videoWidth, v.videoHeight, W, H, mirror); if (settings.corners) drawCorners(octx, W, H, true); if (pi === 0) wipeDraw(octx, W, H, v.currentTime); session.addFrame(); frames++; progress(v.currentTime, 0); requestAnimationFrame(loop); }; loop(); });
         clearInterval(pump);
       }
     }
@@ -1765,7 +1814,7 @@ window.MEET = { selfTest: async (sec, v) => {
   const p = liveMode() === 'wc' ? startLiveWC() : startLiveRaw();
   await sleep(3200 + sec * 1000); if (recording) recording.stop();
   await p; osc.stop(); a.close();
-}, reprocess: (v) => { current = VIDEOS[v || 1]; return processFile(result.file, {}); }, result: () => result, processFromUrl: async (u, v) => { current = VIDEOS[v || 1]; const r = await fetch(u); const b = await r.blob(); return processFile(new File([b], 'test.mp4', { type: b.type || 'video/mp4' }), {}); }, settings, caps, drawCard, drawCard2, VIDEOS, IMG, loadPlan, planLookup, plan: () => plan, drawHighlight, openHighlight, hl: () => hl, hlAudioChunks, hlMux };
+}, reprocess: (v) => { current = VIDEOS[v || 1]; return processFile(result.file, {}); }, result: () => result, processFromUrl: async (u, v) => { current = VIDEOS[v || 1]; const r = await fetch(u); const b = await r.blob(); return processFile(new File([b], 'test.mp4', { type: b.type || 'video/mp4' }), {}); }, settings, caps, drawCard, drawCard2, wipePrepare, wipeDraw, VIDEOS, IMG, loadPlan, planLookup, plan: () => plan, drawHighlight, openHighlight, hl: () => hl, hlAudioChunks, hlMux };
 })();
 </script>
 
