@@ -38,6 +38,8 @@
 .why input[type="text"]{min-height:44px;font-size:15px}
 .why .hint{font-size:12.5px;color:var(--muted)}
 .moment.is-busy{opacity:.5;pointer-events:none}
+.wall>.moment--q::before{background:var(--lime)}
+.q-name{font-family:var(--head);font-weight:700;font-size:13px;color:var(--lime);margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -51,7 +53,7 @@
   <div class="mod-head">
     <div class="kicker">Freigabe</div>
     <h1 class="wall-title">MEET WALL<span class="wall-bar" aria-hidden="true"></span></h1>
-    <p class="hint">Was hier freigegeben wird, steht anonym auf meet-bty.com. Namen von anderen, Adressen oder Verletzendes: nicht zeigen. Wer abgelehnt wird, sieht auf seinem Gerät die kurze Begründung.</p>
+    <p class="hint">Was hier freigegeben wird, steht anonym auf meet-bty.com. Namen von anderen, Adressen oder Verletzendes: nicht zeigen. Wer abgelehnt wird, sieht auf seinem Gerät die kurze Begründung. Unter „Fragen“ stehen die Fragen zum Text – nur für uns, nie auf der Wand.</p>
   </div>
   <div class="pin">
     <label class="sr-only" for="pin">Studio-PIN</label>
@@ -61,6 +63,7 @@
   <div class="tabs" role="tablist">
     <button type="button" class="tab is-on" role="tab" id="tabPending" data-tab="pending">Wartet<b id="nPending">–</b></button>
     <button type="button" class="tab" role="tab" id="tabApproved" data-tab="approved">Auf der Wand<b id="nApproved">–</b></button>
+    <button type="button" class="tab" role="tab" id="tabQuestions" data-tab="questions">Fragen<b id="nQuestions">–</b></button>
   </div>
   <p class="state" id="state">PIN eingeben und laden.</p>
   <div class="wall" id="list"></div>
@@ -73,8 +76,8 @@
   var API = "/.netlify/functions/wall";
   var SETTINGS_KEY = "meetstudio:settings:v2"; // dieselbe PIN wie im Studio
   var $ = function (id) { return document.getElementById(id); };
-  var el = { pin: $("pin"), load: $("load"), list: $("list"), state: $("state"), nP: $("nPending"), nA: $("nApproved"), tabs: [$("tabPending"), $("tabApproved")] };
-  var data = { pending: [], approved: [] };
+  var el = { pin: $("pin"), load: $("load"), list: $("list"), state: $("state"), nP: $("nPending"), nA: $("nApproved"), nQ: $("nQuestions"), tabs: [$("tabPending"), $("tabApproved"), $("tabQuestions")] };
+  var data = { pending: [], approved: [], questions: [] };
   var tab = "pending";
   var MONTHS = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sep.", "Okt.", "Nov.", "Dez."];
   // Vorschläge für die Begründung – der Absender liest sie wörtlich auf seiner Karte
@@ -104,10 +107,11 @@
     savePin(el.pin.value.trim());
     state("Wird geladen …");
     el.list.innerHTML = "";
-    Promise.all([call("pending"), call("approved")])
+    Promise.all([call("pending"), call("approved"), call("questions")])
       .then(function (r) {
         data.pending = r[0].items || [];
         data.approved = r[1].items || [];
+        data.questions = r[2].items || [];
         render();
       })
       .catch(function (e) { state(e.message); });
@@ -122,18 +126,22 @@
   function render() {
     el.nP.textContent = data.pending.length;
     el.nA.textContent = data.approved.length;
+    el.nQ.textContent = data.questions.length;
     el.tabs.forEach(function (t) { t.classList.toggle("is-on", t.dataset.tab === tab); });
     el.list.innerHTML = "";
     var items = data[tab];
-    if (!items.length) { state(tab === "pending" ? "Nichts wartet. Alles geprüft." : "Noch nichts auf der Wand."); return; }
+    if (!items.length) { state(tab === "pending" ? "Nichts wartet. Alles geprüft." : tab === "questions" ? "Keine offenen Fragen." : "Noch nichts auf der Wand."); return; }
     state("");
     items.forEach(function (m) {
       var c = document.createElement("article");
-      c.className = "moment";
+      c.className = "moment" + (tab === "questions" ? " moment--q" : "");
+      if (tab === "questions") { var n = document.createElement("div"); n.className = "q-name"; n.textContent = m.name ? "Frage von " + m.name : "Frage ohne Namen"; c.appendChild(n); }
       var t = document.createElement("p"); t.className = "moment-text"; t.textContent = m.text;
       var meta = document.createElement("div"); meta.className = "moment-meta"; meta.textContent = [m.passage, when(m.ts)].filter(Boolean).join(" · ");
       var acts = document.createElement("div"); acts.className = "acts";
-      if (tab === "pending") {
+      if (tab === "questions") {
+        acts.appendChild(btn("Erledigt", "btn btn--no", function () { act(c, "question-done", m); }));
+      } else if (tab === "pending") {
         acts.appendChild(btn("Freigeben", "btn btn--primary", function () { act(c, "approve", m); }));
         acts.appendChild(btn("Nicht zeigen", "btn btn--no", function () { askWhy(c, "reject", m); }));
       } else {
@@ -182,6 +190,7 @@
       .then(function () {
         data.pending = data.pending.filter(function (x) { return x.id !== m.id; });
         data.approved = data.approved.filter(function (x) { return x.id !== m.id; });
+        data.questions = data.questions.filter(function (x) { return x.id !== m.id; });
         if (op === "approve") data.approved.unshift(m);
         render();
       })

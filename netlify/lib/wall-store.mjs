@@ -2,6 +2,8 @@
 // Schlüssel:  p/<id>      wartender Moment (noch nicht geprüft)
 //             d/<id>      entschiedener Moment (status "frei" oder "nein")
 //             index.json  freigegebene Momente, neueste zuerst, höchstens INDEX_MAX Einträge – das liest die Wand
+//             q/<id>      offene Frage zum Text (nur für die Prüfseite, mit Vorname – nie auf der Wand)
+//             qd/<id>     erledigte Frage (von den Moderatoren abgehakt)
 //             r/<hash>    abgelehnter Moment (Hash des Textes → Begründung), damit das Gerät des Absenders Bescheid weiss
 // Lokal (Entwicklungs-Server) ersetzt MEET_WALL_LOCAL_DIR die Blobs durch Dateien auf der Platte.
 import { getStore } from '@netlify/blobs';

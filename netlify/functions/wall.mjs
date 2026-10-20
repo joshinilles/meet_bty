@@ -5,6 +5,8 @@
 //   POST ?op=approved  (PIN)                            → { items: freigegebene Momente }
 //   POST ?op=approve, Body {id}                         → { ok, id }
 //   POST ?op=reject | unpublish, Body {id, reason}      → { ok, id }  (reason = kurze Begründung für den Absender)
+//   POST ?op=questions (PIN)                           → { items: offene Fragen zum Text (mit Name, nie auf der Wand) }
+//   POST ?op=question-done, Body {id}                   → { ok, id }  (Frage als erledigt ablegen: q/ → qd/)
 //   POST ?op=mine, Body {texts:[…]} (ohne PIN)          → { items: [{status: frei|nein|wartet, reason}] } – Status der eigenen Momente
 // PIN: Header x-studio-pin = Umgebungsvariable STUDIO_PIN (dieselbe wie im MEET DAILY Studio).
 import { readJson, writeJson, remove, listKeys, readIndex, writeIndex, publicView, normText, textHash } from '../lib/wall-store.mjs';
@@ -61,7 +63,22 @@ export default async (req) => {
       return json({ items });
     }
     if (op === 'approved') return json({ items: await readIndex() });
+    if (op === 'questions') {
+      const keys = await listKeys('q/');
+      const items = (await Promise.all(keys.map((k) => readJson(k, null)))).filter(Boolean);
+      items.sort((a, b) => (a.ts < b.ts ? 1 : -1));
+      return json({ items });
+    }
     if (!id) return json({ error: 'id fehlt' }, 400);
+
+    if (op === 'question-done') {
+      const q = await readJson('q/' + id, null);
+      if (!q) return json({ error: 'Frage nicht gefunden' }, 404);
+      q.doneAt = new Date().toISOString();
+      await writeJson('qd/' + id, q);
+      await remove('q/' + id);
+      return json({ ok: true, id });
+    }
 
     if (op === 'approve' || op === 'reject') {
       if (op === 'reject' && !reason) return json({ error: 'Bitte eine kurze Begründung angeben' }, 400);
