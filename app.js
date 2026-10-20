@@ -5,7 +5,7 @@
   "use strict";
 
   var cfg = Object.assign(
-    { passage: "Johannes 4,1–26", maxChars: 2000, wallUnlock: "always" },
+    { passage: "1. Johannes 1,5–2,2", planUrl: "", maxChars: 2000, wallUnlock: "always" },
     window.MEET_CONFIG || {}
   );
 
@@ -62,6 +62,70 @@
   el.fPassage.value = cfg.passage;
   el.fDate.value = now.toISOString().slice(0, 10);
   el.text.maxLength = cfg.maxChars;
+
+  // ---- Jahresplan: Bibelstelle des Tages aus dem Google Sheet (dieselbe Tabelle wie im Studio) ----
+  var PLAN_PROXY = "/.netlify/functions/plan";
+  var PLAN_CACHE = "meet:plan";
+  function todayKey() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function parseCsv(text) {
+    var rows = [], row = [], cur = "", q = false; text = text.replace(/^\uFEFF/, "");
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+      else if (c === '"') q = true;
+      else if (c === "," || c === ";" || c === "\t") { row.push(cur); cur = ""; }
+      else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cur); rows.push(row); row = []; cur = ""; }
+      else cur += c;
+    }
+    if (cur.length || row.length) { row.push(cur); rows.push(row); }
+    return rows.filter(function (r) { return r.some(function (x) { return x.trim(); }); });
+  }
+  function planDayKey(str) {
+    str = (str || "").trim();
+    var m1 = str.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})/);
+    if (m1) { var y = m1[3]; if (y.length === 2) y = "20" + y; return y + "-" + m1[2].padStart(2, "0") + "-" + m1[1].padStart(2, "0"); }
+    var m2 = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m2) return m2[1] + "-" + m2[2].padStart(2, "0") + "-" + m2[3].padStart(2, "0");
+    return null;
+  }
+  function planLookup(csv, day) {
+    var rows = parseCsv(csv); if (!rows.length) return null;
+    var head = rows[0].map(function (h) { return h.trim().toLowerCase(); });
+    var ci = function (n) { for (var i = 0; i < head.length; i++) if (head[i].indexOf(n) === 0) return i; return -1; };
+    var iD = ci("datum"), iR = ci("bibelstelle");
+    if (iD < 0 || iR < 0) return null;
+    for (var k = 1; k < rows.length; k++) if (planDayKey(rows[k][iD]) === day) return (rows[k][iR] || "").replace(/\s+/g, " ").trim() || null;
+    return null;
+  }
+  function setPassage(ref) {
+    if (!ref || ref === cfg.passage) return;
+    cfg.passage = ref;
+    el.passage.textContent = ref;
+    el.fPassage.value = ref; // die Wand liest cfg.passage beim Öffnen neu
+  }
+  function fetchCsv(u) {
+    return fetch(u, { cache: "no-store", credentials: "omit" }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.text();
+    }).then(function (s) { if (/<html/i.test(s.slice(0, 300))) throw new Error("keine CSV"); return s; });
+  }
+  function loadPlan() {
+    var url = (cfg.planUrl || "").trim(); if (!url || !window.fetch) return;
+    var day = todayKey();
+    try { var c = JSON.parse(localStorage.getItem(PLAN_CACHE) || "null"); if (c && c.csv) setPassage(planLookup(c.csv, day)); } catch (e) {}
+    fetchCsv(url).catch(function () {
+      if (!/docs\.google\.com/.test(url)) throw new Error("nicht erreichbar");
+      return fetchCsv(PLAN_PROXY + "?u=" + encodeURIComponent(url));
+    }).then(function (csv) {
+      try { localStorage.setItem(PLAN_CACHE, JSON.stringify({ csv: csv, at: Date.now() })); } catch (e) {}
+      setPassage(planLookup(csv, day));
+    }).catch(function () { /* Rückfall: Bibelstelle aus config.js bleibt stehen */ });
+  }
+  loadPlan();
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") loadPlan(); });
 
   // ---- Screens ----
   function show(name, dir) {
