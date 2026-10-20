@@ -6,11 +6,10 @@
 //   POST ?op=approve, Body {id}                         → { ok, id }
 //   POST ?op=reject | unpublish, Body {id, reason}      → { ok, id }  (reason = kurze Begründung für den Absender)
 //   POST ?op=questions (PIN)                           → { items: offene Fragen zum Text (mit Name, nie auf der Wand) }
-//   POST ?op=import-questions, Body {items:[{text,name,passage,date,ts}]} → { imported, skipped }  (ältere Fragen aus dem Netlify-Forms-CSV-Export nachtragen; gleicher Text wird übersprungen)
 //   POST ?op=question-done, Body {id}                   → { ok, id }  (Frage als erledigt ablegen: q/ → qd/)
 //   POST ?op=mine, Body {texts:[…]} (ohne PIN)          → { items: [{status: frei|nein|wartet, reason}] } – Status der eigenen Momente
 // PIN: Header x-studio-pin = Umgebungsvariable STUDIO_PIN (dieselbe wie im MEET DAILY Studio).
-import { readJson, writeJson, remove, listKeys, readIndex, writeIndex, publicView, normText, textHash, newId } from '../lib/wall-store.mjs';
+import { readJson, writeJson, remove, listKeys, readIndex, writeIndex, publicView, normText, textHash } from '../lib/wall-store.mjs';
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'content-type, x-studio-pin' };
 const json = (obj, status = 200, extra = {}) =>
@@ -69,23 +68,6 @@ export default async (req) => {
       const items = (await Promise.all(keys.map((k) => readJson(k, null)))).filter(Boolean);
       items.sort((a, b) => (a.ts < b.ts ? 1 : -1));
       return json({ items });
-    }
-    if (op === 'import-questions') {
-      const str = (v, max) => (typeof v === 'string' ? v.replace(/\r\n?/g, '\n').trim().slice(0, max) : '');
-      const items = Array.isArray(body.items) ? body.items.slice(0, 500) : [];
-      const keys = [...await listKeys('q/'), ...await listKeys('qd/')];
-      const known = new Set((await Promise.all(keys.map((k) => readJson(k, null)))).filter(Boolean).map((q) => normText(q.text)));
-      let imported = 0, skipped = 0;
-      for (const it of items) {
-        const text = str(it && it.text, 2000);
-        if (!text || known.has(normText(text))) { skipped++; continue; }
-        const ts = new Date(it.ts || '');
-        const q = { id: newId(), text, name: str(it.name, 40), passage: str(it.passage, 80), date: str(it.date, 10), ts: isNaN(ts) ? new Date().toISOString() : ts.toISOString(), imported: true };
-        await writeJson('q/' + q.id, q);
-        known.add(normText(text));
-        imported++;
-      }
-      return json({ ok: true, imported, skipped });
     }
     if (!id) return json({ error: 'id fehlt' }, 400);
 

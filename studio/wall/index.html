@@ -39,9 +39,6 @@
 .why .hint{font-size:12.5px;color:var(--muted)}
 .moment.is-busy{opacity:.5;pointer-events:none}
 .wall>.moment--q::before{background:var(--lime)}
-.imp{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:14px;background:var(--field);font-size:13px;color:var(--muted)}
-.imp b{color:#fff;font-family:var(--head)}
-.imp input[type="file"]{font-size:13px;color:var(--soft)}
 .q-name{font-family:var(--head);font-weight:700;font-size:13px;color:var(--lime);margin-bottom:6px}
 </style>
 </head>
@@ -70,11 +67,6 @@
   </div>
   <p class="state" id="state">PIN eingeben und laden.</p>
   <div class="wall" id="list"></div>
-  <div class="imp" id="imp" hidden>
-    <b>Ältere Fragen nachtragen</b>
-    <span>Netlify → Forms → „meet-impuls“ → Export CSV. Die Datei hier auswählen: Fragen zum Text werden übernommen, bereits vorhandene übersprungen.</span>
-    <input type="file" id="impFile" accept=".csv,text/csv">
-  </div>
 </section>
 </div>
 </main>
@@ -84,7 +76,7 @@
   var API = "/.netlify/functions/wall";
   var SETTINGS_KEY = "meetstudio:settings:v2"; // dieselbe PIN wie im Studio
   var $ = function (id) { return document.getElementById(id); };
-  var el = { pin: $("pin"), load: $("load"), list: $("list"), state: $("state"), nP: $("nPending"), nA: $("nApproved"), nQ: $("nQuestions"), imp: $("imp"), impFile: $("impFile"), tabs: [$("tabPending"), $("tabApproved"), $("tabQuestions")] };
+  var el = { pin: $("pin"), load: $("load"), list: $("list"), state: $("state"), nP: $("nPending"), nA: $("nApproved"), nQ: $("nQuestions"), tabs: [$("tabPending"), $("tabApproved"), $("tabQuestions")] };
   var data = { pending: [], approved: [], questions: [] };
   var tab = "pending";
   var MONTHS = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sep.", "Okt.", "Nov.", "Dez."];
@@ -137,7 +129,6 @@
     el.nQ.textContent = data.questions.length;
     el.tabs.forEach(function (t) { t.classList.toggle("is-on", t.dataset.tab === tab); });
     el.list.innerHTML = "";
-    el.imp.hidden = tab !== "questions";
     var items = data[tab];
     if (!items.length) { state(tab === "pending" ? "Nichts wartet. Alles geprüft." : tab === "questions" ? "Keine offenen Fragen." : "Noch nichts auf der Wand."); return; }
     state("");
@@ -205,43 +196,6 @@
       })
       .catch(function (e) { card.classList.remove("is-busy"); state(e.message); });
   }
-
-  // CSV-Export von Netlify Forms einlesen (Spalten werden am Namen erkannt, Anführungszeichen nach RFC 4180)
-  function parseCsv(text) {
-    var rows = [], row = [], f = "", q = false;
-    for (var i = 0; i < text.length; i++) {
-      var ch = text[i];
-      if (q) { if (ch === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += ch; }
-      else if (ch === '"') q = true;
-      else if (ch === ",") { row.push(f); f = ""; }
-      else if (ch === "\n" || ch === "\r") { if (ch === "\r" && text[i + 1] === "\n") i++; row.push(f); rows.push(row); row = []; f = ""; }
-      else f += ch;
-    }
-    if (f || row.length) { row.push(f); rows.push(row); }
-    return rows.filter(function (r) { return r.some(function (c) { return c.trim(); }); });
-  }
-  function importCsv(file) {
-    var rd = new FileReader();
-    rd.onload = function () {
-      var rows = parseCsv(String(rd.result || ""));
-      if (rows.length < 2) { state("Die Datei enthält keine Einsendungen."); return; }
-      var head = rows[0].map(function (h) { return h.trim().toLowerCase(); });
-      var col = function (re) { for (var i = 0; i < head.length; i++) if (re.test(head[i])) return i; return -1; };
-      var cText = col(/nachricht|message|text/), cName = col(/vorname|name/), cArt = col(/^art$/), cPass = col(/bibelstelle/), cDate = col(/^datum$/), cTs = col(/created|erstellt|submitted|date|zeit/);
-      if (cText < 0) { state("Spalte „nachricht“ nicht gefunden."); return; }
-      var items = rows.slice(1).filter(function (r) { return cArt < 0 || /frage/i.test(r[cArt] || ""); }).map(function (r) {
-        return { text: r[cText] || "", name: cName >= 0 ? r[cName] : "", passage: cPass >= 0 ? r[cPass] : "", date: cDate >= 0 ? r[cDate] : "", ts: cTs >= 0 ? r[cTs] : "" };
-      }).filter(function (x) { return x.text.trim(); });
-      if (!items.length) { state("In der Datei stehen keine Fragen zum Text."); return; }
-      state("Wird übernommen …");
-      call("import-questions", { items: items })
-        .then(function (r) { state(r.imported + " übernommen, " + r.skipped + " übersprungen."); return call("questions"); })
-        .then(function (r) { data.questions = r.items || []; var keep = el.state.textContent; render(); if (data.questions.length) state(keep); })
-        .catch(function (e) { state(e.message); });
-    };
-    rd.readAsText(file, "utf-8");
-  }
-  el.impFile.addEventListener("change", function () { if (el.impFile.files[0]) importCsv(el.impFile.files[0]); el.impFile.value = ""; });
 
   el.load.addEventListener("click", load);
   el.pin.addEventListener("keydown", function (e) { if (e.key === "Enter") load(); });
