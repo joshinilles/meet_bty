@@ -409,13 +409,38 @@
 
   function isToday(m) { var d = m.ts ? new Date(m.ts) : null; return !!d && !isNaN(d) && dayKey(d) === dayKey(new Date()); }
 
+  // Eigene Momente: heutige stehen oben unter „Von dir“, ältere wandern in die Tagesgruppen (Gestern, Datum).
+  function ownEntry(o, approved) {
+    var live = approved.filter(function (m) { return m.text === o.text; })[0];
+    return { text: o.text, ts: (live && live.ts) || o.ts, passage: (live && live.passage) || o.passage, own: o, live: !!live };
+  }
+  function ownMeta(e) {
+    return e.live ? "Dein MEETmoment · Danke fürs Teilen!"
+      : e.own.status === "nein" ? "Dein MEETmoment · diesmal nicht auf der Wand"
+      : "Dein MEETmoment · ist unterwegs";
+  }
+  function ownCard(e) {
+    var c = card(e.text, ownMeta(e), true);
+    if (!e.live && e.own.status === "nein") {
+      c.classList.add("moment--no");
+      var why = document.createElement("p");
+      why.className = "moment-reason";
+      why.textContent = (e.own.reason || "Diesmal passt er nicht auf die Wand.") + " Danke trotzdem fürs Teilen, wir haben ihn gelesen.";
+      c.appendChild(why);
+    }
+    return c;
+  }
+
   function renderWall() {
     el.wallList.innerHTML = "";
     var all = wallState.items;
-    var ownTexts = readOwn().map(function (o) { return o.text; });
-    var items = all.filter(function (m) { return ownTexts.indexOf(m.text) < 0 && (wallState.past || isToday(m)); });
-    var hasPast = all.some(function (m) { return !isToday(m); });
-    var ownShown = renderOwn(all);
+    var ownAll = readOwn().map(function (o) { return ownEntry(o, all); });
+    var ownTexts = ownAll.map(function (e) { return e.text; });
+    var ownToday = ownAll.filter(isToday), ownPast = ownAll.filter(function (e) { return !isToday(e); });
+    var others = all.filter(function (m) { return ownTexts.indexOf(m.text) < 0 && (wallState.past || isToday(m)); });
+    var items = wallState.past ? others.concat(ownPast).sort(function (a, b) { return (Date.parse(b.ts) || 0) - (Date.parse(a.ts) || 0); }) : others;
+    var hasPast = all.some(function (m) { return !isToday(m); }) || ownPast.length > 0;
+    var ownShown = renderOwn(ownToday);
     el.wallKicker.textContent = wallState.past ? "Heute und die letzten Tage" : "Heute · " + cfg.passage;
     el.wallPast.hidden = wallState.past || !hasPast;
     if (!items.length) {
@@ -436,7 +461,7 @@
         el.wallList.appendChild(groupHead(g));
         lastGroup = g;
       }
-      el.wallList.appendChild(card(m.text, timeLabel(m.ts), false));
+      el.wallList.appendChild(m.own ? ownCard(m) : card(m.text, timeLabel(m.ts), false));
     }
     wallState.shown = end;
     el.wallMore.hidden = end >= items.length;
@@ -449,26 +474,11 @@
     return h;
   }
 
-  function renderOwn(approved) {
-    var own = readOwn();
-    if (!own.length) return 0;
+  function renderOwn(entries) {
+    if (!entries.length) return 0;
     el.wallList.appendChild(groupHead("Von dir"));
-    own.forEach(function (o) {
-      var live = approved.some(function (m) { return m.text === o.text; });
-      if (live) { el.wallList.appendChild(card(o.text, "Dein MEETmoment · Danke fürs Teilen!", true)); return; }
-      if (o.status === "nein") {
-        var c = card(o.text, "Dein MEETmoment · diesmal nicht auf der Wand", true);
-        c.classList.add("moment--no");
-        var why = document.createElement("p");
-        why.className = "moment-reason";
-        why.textContent = (o.reason || "Diesmal passt er nicht auf die Wand.") + " Danke trotzdem fürs Teilen, wir haben ihn gelesen.";
-        c.appendChild(why);
-        el.wallList.appendChild(c);
-        return;
-      }
-      el.wallList.appendChild(card(o.text, "Dein MEETmoment · ist unterwegs", true));
-    });
-    return own.length;
+    entries.forEach(function (e) { el.wallList.appendChild(ownCard(e)); });
+    return entries.length;
   }
 
   // Pinnwand: kurze Momente teilen sich eine Reihe, lange bekommen die ganze Breite
