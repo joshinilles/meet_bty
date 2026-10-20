@@ -28,7 +28,7 @@
       send: "Frage stellen",
       sentKicker: "Frage gestellt",
       sentHeading: function (n) { return n ? "Danke für deine Frage, " + n + "!" : "Danke für deine Frage!"; },
-      sentBody: "Wir greifen deine Frage im Kanal oder in MEET US auf. Unsere Antwort findest du hier auf der Startseite unter „Deine Frage“."
+      sentBody: "Wir antworten dir. Unsere Antwort findest du hier auf der Startseite unter „Deine Frage“."
     }
   };
 
