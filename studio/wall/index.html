@@ -139,7 +139,9 @@
 
   function render() {
     el.nP.textContent = data.pending.length;
-    el.nA.textContent = data.approved.length;
+    var tk = dayKey(new Date());
+    // Zähler: nur heute, solange die letzten Tage eingeklappt sind – wie die Liste selbst
+    el.nA.textContent = showPast ? data.approved.length : data.approved.filter(function (m) { return dayOfItem(m) === tk; }).length;
     el.nQ.textContent = data.questions.length;
     el.tabs.forEach(function (t) { t.classList.toggle("is-on", t.dataset.tab === tab); });
     el.list.innerHTML = "";
