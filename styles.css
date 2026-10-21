@@ -214,6 +214,8 @@ h2{
 .foot nav{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
 .foot a{color:var(--muted);text-decoration:underline;text-decoration-color:rgba(185,166,204,.4);text-underline-offset:.2em}
 .foot a:hover{color:#fff}
+.foot .foot-links{font-family:var(--head);font-weight:700;font-size:12px;color:var(--lime);text-decoration:none;margin-bottom:2px}
+.foot .foot-links:hover{color:#fff}
 .claim{font-family:var(--head);font-weight:700;font-size:13px;letter-spacing:-.01em;color:#fff;opacity:.85}
 
 /* ---- Buttons ---- */
