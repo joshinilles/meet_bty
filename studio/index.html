@@ -237,6 +237,8 @@ textarea.cap:focus{border-color:var(--pink)}
           <input class="cap" id="planUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
         <div class="row" style="flex-direction:column;align-items:stretch"><span>Instagram-Text Highlight<small>{satz}, {bibelstelle}, {name}, {thema} und {datum} werden ersetzt</small></span>
           <textarea class="cap" id="igT3" rows="4"></textarea></div>
+        <div class="row"><span>Satzvorschläge<small>Kurzbefehl: der iPhone-Kurzbefehl „MEETmoment-Satz“ schreibt das Video ab und öffnet das Studio mit Vorschlägen. Server: Abschrift über Netlify (OpenAI-Schlüssel nötig)</small></span>
+          <div class="seg" data-set="hlSource"><button data-val="shortcut">Kurzbefehl</button><button data-val="server">Server</button></div></div>
         <div class="row" style="flex-direction:column;align-items:stretch"><span>Studio-PIN<small>Dieselbe PIN wie STUDIO_PIN auf Netlify. Nötig für die Abschrift des MEETmoments (Satzvorschläge fürs Highlight)</small></span>
           <input class="cap" id="studioPin" type="text" placeholder="PIN" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
         <div class="row"><span>Auflösung</span>
@@ -406,7 +408,7 @@ function speaker() { return SPEAKERS[settings.speaker] ? settings.speaker : 'vin
 function speakerName() { return SPEAKERS[speaker()].name; }
 
 /* ---------- Settings ---------- */
-const DEFAULTS = { speaker: 'vincent', hlFormat: 'post', live: 'auto', cardSec: 0.2, transSec: 0.8, corners: false, mirrorPreview: true, mirrorExport: false, quality: '1080', encoder: 'auto', speed: 2 };
+const DEFAULTS = { speaker: 'vincent', hlFormat: 'post', hlSource: 'shortcut', live: 'auto', cardSec: 0.2, transSec: 0.8, corners: false, mirrorPreview: true, mirrorExport: false, quality: '1080', encoder: 'auto', speed: 2 };
 const settings = Object.assign({}, DEFAULTS);
 try { Object.assign(settings, JSON.parse(localStorage.getItem('meetstudio:settings:v2') || '{}')); } catch (e) { }
 function saveSettings() { try { localStorage.setItem('meetstudio:settings:v2', JSON.stringify(settings)); } catch (e) { } }
@@ -1582,6 +1584,7 @@ function hlSave() { try { localStorage.setItem('meetstudio:hl', JSON.stringify({
 function hlHomeLabel() { $('#btnHlHome').textContent = (hl.transcript && hl.day === todayKey()) ? 'MEETmoment-Highlight von heute' : 'MEETmoment-Highlight aus einem fertigen Video'; }
 function hlUrl() { return settings.hlUrl || HL_URL; }
 function hlFormat() { return HL_FORMATS[settings.hlFormat] ? settings.hlFormat : 'post'; }
+function hlSource() { return settings.hlSource === 'server' ? 'server' : 'shortcut'; }
 function cleanQuote(t) { return (t || '').replace(/\s+/g, ' ').replace(/^[\s"„“”‚‘'«»]+|[\s"„“”‚‘'«»]+$/g, '').trim(); }
 function wrapWords(ctx, text, maxW) {
   const words = text.split(' '), lines = []; let cur = '';
@@ -1736,6 +1739,8 @@ async function openHighlight(file, opts) {
   $('#hlText').value = hl.text; hlRenderSugg(); hlSetCaption(); drawHl();
   $('#hlTrans').textContent = hl.transcript; $('#hlTransBox').hidden = !hl.transcript;
   $('#btnHlBack').textContent = (result && current.n === 2) ? 'Zurück zum Video' : 'Zur Übersicht';
+  $('#btnHlRedo').hidden = $('#btnHlFile').hidden = hlSource() === 'shortcut';
+  if (hlSource() === 'shortcut') { hlStatus(hl.sentences.length ? 'Vorschläge vom Kurzbefehl: antippen, bei Bedarf anpassen, dann teilen.' : 'Satzvorschläge kommen vom iPhone-Kurzbefehl „MEETmoment-Satz“: Video in Fotos teilen → „MEETmoment-Satz“, dann öffnet sich das Studio mit den Vorschlägen. Oder den Satz unten direkt eintippen.'); return; }
   if (!(opts.force || !hl.transcript)) { hlStatus(''); return; }
   if (!hl.file) { hlStatus('Kein Video gewählt. „Anderes Video wählen“, oder den Satz direkt eintippen.'); return; }
   if (hl.busy) return;
@@ -1776,12 +1781,23 @@ $('#btnHlShare').addEventListener('click', async () => {
 });
 $('#btnHlCopy').addEventListener('click', async () => toast((await copyText($('#hlCaption').value, $('#hlCaption'))) ? 'Beschreibung kopiert' : 'Kopieren nicht möglich – Text markieren und manuell kopieren'));
 $('#btnHl').addEventListener('click', () => { if (result && result.file) openHighlight(result.file); });
-$('#btnHlHome').addEventListener('click', () => { if (hl.transcript && hl.day === todayKey()) openHighlight(null); else $('#hlPick').click(); });
+$('#btnHlHome').addEventListener('click', () => { if (hlSource() === 'shortcut' || (hl.transcript && hl.day === todayKey())) openHighlight(null); else $('#hlPick').click(); });
 $('#btnHlFile').addEventListener('click', () => $('#hlPick').click());
 $('#hlPick').addEventListener('change', () => { const f = $('#hlPick').files[0]; $('#hlPick').value = ''; if (f) openHighlight(f, { force: true }); });
 $('#btnHlRedo').addEventListener('click', () => { if (hl.file) openHighlight(hl.file, { force: true }); else $('#hlPick').click(); });
 $('#hlText').addEventListener('input', () => { hl.text = $('#hlText').value; hlSave(); hlRenderSugg(); hlSetCaption(); drawHl(); });
 $('#btnHlBack').addEventListener('click', () => { if (result && current.n === 2) show('result'); else { show('home'); drawThumbs(); } });
+/* Übergabe vom iPhone-Kurzbefehl „MEETmoment-Satz“: studio/?satz=<Sätze, je Zeile einer>&text=<ganze Abschrift> */
+(function hlFromUrl() {
+  let p; try { p = new URLSearchParams(location.search || location.hash.replace(/^#\??/, '')); } catch (e) { return; }
+  const raw = p.get('satz') || p.get('saetze') || '';
+  const lines = raw.split(/\r?\n|\|/).map(s => cleanQuote(s.replace(/^[\s\-–•*]*(\d+[.)]\s*)?/, ''))).filter(Boolean);
+  if (!lines.length) return;
+  hl.day = todayKey(); hl.file = null; hl.fileKey = 'url:' + Date.now(); hl.transcript = (p.get('text') || '').trim();
+  hl.sentences = lines.slice(0, 6).map(t => ({ text: t, why: '' })); hl.text = lines[0]; hlSave();
+  try { history.replaceState(null, '', location.pathname); } catch (e) { }
+  openHighlight(null);
+})();
 $('#studioPin').value = settings.studioPin || '';
 $('#studioPin').addEventListener('input', () => { settings.studioPin = $('#studioPin').value.trim(); saveSettings(); });
 hlHomeLabel();
