@@ -342,6 +342,8 @@ textarea.cap:focus{border-color:var(--pink)}
     </label>
     <div class="row"><span>Format<small>Post für den Feed, Story hochkant</small></span>
       <div class="seg" data-set="hlFormat"><button data-val="post">Post 4:5</button><button data-val="story">Story 9:16</button></div></div>
+    <div class="row"><span>Exportgrösse<small>2160 px ist doppelt so scharf, Instagram rechnet selbst herunter</small></span>
+      <div class="seg" data-set="hlScale"><button data-val="1">1080 px</button><button data-val="2">2160 px</button></div></div>
     <canvas id="hlCanvas" class="hl-preview" width="1080" height="1350" aria-label="Vorschau der Highlight-Karte"></canvas>
     <div class="row"><span>Einladung als 2. Bild<small>„Sei dabei“ zum WhatsApp-Kanal, wird mit geteilt (Instagram: beide Bilder wählen)</small></span>
       <div class="seg" data-set="hlInvite"><button data-val="true">An</button><button data-val="false">Aus</button></div></div>
@@ -415,7 +417,7 @@ function speaker() { return SPEAKERS[settings.speaker] ? settings.speaker : 'vin
 function speakerName() { return SPEAKERS[speaker()].name; }
 
 /* ---------- Settings ---------- */
-const DEFAULTS = { speaker: 'vincent', hlFormat: 'post', hlSource: 'shortcut', hlInvite: true, live: 'auto', cardSec: 0.2, transSec: 0.8, corners: false, mirrorPreview: true, mirrorExport: false, quality: '1080', encoder: 'auto', speed: 2 };
+const DEFAULTS = { speaker: 'vincent', hlFormat: 'post', hlSource: 'shortcut', hlInvite: true, hlScale: 2, live: 'auto', cardSec: 0.2, transSec: 0.8, corners: false, mirrorPreview: true, mirrorExport: false, quality: '1080', encoder: 'auto', speed: 2 };
 const settings = Object.assign({}, DEFAULTS);
 try { Object.assign(settings, JSON.parse(localStorage.getItem('meetstudio:settings:v2') || '{}')); } catch (e) { }
 function saveSettings() { try { localStorage.setItem('meetstudio:settings:v2', JSON.stringify(settings)); } catch (e) { } }
@@ -1671,6 +1673,7 @@ function grain(ctx) {
   }
   return ctx.createPattern(grainPat, 'repeat');
 }
+function grainAt(ctx, s) { const p = grain(ctx); try { p.setTransform(new DOMMatrix().scale(s)); } catch (e) { } return p; }
 function drawSwoosh(ctx, sx, sy, ex, ey, s) {
   const c1x = sx + 200 * s, c1y = sy - 10 * s, c2x = ex + 170 * s, c2y = ey - 130 * s;
   ctx.save(); ctx.strokeStyle = '#D4F65A'; ctx.lineWidth = 10 * s; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -1683,7 +1686,7 @@ function drawInvite(ctx, W, H, o) {
   o = o || {}; const s = W / 1080, story = H / W > 1.5, x = 96 * s, maxW = W - 2 * x, t = Object.assign({}, INVITE, o.text || {});
   const ref = bookName(o.ref != null ? o.ref : getRef());
   if (IMG.sonne) ctx.drawImage(IMG.sonne, 0, 0, W, H); else { const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2F1041'); g.addColorStop(0.55, '#7A2A5C'); g.addColorStop(1, '#FF8A3D'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
-  ctx.save(); ctx.globalAlpha = 0.16; ctx.fillStyle = grain(ctx); ctx.fillRect(0, 0, W, H); ctx.restore();
+  ctx.save(); ctx.globalAlpha = 0.16; ctx.fillStyle = grainAt(ctx, s); ctx.fillRect(0, 0, W, H); ctx.restore();
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
   const topM = (story ? 240 : 96) * s, botM = (story ? 220 : 96) * s, logoH = (story ? 72 : 64) * s;
   if (IMG.daily) ctx.drawImage(IMG.daily, x, topM, logoH * 4924 / 909, logoH);
@@ -1817,6 +1820,7 @@ function hlErrText(e) {
 }
 const hlCanvas = $('#hlCanvas'), hlCtx = hlCanvas.getContext('2d'), hlCanvas2 = $('#hlCanvas2'), hlCtx2 = hlCanvas2.getContext('2d');
 function hlInvite() { return settings.hlInvite !== false; }
+function hlScale() { return Number(settings.hlScale) === 1 ? 1 : 2; }
 let hlRaf = 0;
 function drawHl() {
   cancelAnimationFrame(hlRaf);
@@ -1874,10 +1878,10 @@ function canvasBlob(c) { return new Promise((res, rej) => c.toBlob(b => b ? res(
 function hlFileName(part) { return `MEET-DAILY_${todayKey()}_Highlight-${hlFormat() === 'story' ? 'Story' : 'Post'}${part ? '-' + part : ''}.png`; }
 /* which: 'both' = Highlight + Einladung (Karussell), 'hl' = nur Highlight, 'invite' = nur Einladung */
 async function hlFiles(which) {
-  const f = HL_FORMATS[hlFormat()], out = [];
-  if (which !== 'invite') out.push(new File([await canvasBlob(hlCanvas)], hlFileName(which === 'both' ? '1' : ''), { type: 'image/png' }));
+  const f = HL_FORMATS[hlFormat()], k = hlScale(), W = f.W * k, H = f.H * k, out = [];
+  if (which !== 'invite') { const c = document.createElement('canvas'); c.width = W; c.height = H; drawHighlight(c.getContext('2d'), W, H, hl.text); out.push(new File([await canvasBlob(c)], hlFileName(which === 'both' ? '1' : ''), { type: 'image/png' })); }
   if (which !== 'hl') {
-    const c = document.createElement('canvas'); c.width = f.W; c.height = f.H; drawInvite(c.getContext('2d'), f.W, f.H);
+    const c = document.createElement('canvas'); c.width = W; c.height = H; drawInvite(c.getContext('2d'), W, H);
     out.push(new File([await canvasBlob(c)], hlFileName(which === 'both' ? '2-Einladung' : 'Einladung'), { type: 'image/png' }));
   }
   return out;
