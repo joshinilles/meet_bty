@@ -181,7 +181,12 @@ details.done[open] summary::before{transform:rotate(90deg)}
 .cell .more{font-size:.72rem;color:var(--muted)}
 .cell .dots{display:none;gap:3px;flex-wrap:wrap}
 .cell .dots i{width:6px;height:6px;border-radius:50%;background:var(--c,var(--b-grau))}
-.cell .tk{font-family:var(--font-num);font-size:.7rem;color:var(--muted);margin-top:auto}
+.cell .tk{display:none;font-family:var(--font-num);font-size:.7rem;color:var(--muted);margin-top:auto}
+.cell .mtk{font-size:.74rem;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:8px;border-left:2px dashed var(--c,var(--b-grau));color:var(--muted)}
+.cell .mtk::before{content:"☐ ";font-size:.7em}
+.cell .mtk.prod{color:inherit}
+.cell .mtk.prod::before{content:"▸ "}
+.cell .mtk.late{color:var(--warn)}
 .daygroup{display:flex;flex-direction:column;gap:6px}
 .daygroup h3{font-family:var(--font-num);font-weight:400;font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;color:var(--kicker);padding-top:6px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom, 0px));background:var(--toast-bg);color:var(--toast-fg);border-radius:var(--r-lg);padding:10px 12px 10px 16px;display:flex;align-items:center;gap:14px;box-shadow:0 6px 24px rgba(0,0,0,.3);max-width:calc(100% - 32px);z-index:10;font-weight:500}
@@ -194,9 +199,9 @@ details.done[open] summary::before{transform:rotate(90deg)}
   .week{grid-template-columns:minmax(0,1fr)}
   .day{min-height:0}
   .cell{min-height:58px;padding:4px}
-  .cell .mev,.cell .more,.cell .abwdot{display:none}
+  .cell .mev,.cell .more,.cell .abwdot,.cell .mtk{display:none}
   .cell .dots{display:flex}
-  .cell .tk{font-size:.62rem}
+  .cell .tk{display:block;font-size:.62rem}
 }
 @media (max-width:560px){
   h1{font-size:1.8rem}
@@ -685,6 +690,7 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
     const lb2=linkBtn(t); if(lb2) sub.appendChild(lb2);
     const kc2=kommCount("aufgaben/"+t.id); if(kc2) sub.appendChild(kc2);
     if(t.rolle==="schnitt") sub.appendChild(el("span","who","Schnitt")); else if(t.rolle==="freigabe") sub.appendChild(el("span","who","Freigabe"));
+    if(t.beitragId){ const bt=beitraege.find(x=>x.id===t.beitragId); const pt=el("span","who","Produktion"); if(bt) pt.title="Beitrag „"+(bt.titel||"")+"“ · "+stName(bt.status||"idee"); sub.appendChild(pt); }
     tx.appendChild(sub);
     if(canWrite) tx.onclick=()=>startEdit("aufgabe",t);
     row.append(cb,tx);
@@ -1131,7 +1137,7 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
     const a=key(start), b=key(addDays(start,cells-1));
     const evs=eventsBetween(a,b);
     const byDay={}; evs.forEach(t=>{(byDay[t.inst]=byDay[t.inst]||[]).push(t);});
-    const tByDay={}; aufgaben.forEach(t=>{ if(t.datum&&open(t)) tByDay[t.datum]=(tByDay[t.datum]||0)+1; });
+    const tByDay={}; aufgaben.forEach(t=>{ if(t.datum&&open(t)&&passWer(t)) (tByDay[t.datum]=tByDay[t.datum]||[]).push(t); });
     const g=$("monthGrid"); g.innerHTML="";
     for(let i=0;i<cells;i++){
       const d=addDays(start,i), k=key(d), other=d.getMonth()!==mo;
@@ -1140,11 +1146,16 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
       absOn(k).slice(0,2).forEach(a=>c.appendChild(el("div","abwdot",absName(a)+" weg")));
       const list=byDay[k]||[];
       const dots=el("div","dots");
-      list.slice(0,3).forEach(t=>{ const b=bById(t.bereich); const m=el("div","mev "+cls(b),(isAllDay(t)?"":(t.von||"")+" ")+(t.titel||"")); m.title=t.titel||""; c.appendChild(m); });
-      if(list.length>3) c.appendChild(el("div","more","+ "+(list.length-3)+" weitere"));
+      const tl=sortTasks(tByDay[k]||[]), MAX=5;
+      const nEv=Math.min(list.length,Math.max(1,MAX-tl.length)), nTk=Math.min(tl.length,MAX-nEv);
+      list.slice(0,nEv).forEach(t=>{ const b=bById(t.bereich); const m=el("div","mev "+cls(b),(isAllDay(t)?"":(t.von||"")+" ")+(t.titel||"")); m.title=t.titel||""; c.appendChild(m); });
+      tl.slice(0,nTk).forEach(t=>{ const b=bById(t.bereich), prod=!!t.beitragId||!!t.rolle, bt=prod&&t.beitragId?beitraege.find(x=>x.id===t.beitragId):null;
+        const m=el("div","mtk "+cls(b)+(prod?" prod":"")+(k<tk?" late":""),t.titel||"(ohne Titel)"); m.title=(prod?"Produktionsschritt"+(bt?" zu „"+(bt.titel||"")+"“":""):"Aufgabe")+(t.wer&&t.wer!=="beide"?" · "+werName(t.wer):"")+(t.notiz?" · "+t.notiz:""); c.appendChild(m); });
+      const rest=(list.length-nEv)+(tl.length-nTk);
+      if(rest>0) c.appendChild(el("div","more","+ "+rest+" weitere"));
       list.slice(0,6).forEach(t=>{ const i2=el("i",cls(bById(t.bereich))); dots.appendChild(i2); });
       c.appendChild(dots);
-      if(tByDay[k]) c.appendChild(el("span","tk",tByDay[k]+(tByDay[k]===1?" Aufgabe":" Aufgaben")));
+      if(tl.length) c.appendChild(el("span","tk",tl.length+(tl.length===1?" Aufgabe":" Aufgaben")+(tl.some(t=>t.beitragId||t.rolle)?" · Produktion":"")));
       c.onclick=()=>{cur=d;setView("tag");};
       g.appendChild(c);
     }
