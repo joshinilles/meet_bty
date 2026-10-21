@@ -87,6 +87,7 @@
   var el = { pin: $("pin"), load: $("load"), list: $("list"), state: $("state"), nP: $("nPending"), nA: $("nApproved"), nQ: $("nQuestions"), tabs: [$("tabPending"), $("tabApproved"), $("tabQuestions")] };
   var data = { pending: [], approved: [], questions: [], done: [] };
   var tab = "pending";
+  try { var qt = new URLSearchParams(location.search).get("tab"); if (qt === "approved" || qt === "questions") tab = qt; } catch (e) {} // Reiter aus dem Portal-Link
   var showPast = false; // „Auf der Wand“ zeigt zuerst nur den heutigen Tag, wie die Wand selbst
   var showDone = false; // „Fragen“: erledigte (beantwortete) Fragen auf Wunsch darunter
   var pushNote = "";    // Rückmeldung nach dem Antworten (Push verschickt oder nicht), einmalig über der Liste
@@ -319,5 +320,6 @@
   if (el.pin.value) load();
 })();
 </script>
+<script src="/portal/portal.js"></script>
 </body>
 </html>

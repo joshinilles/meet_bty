@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2F1041">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MEET Portal">
+<title>MEET_ Portal</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="../assets/favicon-512.png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="stylesheet" href="../styles.css">
+<style>
+/* MEET_ Portal: der eine Einstieg für Niklas und Vincent. Zeigt auf einen Blick, was heute ansteht
+   (Jahresplan), was auf der WALL wartet (Momente freigeben, Fragen beantworten) und was im Kalender steht.
+   Die Werkzeuge selbst bleiben eigene Seiten (/studio, /studio/wall, /kalender) – das Portal verlinkt sie
+   und erledigt die schnellen Dinge direkt. Eine PIN, ein Name, überall dieselben (localStorage). */
+.topbar-in,.screens{max-width:780px}
+.portal{gap:16px;min-height:auto;padding-top:8px}
+.p-head{display:flex;flex-direction:column;gap:8px}
+.p-head h1{display:inline-flex;align-items:flex-end;gap:.06em}
+.p-head .wall-bar{width:.5em}
+.p-date{color:var(--soft)}
+.grid{display:flex;flex-direction:column;gap:14px}
+@media (min-width:720px){.grid{display:grid;grid-template-columns:1fr 1fr;align-items:start}.card--wall{grid-row:span 2}}
+.card{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:18px;background:var(--field);border:1.2px solid transparent}
+.card-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.card-head a{font-family:var(--head);font-weight:700;font-size:13px;white-space:nowrap}
+.big{font-family:var(--head);font-weight:700;font-size:clamp(22px,6vw,28px);line-height:1.1;letter-spacing:-.02em}
+.meta{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--muted)}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.acts .btn{min-height:42px;border-radius:21px;font-size:14px;padding:0 18px;display:inline-flex;align-items:center;text-decoration:none}
+.btn--ghost.btn--sm2{min-height:42px;border-radius:21px;font-size:14px}
+.stats{display:flex;gap:6px}
+.stat{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border-radius:12px;background:rgba(255,255,255,.05);text-decoration:none;color:#fff}
+.stat b{font-family:var(--head);font-size:26px;line-height:1;color:var(--lime)}
+.stat.is-hot b{color:var(--sun)}
+.stat span{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat:hover{background:rgba(255,255,255,.09)}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:flex;flex-direction:column;gap:6px;padding:12px;border-radius:12px;background:rgba(47,16,65,.55);border-left:3px solid var(--sun)}
+.item--q{border-left-color:var(--lime)}
+.item--t{border-left-color:var(--lilac)}
+.item-text{margin:0;font-size:14.5px;line-height:1.45;white-space:pre-wrap}
+.item-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.item-row .meta{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item-acts{display:flex;gap:6px}
+.btn--mini{min-height:34px;padding:0 14px;border-radius:17px;font-size:13px;background:var(--lime);color:var(--night);display:inline-flex;align-items:center;text-decoration:none}
+.btn--mini.btn--no{background:transparent;border:1.2px solid rgba(255,255,255,.3);color:#fff}
+.btn--mini.btn--no:hover{border-color:var(--lime);color:var(--lime)}
+.item.is-busy{opacity:.5;pointer-events:none}
+.q-name{font-family:var(--head);font-weight:700;font-size:13px;color:var(--lime)}
+.empty{margin:0;font-size:13.5px;color:var(--muted)}
+.sub{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.t-time{font-family:var(--mono);font-size:12px;color:var(--lime);min-width:84px}
+.t-row{display:flex;gap:10px;align-items:baseline}
+.t-title{font-size:14.5px;flex:1}
+.t-who{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px;background:var(--muted)}
+.dot--lime{background:#d4f65a}.dot--pink{background:#ff5fa8}.dot--violet{background:#b9a6cc}.dot--peach{background:#ffc49b}.dot--mint{background:#a9eb8c}.dot--blue{background:#8fd3ff}.dot--grau{background:#8c7d9c}
+.task{display:flex;gap:10px;align-items:baseline}
+.task.is-late .t-time{color:var(--sunl)}
+.tools{display:flex;flex-direction:column;gap:2px}
+.tool{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid rgba(255,255,255,.08);color:#fff;text-decoration:none;font-size:14.5px}
+.tool:last-child{border-bottom:0}
+.tool:hover{color:var(--lime)}
+.tool span{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;white-space:nowrap}
+.gate{display:flex;flex-direction:column;gap:14px;padding:18px;border-radius:18px;background:var(--field)}
+.gate .chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;border-radius:999px;padding:9px 16px;font-size:14px;cursor:pointer;font-family:var(--head);font-weight:700}
+.chip.is-on{background:var(--lime);border-color:var(--lime);color:var(--night)}
+.gate input[type="text"]{min-height:46px;font-family:var(--mono);letter-spacing:.12em;font-size:16px}
+.gate .msg{min-height:1.2em;font-size:13.5px;color:var(--sunl);margin:0}
+.state{text-align:center;color:var(--muted);padding:6px 0;margin:0;font-size:13.5px}
+.foot{display:flex;justify-content:center;gap:14px;align-items:center;flex-wrap:wrap;padding-top:6px}
+.foot button{background:transparent;border:0;color:var(--lime);font-size:13.5px;cursor:pointer;padding:6px 4px}
+.foot .meta{font-size:10.5px}
+</style>
+</head>
+<body>
+<main class="page">
+<header class="topbar is-compact"><div class="topbar-in">
+  <a href="/" class="logo" aria-label="meet-bty.com"><span class="logo-stack is-solid"><svg viewBox="200 200 3005.02 746" class="morph is-signet" role="img" aria-label="MEET"><g class="m-root"><circle class="m-circle" cx="860" cy="596" r="1000"/><path class="m-M" fill="#FFFFFF" d="M200 946V246H445L566 856H584L705 246H950V946H822V343H804L684 946H466L346 343H328V946Z"/><rect class="m-bar cursor" x="2605.02" y="819" width="600" height="127" fill="#D4F65A"/></g></svg></span></a>
+  <img src="../assets/youth-bplus-weiss.svg" alt="YOUTH b+" class="sender">
+</div></header>
+<div class="screens">
+<section class="screen portal">
+  <div class="p-head">
+    <div class="kicker">MEET_ Portal</div>
+    <h1><span id="hello">Hallo</span><span class="wall-bar" aria-hidden="true"></span></h1>
+    <p class="hint p-date" id="pDate"></p>
+  </div>
+
+  <form class="gate" id="gate" hidden novalidate>
+    <div class="label">Wer bist du?</div>
+    <div class="chips" id="who"></div>
+    <label class="label" for="pin">Studio-PIN</label>
+    <input type="text" id="pin" placeholder="Dieselbe PIN wie im Studio" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="numeric">
+    <p class="msg" id="gateMsg"></p>
+    <button type="submit" class="btn btn--primary btn--sm" style="margin-top:0">Portal öffnen</button>
+  </form>
+
+  <div class="grid" id="grid" hidden>
+    <article class="card card--heute">
+      <div class="card-head"><span class="kicker">Heute aus dem Jahresplan</span><a href="https://docs.google.com/spreadsheets/d/155HIyzhT3HrH0t4rUXvIo6OKAMxmB5EHVenSIdn8RBE/edit" target="_blank" rel="noopener">Jahresplan →</a></div>
+      <div class="big" id="hRef">…</div>
+      <div class="meta" id="hMeta"></div>
+      <div class="acts">
+        <a class="btn btn--primary" href="/studio/">Studio öffnen</a>
+        <a class="btn btn--ghost btn--sm2" href="/">Startseite</a>
+      </div>
+    </article>
+
+    <article class="card card--wall">
+      <div class="card-head"><span class="kicker">MEET WALL</span><a href="/studio/wall/">Freigabe öffnen →</a></div>
+      <div class="stats">
+        <a class="stat" id="stP" href="/studio/wall/?tab=pending"><b id="nP">–</b><span>wartet</span></a>
+        <a class="stat" id="stQ" href="/studio/wall/?tab=questions"><b id="nQ">–</b><span>Fragen</span></a>
+        <a class="stat" href="/studio/wall/?tab=approved"><b id="nA">–</b><span>heute oben</span></a>
+      </div>
+      <div class="sub">Wartet auf Freigabe</div>
+      <div class="list" id="pendList"><p class="empty">…</p></div>
+      <div class="sub">Offene Fragen zum Text</div>
+      <div class="list" id="qList"><p class="empty">…</p></div>
+    </article>
+
+    <article class="card card--kal">
+      <div class="card-head"><span class="kicker">MEET_ Kalender</span><a href="/kalender/">Kalender öffnen →</a></div>
+      <div class="sub" id="kalHead">Heute</div>
+      <div class="list" id="kalToday"><p class="empty">…</p></div>
+      <div class="sub">Aufgaben · fällig oder diese Woche</div>
+      <div class="list" id="kalTasks"><p class="empty">…</p></div>
+    </article>
+
+    <article class="card card--tools">
+      <div class="card-head"><span class="kicker">Werkzeuge</span></div>
+      <div class="tools" id="tools"></div>
+    </article>
+  </div>
+
+  <p class="state" id="state" hidden></p>
+  <div class="foot" id="foot" hidden>
+    <span class="meta" id="stand"></span>
+    <button type="button" id="reload">Neu laden</button>
+    <button type="button" id="relogin">Name / PIN ändern</button>
+  </div>
+</section>
+</div>
+</main>
+<script src="../config.js"></script>
+<script>
+(function () {
+  "use strict";
+  var WALL = "/.netlify/functions/wall", KAL = "/.netlify/functions/kalender", PLAN_PROXY = "/.netlify/functions/plan";
+  var SETTINGS_KEY = "meetstudio:settings:v2"; // Studio-PIN – dieselbe wie Studio, WALL-Freigabe und Kalender
+  var ICH_KEY = "meet_kal_ich";                 // Name – derselbe wie im Kalender
+  var PLAN_CACHE = "meet:plan";                 // Jahresplan-CSV – derselbe Zwischenspeicher wie die Startseite
+  var REFRESH_MS = 60000;
+  var PERSONEN = [{ id: "niklas", name: "Niklas" }, { id: "vincent", name: "Vincent" }, { id: "joel", name: "Joel" }];
+  var BEREICHE = [{ id: "daily", name: "MEET DAILY", farbe: "peach" }, { id: "2gether", name: "MEET2gether", farbe: "lime" }, { id: "us", name: "MEET US", farbe: "pink" }, { id: "studio", name: "Studio & Dreh", farbe: "violet" }, { id: "social", name: "Social & Content", farbe: "blue" }, { id: "team", name: "Team", farbe: "mint" }, { id: "sonstiges", name: "Sonstiges", farbe: "grau" }];
+  var TOOLS = [
+    { name: "meet-bty.com", sub: "Startseite", href: "/" },
+    { name: "Links-Seite", sub: "/links", href: "/links/" },
+    { name: "MEET DAILY Jahresplan", sub: "Google Sheet", href: "https://docs.google.com/spreadsheets/d/155HIyzhT3HrH0t4rUXvIo6OKAMxmB5EHVenSIdn8RBE/edit" },
+    { name: "WhatsApp-Kanal MEET DAILY", sub: "Kanal", href: (window.MEET_CONFIG && window.MEET_CONFIG.links && window.MEET_CONFIG.links.whatsapp) || "" },
+    { name: "Instagram @meet_bty", sub: "Reels & Stories", href: "https://www.instagram.com/meet_bty" },
+    { name: "TikTok @meet_bty", sub: "Shorts", href: "https://www.tiktok.com/@meet_bty" },
+    { name: "Netlify · Formulare", sub: "Einsendungen", href: "https://app.netlify.com/projects/meet-bty/forms" },
+    { name: "Netlify · Deploys", sub: "Website", href: "https://app.netlify.com/projects/meet-bty/deploys" }
+  ];
+  var WD = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  var MONTHS = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sep.", "Okt.", "Nov.", "Dez."];
+  var $ = function (id) { return document.getElementById(id); };
+  var el = { gate: $("gate"), who: $("who"), pin: $("pin"), gateMsg: $("gateMsg"), grid: $("grid"), state: $("state"), foot: $("foot"), stand: $("stand"), hello: $("hello"), pDate: $("pDate"),
+    hRef: $("hRef"), hMeta: $("hMeta"), nP: $("nP"), nQ: $("nQ"), nA: $("nA"), stP: $("stP"), stQ: $("stQ"), pendList: $("pendList"), qList: $("qList"), kalHead: $("kalHead"), kalToday: $("kalToday"), kalTasks: $("kalTasks"), tools: $("tools") };
+  var pin = "", me = "", whoSel = "", kalRev = "", kal = null, timer = null, loading = false;
+  var data = { pending: [], questions: [], approved: [] };
+
+  function settings() { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") || {}; } catch (e) { return {}; } }
+  function savePin(p) { try { var s = settings(); s.studioPin = p; localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) { } }
+  pin = settings().studioPin || "";
+  try { me = localStorage.getItem(ICH_KEY) || ""; } catch (e) { }
+
+  // ---------- Datum ----------
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function dayKey(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function isoWeekKey(d) {
+    var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    var wd = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - wd);
+    var y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    return t.getUTCFullYear() + "-W" + pad(Math.ceil(((t - y0) / 864e5 + 1) / 7));
+  }
+  function when(ts) { var d = new Date(ts); if (isNaN(d)) return ""; var tk = dayKey(new Date()); return (dayKey(d) === tk ? "heute" : d.getDate() + ". " + MONTHS[d.getMonth()]) + " · " + pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+  function personName(id) { var p = personen().filter(function (x) { return x.id === id; })[0]; return p ? p.name : id === "beide" ? "Alle" : (id || ""); }
+  function personen() {
+    var s = kal && kal.einstellungen && kal.einstellungen.kalender;
+    var list = s && Array.isArray(s.personen) && s.personen.length ? s.personen.filter(function (p) { return p && p.id && p.name && p.id !== "beide"; }) : PERSONEN;
+    return list.map(function (p) { return { id: String(p.id), name: String(p.name) }; });
+  }
+  function bereich(id) {
+    var s = kal && kal.einstellungen && kal.einstellungen.kalender;
+    var list = s && Array.isArray(s.bereiche) && s.bereiche.length ? s.bereiche : BEREICHE;
+    return list.filter(function (b) { return b && b.id === id; })[0] || { id: id, name: id || "", farbe: "grau" };
+  }
+
+  // ---------- Netz ----------
+  function call(api, op, body) {
+    return fetch(api + "?op=" + op, { method: "POST", headers: { "Content-Type": "application/json", "x-studio-pin": encodeURIComponent(pin) }, body: JSON.stringify(body || {}) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(j.error || "HTTP " + r.status); e.status = r.status; throw e; } return j; }); });
+  }
+
+  // ---------- Jahresplan (dieselbe CSV wie Studio und Startseite) ----------
+  function parseCsv(text) {
+    var rows = [], row = [], cur = "", q = false; text = text.replace(/^﻿/, "");
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+      else if (c === '"') q = true;
+      else if (c === "," || c === ";" || c === "\t") { row.push(cur); cur = ""; }
+      else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cur); rows.push(row); row = []; cur = ""; }
+      else cur += c;
+    }
+    if (cur.length || row.length) { row.push(cur); rows.push(row); }
+    return rows.filter(function (r) { return r.some(function (x) { return x.trim(); }); });
+  }
+  function planDayKey(str) {
+    str = (str || "").trim();
+    var m1 = str.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})/);
+    if (m1) { var y = m1[3]; if (y.length === 2) y = "20" + y; return y + "-" + m1[2].padStart(2, "0") + "-" + m1[1].padStart(2, "0"); }
+    var m2 = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m2) return m2[1] + "-" + m2[2].padStart(2, "0") + "-" + m2[3].padStart(2, "0");
+    return null;
+  }
+  function planRow(csv, day) {
+    var rows = parseCsv(csv); if (!rows.length) return null;
+    var head = rows[0].map(function (h) { return h.trim().toLowerCase(); });
+    var ci = function (n) { for (var i = 0; i < head.length; i++) if (head[i].indexOf(n) === 0) return i; return -1; };
+    var iD = ci("datum"), iR = ci("bibelstelle"), iS = ci("sprecher"), iT = ci("thema");
+    if (iD < 0 || iR < 0) return null;
+    var g = function (r, i) { return i < 0 ? "" : (r[i] || "").replace(/\s+/g, " ").trim(); };
+    for (var k = 1; k < rows.length; k++) if (planDayKey(rows[k][iD]) === day) return { ref: g(rows[k], iR), speaker: g(rows[k], iS), topic: g(rows[k], iT) };
+    return null;
+  }
+  function showPlan(csv) {
+    var r = planRow(csv, dayKey(new Date()));
+    if (!r || !r.ref) { el.hRef.textContent = "Kein Eintrag für heute"; el.hMeta.textContent = "Rückfall der Startseite: " + ((window.MEET_CONFIG && window.MEET_CONFIG.passage) || "–"); return; }
+    el.hRef.textContent = r.ref;
+    var sp = r.speaker ? r.speaker.charAt(0).toUpperCase() + r.speaker.slice(1) : "";
+    el.hMeta.textContent = [sp ? "Sprecher " + sp : "", r.topic].filter(Boolean).join(" · ") || "Video 1 · 05:45 · Video 2 · 06:15";
+  }
+  function fetchCsv(u) { return fetch(u, { cache: "no-store", credentials: "omit" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); }).then(function (s) { if (/<html/i.test(s.slice(0, 300))) throw new Error("keine CSV"); return s; }); }
+  function loadPlan() {
+    var url = ((window.MEET_CONFIG || {}).planUrl || "").trim();
+    try { var c = JSON.parse(localStorage.getItem(PLAN_CACHE) || "null"); if (c && c.csv) showPlan(c.csv); } catch (e) { }
+    if (!url) { el.hRef.textContent = (window.MEET_CONFIG || {}).passage || "–"; return; }
+    fetchCsv(url).catch(function () { return fetchCsv(PLAN_PROXY + "?u=" + encodeURIComponent(url)); })
+      .then(function (csv) { try { localStorage.setItem(PLAN_CACHE, JSON.stringify({ csv: csv, at: Date.now() })); } catch (e) { } showPlan(csv); })
+      .catch(function () { if (el.hRef.textContent === "…") { el.hRef.textContent = "Jahresplan nicht erreichbar"; el.hMeta.textContent = ""; } });
+  }
+
+  // ---------- WALL ----------
+  function loadWall() {
+    return Promise.all([call(WALL, "pending"), call(WALL, "questions"), fetch(WALL, { cache: "no-store" }).then(function (r) { return r.json(); }).catch(function () { return { items: [] }; })])
+      .then(function (r) { data.pending = r[0].items || []; data.questions = r[1].items || []; data.approved = r[2].items || []; renderWall(); });
+  }
+  function renderWall() {
+    var tk = dayKey(new Date());
+    el.nP.textContent = data.pending.length; el.nQ.textContent = data.questions.length;
+    el.nA.textContent = data.approved.filter(function (m) { var d = new Date(m.ts); return !isNaN(d) && dayKey(d) === tk; }).length;
+    el.stP.classList.toggle("is-hot", data.pending.length > 0); el.stQ.classList.toggle("is-hot", data.questions.length > 0);
+    document.title = (data.pending.length + data.questions.length ? "(" + (data.pending.length + data.questions.length) + ") " : "") + "MEET_ Portal";
+    el.pendList.innerHTML = "";
+    if (!data.pending.length) el.pendList.appendChild(empty("Nichts wartet. Alles geprüft."));
+    data.pending.slice(0, 5).forEach(function (m) {
+      var it = item("item");
+      it.appendChild(text(m.text));
+      var row = document.createElement("div"); row.className = "item-row";
+      row.appendChild(meta([m.passage, when(m.ts)].filter(Boolean).join(" · ")));
+      var acts = document.createElement("div"); acts.className = "item-acts";
+      acts.appendChild(btn("Freigeben", "btn--mini", function () { approve(it, m); }));
+      var no = document.createElement("a"); no.className = "btn--mini btn--no"; no.href = "/studio/wall/?tab=pending"; no.textContent = "Nicht zeigen"; no.title = "Ablehnen geht mit Begründung auf der Freigabeseite";
+      acts.appendChild(no);
+      row.appendChild(acts); it.appendChild(row); el.pendList.appendChild(it);
+    });
+    if (data.pending.length > 5) el.pendList.appendChild(more("/studio/wall/?tab=pending", "Alle " + data.pending.length + " ansehen"));
+    el.qList.innerHTML = "";
+    if (!data.questions.length) el.qList.appendChild(empty("Keine offenen Fragen."));
+    data.questions.slice(0, 4).forEach(function (q) {
+      var it = item("item item--q");
+      var n = document.createElement("div"); n.className = "q-name"; n.textContent = q.name ? "Frage von " + q.name : "Frage ohne Namen"; it.appendChild(n);
+      it.appendChild(text(q.text));
+      var row = document.createElement("div"); row.className = "item-row";
+      row.appendChild(meta([q.passage, when(q.ts)].filter(Boolean).join(" · ")));
+      var a = document.createElement("a"); a.className = "btn--mini"; a.href = "/studio/wall/?tab=questions"; a.textContent = "Antworten";
+      row.appendChild(a); it.appendChild(row); el.qList.appendChild(it);
+    });
+    if (data.questions.length > 4) el.qList.appendChild(more("/studio/wall/?tab=questions", "Alle " + data.questions.length + " ansehen"));
+  }
+  function approve(card, m) {
+    card.classList.add("is-busy");
+    call(WALL, "approve", { id: m.id }).then(function () {
+      data.pending = data.pending.filter(function (x) { return x.id !== m.id; });
+      data.approved.unshift(m); renderWall(); state("Freigegeben · steht jetzt auf der Wand.");
+    }).catch(function (e) { card.classList.remove("is-busy"); state(e.message); });
+  }
+
+  // ---------- Kalender ----------
+  function loadKal() {
+    return call(KAL, "all", { rev: kalRev }).then(function (r) {
+      if (r.unchanged && kal) return;
+      kalRev = r.rev || ""; kal = r.data || {}; renderKal();
+    });
+  }
+  function docs(coll) { var c = kal && kal[coll] || {}; return Object.keys(c).map(function (id) { return Object.assign({ id: id }, c[id]); }); }
+  function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+  function parseDay(k) { var p = k.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function termineAm(tk) {
+    var out = [], day = parseDay(tk);
+    docs("termine").forEach(function (t) {
+      if (typeof t.datum !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(t.datum)) return;
+      if (!t.wiederholung) { if (t.datum === tk) out.push(t); return; }
+      if (t.datum > tk) return; if (t.wiederholungBis && tk > t.wiederholungBis) return;
+      var ex = Array.isArray(t.ausnahmen) ? t.ausnahmen : []; if (ex.indexOf(tk) >= 0) return;
+      var start = parseDay(t.datum);
+      var hit = t.wiederholung === "woechentlich" ? day.getDay() === start.getDay() : t.wiederholung === "taeglich" ? true : t.wiederholung === "monatlich" ? day.getDate() === start.getDate() : false;
+      if (hit) out.push(t);
+    });
+    out.sort(function (x, y) { return ((x.ganztag || !x.von) ? 0 : 1) - ((y.ganztag || !y.von) ? 0 : 1) || (x.von || "").localeCompare(y.von || ""); });
+    return out;
+  }
+  function renderKal() {
+    var now = new Date(), tk = dayKey(now), wk = isoWeekKey(now);
+    var heute = termineAm(tk), morgen = termineAm(dayKey(addDays(now, 1)));
+    el.kalHead.textContent = "Heute · " + heute.length + (heute.length === 1 ? " Termin" : " Termine");
+    el.kalToday.innerHTML = "";
+    if (!heute.length) el.kalToday.appendChild(empty("Heute steht nichts im Kalender."));
+    heute.forEach(function (t) { el.kalToday.appendChild(terminRow(t)); });
+    if (morgen.length) {
+      var h = document.createElement("div"); h.className = "sub"; h.textContent = "Morgen"; el.kalToday.appendChild(h);
+      morgen.slice(0, 3).forEach(function (t) { el.kalToday.appendChild(terminRow(t)); });
+    }
+    var abw = docs("abwesenheiten").filter(function (a) { return typeof a.von === "string" && a.von <= tk && (!a.bis || a.bis >= tk); });
+    if (abw.length) { var ab = document.createElement("p"); ab.className = "empty"; ab.textContent = "Abwesend: " + abw.map(function (a) { return personName(a.wer) + (a.bis ? " bis " + fmtDM(a.bis) : ""); }).join(", "); el.kalToday.appendChild(ab); }
+    var tasks = docs("aufgaben").filter(function (t) { return !t.erledigt && typeof t.titel === "string" && ((t.datum && t.datum <= tk) || t.woche === wk); });
+    tasks.sort(function (a, b) { return ((a.prio === "hoch" ? 0 : 1) - (b.prio === "hoch" ? 0 : 1)) || (a.datum || "9").localeCompare(b.datum || "9"); });
+    el.kalTasks.innerHTML = "";
+    if (!tasks.length) el.kalTasks.appendChild(empty("Keine offenen Aufgaben für diese Woche."));
+    tasks.slice(0, 6).forEach(function (t) {
+      var r = document.createElement("div"); r.className = "task" + (t.datum && t.datum < tk ? " is-late" : "");
+      var tm = document.createElement("span"); tm.className = "t-time"; tm.textContent = t.datum ? (t.datum < tk ? "überfällig" : t.datum === tk ? "heute" : fmtDM(t.datum)) : "diese Woche";
+      var ti = document.createElement("span"); ti.className = "t-title";
+      var d = document.createElement("span"); d.className = "dot dot--" + (bereich(t.bereich).farbe || "grau"); ti.appendChild(d);
+      ti.appendChild(document.createTextNode((t.prio === "hoch" ? "! " : "") + t.titel));
+      var w = document.createElement("span"); w.className = "t-who"; w.textContent = personName(t.wer);
+      r.appendChild(tm); r.appendChild(ti); r.appendChild(w); el.kalTasks.appendChild(r);
+    });
+    if (tasks.length > 6) el.kalTasks.appendChild(more("/kalender/", "Alle " + tasks.length + " im Kalender"));
+  }
+  function fmtDM(k) { var d = parseDay(k); return d.getDate() + ". " + MONTHS[d.getMonth()]; }
+  function terminRow(t) {
+    var r = document.createElement("div"); r.className = "t-row";
+    var tm = document.createElement("span"); tm.className = "t-time"; tm.textContent = (t.ganztag || !t.von) ? "ganztägig" : t.von + (t.bis ? "–" + t.bis : "");
+    var ti = document.createElement("span"); ti.className = "t-title";
+    var d = document.createElement("span"); d.className = "dot dot--" + (bereich(t.bereich).farbe || "grau"); ti.appendChild(d);
+    ti.appendChild(document.createTextNode(t.titel || ""));
+    if (t.ort) { var o = document.createElement("span"); o.className = "meta"; o.textContent = " · " + t.ort; ti.appendChild(o); }
+    var w = document.createElement("span"); w.className = "t-who"; w.textContent = personName(t.wer);
+    r.appendChild(tm); r.appendChild(ti); r.appendChild(w);
+    return r;
+  }
+
+  // ---------- Bausteine ----------
+  function item(cls) { var a = document.createElement("article"); a.className = cls; return a; }
+  function text(t) { var p = document.createElement("p"); p.className = "item-text"; p.textContent = t || ""; return p; }
+  function meta(t) { var m = document.createElement("div"); m.className = "meta"; m.textContent = t; return m; }
+  function empty(t) { var p = document.createElement("p"); p.className = "empty"; p.textContent = t; return p; }
+  function more(href, label) { var a = document.createElement("a"); a.className = "wall-past"; a.href = href; a.textContent = label; a.style.alignSelf = "center"; return a; }
+  function btn(label, cls, fn) { var b = document.createElement("button"); b.type = "button"; b.className = cls; b.textContent = label; b.addEventListener("click", fn); return b; }
+  function state(t) { el.state.textContent = t; el.state.hidden = !t; }
+
+  // ---------- Laden ----------
+  function loadAll() {
+    if (loading) return; loading = true; state("");
+    Promise.all([loadWall(), loadKal()]).then(function () {
+      var d = new Date(); el.stand.textContent = "Stand " + pad(d.getHours()) + ":" + pad(d.getMinutes()); el.foot.hidden = false;
+    }).catch(function (e) {
+      if (e && e.status === 401) { showGate("Die Studio-PIN stimmt nicht mehr."); return; }
+      state("Gerade keine Verbindung: " + e.message);
+    }).finally(function () { loading = false; });
+  }
+  function startTimer() { clearInterval(timer); timer = setInterval(function () { if (!document.hidden) loadAll(); }, REFRESH_MS); }
+
+  // ---------- Schleier ----------
+  function renderWho() {
+    el.who.innerHTML = "";
+    personen().forEach(function (p) {
+      var b = document.createElement("button"); b.type = "button"; b.className = "chip" + (whoSel === p.id ? " is-on" : ""); b.textContent = p.name;
+      b.addEventListener("click", function () { whoSel = p.id; renderWho(); });
+      el.who.appendChild(b);
+    });
+  }
+  function showGate(msg) {
+    whoSel = me; renderWho(); el.pin.value = pin; el.gateMsg.textContent = msg || "";
+    el.gate.hidden = false; el.grid.hidden = true; el.foot.hidden = true; state("");
+    (me ? el.pin : el.who.firstChild || el.pin).focus();
+  }
+  el.gate.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var p = el.pin.value.trim();
+    if (!whoSel) { el.gateMsg.textContent = "Bitte deinen Namen antippen."; return; }
+    if (!p) { el.gateMsg.textContent = "Bitte die Studio-PIN eintragen."; el.pin.focus(); return; }
+    pin = p; el.gateMsg.textContent = "Verbinde …";
+    call(WALL, "pending").then(function () {
+      savePin(p); me = whoSel; try { localStorage.setItem(ICH_KEY, me); } catch (e) { }
+      open();
+    }).catch(function (e) { el.gateMsg.textContent = e.status === 401 ? "Die Studio-PIN stimmt nicht." : "Keine Verbindung: " + e.message; });
+  });
+  function open() {
+    el.gate.hidden = true; el.grid.hidden = false;
+    el.hello.textContent = "Hallo " + (personName(me) || "");
+    loadAll(); startTimer();
+  }
+
+  // ---------- Start ----------
+  var now = new Date();
+  el.pDate.textContent = WD[now.getDay()] + ", " + now.getDate() + ". " + MONTHS[now.getMonth()] + " " + now.getFullYear();
+  TOOLS.filter(function (t) { return t.href; }).forEach(function (t) {
+    var a = document.createElement("a"); a.className = "tool"; a.href = t.href; if (/^https?:/.test(t.href)) { a.target = "_blank"; a.rel = "noopener"; }
+    a.appendChild(document.createTextNode(t.name)); var s = document.createElement("span"); s.textContent = t.sub; a.appendChild(s); el.tools.appendChild(a);
+  });
+  loadPlan();
+  $("reload").addEventListener("click", loadAll);
+  $("relogin").addEventListener("click", function () { showGate(""); });
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && !el.grid.hidden) { loadAll(); loadPlan(); } });
+  if (pin && me) open(); else showGate("");
+})();
+</script>
+
+</body>
+</html>
