@@ -23,12 +23,14 @@ Gestaltung nach dem Claude-Design-Entwurf „MEET Impuls“ und dem MEET-Brand-K
 | `config.js` | **Hier täglich die Bibelstelle ändern** (`passage`), stille Zeichen-Obergrenze, **Kanal-Links für `/links`** (`links`) |
 | `kalender/index.html` | **meet-bty.com/kalender** – interner Planungskalender für Niklas, Vincent und Joel (Studio-PIN): Tag/Woche/Monat/Jahr, Aufgaben, Beiträge-Board „Produktion“, Vorlagen, Abwesenheiten, Ablage-Links, Kommentare. Seite aus dem Claude-Artefakt „MEET_ Kalender“ |
 | `kalender/sync.js` | Verbindung der Kalender-Seite zum gemeinsamen Speicher (stellt `window.claude.use("db")` wie im Artefakt bereit, fragt alle 20 s nach Änderungen); Schleier für PIN und „Wer bist du?“ |
+| `kalender/assistent.js` | Sprach- und Chat-Assistent im Kalender („Sag’s mir“ unten rechts): Spracherkennung des Browsers, schickt Nachricht samt Kalender-Kontext an die Function `assistent`, führt die Aktionen im Speicher aus, Rückgängig je Antwort |
+| `netlify/functions/assistent.mjs` | Claude (Opus 5.5, `@anthropic-ai/sdk`) leitet aus dem Chat Kalender-Aktionen ab (anlegen/ändern/löschen von Termin, Aufgabe, Beitrag, Abwesenheit); braucht `ANTHROPIC_API_KEY` auf Netlify; POST mit Studio-PIN |
 | `netlify/functions/kalender.mjs` | Speicher des Kalenders: Netlify Blobs (Store `meet-kalender`, ein Eintrag `data.json`, Schreiben nur bei unverändertem ETag), POST mit Studio-PIN |
 | `studio/wall/index.html` | **Freigabeseite der MEET WALL** (Studio-PIN): wartende Momente freigeben oder ablehnen, freigegebene wieder von der Wand nehmen |
 | `netlify/functions/wall.mjs` | Liefert die freigegebenen Momente an die Seite (GET, anonym) und nimmt die Freigabe-Entscheidungen entgegen (POST mit PIN) |
 | `netlify/functions/submission-created.mjs` | Läuft bei jeder Formular-Einsendung; legt MEET-Momente mit gesetztem Haken als „wartend“ im Speicher ab |
 | `netlify/lib/wall-store.mjs` | Speicher der Wand: Netlify Blobs (Store `meet-wall`), lokal ersatzweise Dateien |
-| `package.json` | Einzige Abhängigkeit `@netlify/blobs` für die Functions; `node_modules` wird nicht versioniert und auf der Website gesperrt |
+| `package.json` | Abhängigkeiten der Functions (`@netlify/blobs`, `web-push`, `@anthropic-ai/sdk`); `node_modules` wird nicht versioniert und auf der Website gesperrt |
 | `links/index.html` | Unterseite **meet-bty.com/links**: alle Kanäle auf einen Blick – WhatsApp-Kanal MEET DAILY im Fokus, darunter Instagram, TikTok, YouTube |
 | `links/links.js` | Baut die Kanal-Liste aus `config.js` (`links`), Plattform-Symbole, Kopf beim Scrollen |
 | `manifest.webmanifest` | Web-App auf dem Home-Bildschirm (Icon = Signet; `assets/apple-touch-icon.png`, `icon-192.png`, `icon-maskable-512.png` sind vollflächig violett, weil iPhone und Android durchsichtige Ecken sonst schwarz oder weiss füllen) |
