@@ -21,6 +21,9 @@ Gestaltung nach dem Claude-Design-Entwurf „MEET Impuls“ und dem MEET-Brand-K
 | `motion.js` | Logo-Intro, Sticky-Kopf mit Morph M_ ↔ MEET_, Leerstellen-Logik |
 | `homescreen.js` | Hinweis „Leg MEET auf deinen Home-Bildschirm“ – nur auf dem Handy, nicht in der hinzugefügten App; Wegklicken merkt sich das Gerät (`localStorage`, Schlüssel `meet:homescreen-hint`) |
 | `config.js` | **Hier täglich die Bibelstelle ändern** (`passage`), stille Zeichen-Obergrenze, **Kanal-Links für `/links`** (`links`) |
+| `kalender/index.html` | **meet-bty.com/kalender** – interner Planungskalender für Niklas, Vincent und Joel (Studio-PIN): Tag/Woche/Monat/Jahr, Aufgaben, Beiträge-Board „Produktion“, Vorlagen, Abwesenheiten, Ablage-Links, Kommentare. Seite aus dem Claude-Artefakt „MEET_ Kalender“ |
+| `kalender/sync.js` | Verbindung der Kalender-Seite zum gemeinsamen Speicher (stellt `window.claude.use("db")` wie im Artefakt bereit, fragt alle 20 s nach Änderungen); Schleier für PIN und „Wer bist du?“ |
+| `netlify/functions/kalender.mjs` | Speicher des Kalenders: Netlify Blobs (Store `meet-kalender`, ein Eintrag `data.json`, Schreiben nur bei unverändertem ETag), POST mit Studio-PIN |
 | `studio/wall/index.html` | **Freigabeseite der MEET WALL** (Studio-PIN): wartende Momente freigeben oder ablehnen, freigegebene wieder von der Wand nehmen |
 | `netlify/functions/wall.mjs` | Liefert die freigegebenen Momente an die Seite (GET, anonym) und nimmt die Freigabe-Entscheidungen entgegen (POST mit PIN) |
 | `netlify/functions/submission-created.mjs` | Läuft bei jeder Formular-Einsendung; legt MEET-Momente mit gesetztem Haken als „wartend“ im Speicher ab |

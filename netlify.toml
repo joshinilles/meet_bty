@@ -37,6 +37,12 @@
   [headers.values]
     Content-Type = "application/manifest+json"
 
+# MEET_ Kalender (interner Planungskalender, Studio-PIN): nicht in Suchmaschinen
+[[headers]]
+  for = "/kalender/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
 [functions]
   directory = "netlify/functions"
   # config.js liegt den Functions bei: die Antwort-Push liest dort den öffentlichen Push-Schlüssel (pushKey)
