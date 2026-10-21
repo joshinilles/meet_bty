@@ -45,7 +45,7 @@
     addName: $("addName"), name: $("name"), error: $("error"), send: $("send"),
     wallRow: $("wallRow"), wall: $("wall"),
     sentKicker: $("sentKicker"), sentHeading: $("sentHeading"), sentBody: $("sentBody"),
-    reset: $("reset"), goWall: $("goWall"), pushBox: $("pushBox"), pushAsk: $("pushAsk"), pushHint: $("pushHint"), homeAsks: $("homeAsks"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
+    reset: $("reset"), goWall: $("goWall"), pushBox: $("pushBox"), pushAsk: $("pushAsk"), pushHint: $("pushHint"), homeAsks: $("homeAsks"), askPast: $("askPast"), askPastNew: $("askPastNew"), askPop: $("askPop"), askPopBack: $("askPopBack"), askPopClose: $("askPopClose"), askPopList: $("askPopList"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
     wallBack: $("wallBack"), wallKicker: $("wallKicker"), wallList: $("wallList"), wallNote: $("wallNote"),
     wallMore: $("wallMore"), wallPast: $("wallPast"), wallHome: $("wallHome")
   };
@@ -405,35 +405,71 @@
       })
       .catch(function () { return false; });
   }
+  // Heute-Screen zeigt nur die heute gestellten Fragen; alles davor liegt im Pop-up „Deine Fragen der letzten Tage“
+  var ASK_SEEN_KEY = "meet:asks-seen"; // Zeitpunkt des letzten Blicks ins Pop-up – für „n neu“
+  function askIsToday(q) { var d = new Date(q.ts); return !isNaN(d) && dayKey(d) === dayKey(new Date()); }
+  function asksSeen() { var v = 0; try { v = Date.parse(localStorage.getItem(ASK_SEEN_KEY) || "") || 0; } catch (e) {} return v; }
   function renderAsks() {
-    var asks = readAsks().slice(0, 3);
+    var all = readAsks();
+    var asks = all.filter(askIsToday).slice(0, 3);
+    var past = all.filter(function (q) { return !askIsToday(q); });
     el.homeAsks.innerHTML = "";
     el.homeAsks.hidden = !asks.length;
-    asks.forEach(function (q) {
-      var done = q.status === "beantwortet";
-      var c = document.createElement("article");
-      c.className = "ask" + (done ? " ask--answered" : "");
-      var head = document.createElement("div"); head.className = "ask-head";
-      var lab = document.createElement("span"); lab.className = "label"; lab.textContent = "Deine Frage";
-      var st = document.createElement("span"); st.className = "ask-state"; st.textContent = done ? "Beantwortet" : "Noch offen";
-      head.appendChild(lab); head.appendChild(st);
-      var t = document.createElement("p"); t.className = "ask-text"; t.textContent = q.text;
-      c.appendChild(head); c.appendChild(t);
-      if (done) {
-        var a = document.createElement("p"); a.className = "ask-answer";
-        var b = document.createElement("b"); b.textContent = q.by ? "Antwort von " + q.by : "Unsere Antwort";
-        a.appendChild(b); a.appendChild(document.createTextNode(q.answer || "Danke für deine Frage!"));
-        c.appendChild(a);
-      } else {
-        var h = document.createElement("p"); h.className = "ask-hint"; h.textContent = "Wir lesen deine Frage. Die Antwort erscheint hier.";
-        c.appendChild(h);
-      }
-      var w = document.createElement("p"); w.className = "ask-when";
-      w.textContent = [askDay(q.ts), q.passage].filter(Boolean).join(" · ");
-      c.appendChild(w);
-      el.homeAsks.appendChild(c);
-    });
+    asks.forEach(function (q) { el.homeAsks.appendChild(askCard(q)); });
+    // Link zum Pop-up nur, wenn es frühere Fragen gibt; Badge zählt neue Antworten seit dem letzten Blick
+    el.askPast.hidden = !past.length;
+    var seen = asksSeen();
+    var fresh = past.filter(function (q) { return q.status === "beantwortet" && Date.parse(q.answeredAt || "") > seen; }).length;
+    el.askPastNew.hidden = !fresh;
+    el.askPastNew.textContent = fresh + " neu";
+    if (!el.askPop.hidden) renderAskPop(past);
   }
+  function askCard(q) {
+    var done = q.status === "beantwortet";
+    var c = document.createElement("article");
+    c.className = "ask" + (done ? " ask--answered" : "");
+    var head = document.createElement("div"); head.className = "ask-head";
+    var lab = document.createElement("span"); lab.className = "label"; lab.textContent = "Deine Frage";
+    var st = document.createElement("span"); st.className = "ask-state"; st.textContent = done ? "Beantwortet" : "Noch offen";
+    head.appendChild(lab); head.appendChild(st);
+    var t = document.createElement("p"); t.className = "ask-text"; t.textContent = q.text;
+    c.appendChild(head); c.appendChild(t);
+    if (done) {
+      var a = document.createElement("p"); a.className = "ask-answer";
+      var b = document.createElement("b"); b.textContent = q.by ? "Antwort von " + q.by : "Unsere Antwort";
+      a.appendChild(b); a.appendChild(document.createTextNode(q.answer || "Danke für deine Frage!"));
+      c.appendChild(a);
+    } else {
+      var h = document.createElement("p"); h.className = "ask-hint"; h.textContent = "Wir lesen deine Frage. Die Antwort erscheint hier.";
+      c.appendChild(h);
+    }
+    var w = document.createElement("p"); w.className = "ask-when";
+    w.textContent = [askDay(q.ts), q.passage].filter(Boolean).join(" · ");
+    c.appendChild(w);
+    return c;
+  }
+  function renderAskPop(past) {
+    el.askPopList.innerHTML = "";
+    past.forEach(function (q) { el.askPopList.appendChild(askCard(q)); });
+  }
+  function openAskPop() {
+    renderAskPop(readAsks().filter(function (q) { return !askIsToday(q); }));
+    el.askPop.hidden = false;
+    document.body.classList.add("pop-open");
+    try { localStorage.setItem(ASK_SEEN_KEY, new Date().toISOString()); } catch (e) {}
+    el.askPastNew.hidden = true;
+    el.askPopClose.focus();
+  }
+  function closeAskPop() {
+    if (el.askPop.hidden) return;
+    el.askPop.hidden = true;
+    document.body.classList.remove("pop-open");
+    el.askPast.focus();
+  }
+  el.askPast.addEventListener("click", openAskPop);
+  el.askPopClose.addEventListener("click", closeAskPop);
+  el.askPopBack.addEventListener("click", closeAskPop);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeAskPop(); });
   function askDay(ts) {
     var d = ts ? new Date(ts) : null;
     if (!d || isNaN(d)) return "";

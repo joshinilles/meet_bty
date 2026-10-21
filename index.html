@@ -78,8 +78,10 @@
   <div class="stack">
     <button type="button" class="btn btn--primary btn--full" id="goMoment">MEET-Moment teilen</button>
     <button type="button" class="btn btn--text" id="goQuestion">Ich habe eine Frage zum Text</button>
+    <!-- Frühere Fragen dieses Geräts (nicht von heute) liegen im Pop-up; Zahl der neuen Antworten seit dem letzten Blick -->
+    <button type="button" class="ask-past" id="askPast" hidden><span>Deine Fragen der letzten Tage</span><span class="ask-past-badge" id="askPastNew" hidden></span></button>
   </div>
-  <!-- Eigene Fragen zum Text dieses Geräts: offen oder beantwortet (Antwort kommt von der Freigabeseite) -->
+  <!-- Heutige Fragen zum Text dieses Geräts: offen oder beantwortet (Antwort kommt von der Freigabeseite) -->
   <div class="asks" id="homeAsks" hidden></div>
   <button type="button" class="row row--wall" id="homeWall" hidden>
     <span class="row-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="4" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="7" rx="1.5"/><rect x="13" y="17" width="8" height="3" rx="1.2"/></svg></span>
@@ -185,5 +187,17 @@
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
   </button>
 </aside>
+<!-- Pop-up: Fragen der letzten Tage samt Antworten -->
+<div class="pop" id="askPop" hidden>
+  <div class="pop-back" id="askPopBack"></div>
+  <div class="pop-sheet" role="dialog" aria-modal="true" aria-labelledby="askPopTitle">
+    <div class="pop-head">
+      <span class="label" id="askPopTitle">Deine Fragen der letzten Tage</span>
+      <button type="button" class="pop-close" id="askPopClose" aria-label="Schliessen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="asks" id="askPopList"></div>
+    <p class="pop-note">Fragen bleiben 30 Tage auf diesem Gerät.</p>
+  </div>
+</div>
 </body>
 </html>
