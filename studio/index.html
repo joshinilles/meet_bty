@@ -1601,12 +1601,26 @@ function wrapWords(ctx, text, maxW) {
   if (cur) lines.push(cur); return lines;
 }
 function drawCoverImg(ctx, im, W, H) { const r = Math.max(W / im.naturalWidth, H / im.naturalHeight), dw = im.naturalWidth * r, dh = im.naturalHeight * r; ctx.drawImage(im, (W - dw) / 2, (H - dh) / 2, dw, dh); }
+/* Sonnenaufgang von rechts unten: körniger Orange-Verlauf, der auf der Zitat-Karte beginnt und auf der Einladung (ganz orange unten) weitergeht.
+   Radial um die rechte untere Ecke, Mitte Violett (#602184) als Zwischenton wie im CI-Verlauf, dann Nachtviolett; Korn nur im Verlauf. */
+function drawSunrise(ctx, W, H, s) {
+  const off = document.createElement('canvas'); off.width = W; off.height = H; const g = off.getContext('2d');
+  const cx = W + 60 * s, cy = H + 60 * s, r = Math.hypot(W, H) * 0.78;
+  const rad = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+  rad.addColorStop(0, 'rgba(255,138,61,1)'); rad.addColorStop(0.22, 'rgba(255,138,61,.92)'); rad.addColorStop(0.5, 'rgba(196,84,92,.6)'); rad.addColorStop(0.78, 'rgba(96,33,132,.3)'); rad.addColorStop(1, 'rgba(47,16,65,0)');
+  g.fillStyle = rad; g.fillRect(0, 0, W, H);
+  g.globalAlpha = 0.18; g.fillStyle = grainAt(g, s); g.fillRect(0, 0, W, H); g.globalAlpha = 1;
+  const mask = g.createRadialGradient(cx, cy, 0, cx, cy, r); mask.addColorStop(0, 'rgba(0,0,0,1)'); mask.addColorStop(0.55, 'rgba(0,0,0,.7)'); mask.addColorStop(1, 'rgba(0,0,0,0)');
+  g.globalCompositeOperation = 'destination-in'; g.fillStyle = mask; g.fillRect(0, 0, W, H);
+  ctx.drawImage(off, 0, 0);
+}
 /* Karte: MEET DAILY Logo + Datumszeile oben, Zitat so gross wie möglich in der Mitte (Anführungszeichen in Lime),
    unten „MEETmoment mit Name“ + Bibelstelle in der gestrichelten Box, YOUTH b+ rechts unten */
 function drawHighlight(ctx, W, H, text, o) {
   o = o || {}; const s = W / 1080, story = H / W > 1.5, x = 96 * s;
   const ref = o.ref != null ? o.ref : getRef(), name = o.name || speakerName();
   if (IMG.bg) drawCoverImg(ctx, IMG.bg, W, H); else { ctx.fillStyle = '#2F1041'; ctx.fillRect(0, 0, W, H); }
+  if (o.sunrise !== false) drawSunrise(ctx, W, H, s);
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
   const topM = (story ? 240 : 96) * s, botM = (story ? 220 : 96) * s, logoH = (story ? 72 : 64) * s;
   if (IMG.daily) ctx.drawImage(IMG.daily, x, topM, logoH * 4924 / 909, logoH);
