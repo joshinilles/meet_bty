@@ -5,6 +5,7 @@
 //   POST ?op=approved  (PIN)                            → { items: freigegebene Momente }
 //   POST ?op=approve, Body {id}                         → { ok, id }
 //   POST ?op=reject | unpublish, Body {id, reason}      → { ok, id }  (reason = kurze Begründung für den Absender)
+//   POST ?op=private   (PIN)                            → { items: Momente ohne Haken (mit Name, nie auf der Wand), neueste zuerst }
 //   POST ?op=questions (PIN)                           → { items: offene Fragen zum Text (mit Name, nie auf der Wand) }
 //   POST ?op=questions-done (PIN)                      → { items: erledigte Fragen, neueste zuerst (mit Antwort) }
 //   POST ?op=question-answer, Body {id, answer, by}     → { ok, id }  (Frage beantworten: q/ → qd/, Antwort unter qa/<hash> für den Fragenden; by = Name)
@@ -126,6 +127,12 @@ export default async (req) => {
       return json({ items });
     }
     if (op === 'approved') return json({ items: await readIndex() });
+    if (op === 'private') {
+      const keys = await listKeys('n/');
+      const items = (await Promise.all(keys.map((k) => readJson(k, null)))).filter(Boolean);
+      items.sort((a, b) => (a.ts < b.ts ? 1 : -1));
+      return json({ items: items.slice(0, 200) });
+    }
     if (op === 'questions') {
       const keys = await listKeys('q/');
       const items = (await Promise.all(keys.map((k) => readJson(k, null)))).filter(Boolean);

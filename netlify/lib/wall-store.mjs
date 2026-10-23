@@ -2,6 +2,7 @@
 // Schlüssel:  p/<id>      wartender Moment (noch nicht geprüft)
 //             d/<id>      entschiedener Moment (status "frei" oder "nein")
 //             index.json  freigegebene Momente, neueste zuerst, höchstens INDEX_MAX Einträge – das liest die Wand
+//             n/<id>      MEET-Moment OHNE Haken „auf die Wand“ (mit Vorname) – nur für die Prüfseite, Reiter „Privat“; nie auf der Wand
 //             q/<id>      offene Frage zum Text (nur für die Prüfseite, mit Vorname – nie auf der Wand)
 //             qd/<id>     erledigte Frage (beantwortet oder ohne Antwort abgelegt; Antwort in .answer)
 //             qa/<hash>   beantwortete Frage (Hash des Fragetexts → Antwort), damit das Gerät des Fragenden sie abrufen kann

@@ -18,9 +18,11 @@
 .pin{display:flex;gap:10px;align-items:center}
 .pin input[type="text"]{flex:1;font-family:var(--mono);letter-spacing:.12em}
 .tabs{display:flex;gap:6px;padding:4px;border-radius:999px;background:var(--field)}
-.tab{flex:1;min-height:40px;border:0;border-radius:999px;background:transparent;color:var(--soft);font-family:var(--head);font-weight:700;font-size:14px;cursor:pointer}
+.tab{flex:1;min-height:40px;border:0;border-radius:999px;background:transparent;color:var(--soft);font-family:var(--head);font-weight:700;font-size:13.5px;cursor:pointer;padding:0 6px;white-space:nowrap}
 .tab.is-on{background:var(--lime);color:var(--night)}
-.tab b{font-family:var(--mono);font-weight:500;font-size:12px;margin-left:6px;opacity:.8}
+.tab b{font-family:var(--mono);font-weight:500;font-size:12px;margin-left:5px;opacity:.8}
+.wall>.moment--n::before{background:var(--muted)}
+.n-name{font-family:var(--head);font-weight:700;font-size:13px;color:var(--soft);margin-bottom:6px}
 .wall{display:flex;flex-direction:column;gap:12px}
 .wall>.moment{animation:none;transform:none;background:var(--field)}
 .wall>.moment::before{background:var(--sun)}
@@ -61,7 +63,7 @@
   <div class="mod-head">
     <div class="kicker">Freigabe</div>
     <h1 class="wall-title">MEET WALL<span class="wall-bar" aria-hidden="true"></span></h1>
-    <p class="hint">Was hier freigegeben wird, steht anonym auf meet-bty.com. Namen von anderen, Adressen oder Verletzendes: nicht zeigen. Wer abgelehnt wird, sieht auf seinem Gerät die kurze Begründung. Unter „Fragen“ stehen die Fragen zum Text – nur für uns, nie auf der Wand. Was du dort als Antwort schreibst, sieht nur die Person, die gefragt hat, auf ihrem Gerät unter „Deine Frage“.</p>
+    <p class="hint">Was hier freigegeben wird, steht anonym auf meet-bty.com. Namen von anderen, Adressen oder Verletzendes: nicht zeigen. Wer abgelehnt wird, sieht auf seinem Gerät die kurze Begründung. Unter „Fragen“ stehen die Fragen zum Text – nur für uns, nie auf der Wand. Was du dort als Antwort schreibst, sieht nur die Person, die gefragt hat, auf ihrem Gerät unter „Deine Frage“. Unter „Privat“ stehen die MEETmomente, die ohne Haken geschickt wurden – zum Mitlesen, nie auf der Wand.</p>
   </div>
   <div class="pin">
     <label class="sr-only" for="pin">Studio-PIN</label>
@@ -72,6 +74,7 @@
     <button type="button" class="tab is-on" role="tab" id="tabPending" data-tab="pending">Wartet<b id="nPending">–</b></button>
     <button type="button" class="tab" role="tab" id="tabApproved" data-tab="approved">Auf der Wand<b id="nApproved">–</b></button>
     <button type="button" class="tab" role="tab" id="tabQuestions" data-tab="questions">Fragen<b id="nQuestions">–</b></button>
+    <button type="button" class="tab" role="tab" id="tabPrivate" data-tab="private">Privat<b id="nPrivate">–</b></button>
   </div>
   <p class="state" id="state">PIN eingeben und laden.</p>
   <div class="wall" id="list"></div>
@@ -84,11 +87,11 @@
   var API = "/.netlify/functions/wall";
   var SETTINGS_KEY = "meetstudio:settings:v2"; // dieselbe PIN wie im Studio
   var $ = function (id) { return document.getElementById(id); };
-  var el = { pin: $("pin"), load: $("load"), list: $("list"), state: $("state"), nP: $("nPending"), nA: $("nApproved"), nQ: $("nQuestions"), tabs: [$("tabPending"), $("tabApproved"), $("tabQuestions")] };
-  var data = { pending: [], approved: [], questions: [], done: [] };
+  var el = { pin: $("pin"), load: $("load"), list: $("list"), state: $("state"), nP: $("nPending"), nA: $("nApproved"), nQ: $("nQuestions"), nN: $("nPrivate"), tabs: [$("tabPending"), $("tabApproved"), $("tabQuestions"), $("tabPrivate")] };
+  var data = { pending: [], approved: [], questions: [], done: [], private: [] };
   var tab = "pending";
-  try { var qt = new URLSearchParams(location.search).get("tab"); if (qt === "approved" || qt === "questions") tab = qt; } catch (e) {} // Reiter aus dem Portal-Link
-  var showPast = false; // „Auf der Wand“ zeigt zuerst nur den heutigen Tag, wie die Wand selbst
+  try { var qt = new URLSearchParams(location.search).get("tab"); if (qt === "approved" || qt === "questions" || qt === "private") tab = qt; } catch (e) {} // Reiter aus dem Portal-Link
+  var showPast = false; // „Auf der Wand“ und „Privat“ zeigen zuerst nur den heutigen Tag, wie die Wand selbst
   var showDone = false; // „Fragen“: erledigte (beantwortete) Fragen auf Wunsch darunter
   var pushNote = "";    // Rückmeldung nach dem Antworten (Push verschickt oder nicht), einmalig über der Liste
   var WHO = ["Niklas", "Vincent"]; // wer antwortet – steht beim Fragenden über der Antwort
@@ -123,12 +126,13 @@
     savePin(el.pin.value.trim());
     state("Wird geladen …");
     el.list.innerHTML = "";
-    Promise.all([call("pending"), call("approved"), call("questions"), call("questions-done")])
+    Promise.all([call("pending"), call("approved"), call("questions"), call("questions-done"), call("private")])
       .then(function (r) {
         data.pending = r[0].items || [];
         data.approved = r[1].items || [];
         data.questions = r[2].items || [];
         data.done = r[3].items || [];
+        data.private = r[4].items || [];
         render();
       })
       .catch(function (e) { state(e.message); });
@@ -156,27 +160,30 @@
     // Zähler: nur heute, solange die letzten Tage eingeklappt sind – wie die Liste selbst
     el.nA.textContent = showPast ? data.approved.length : data.approved.filter(function (m) { return dayOfItem(m) === tk; }).length;
     el.nQ.textContent = data.questions.length;
+    el.nN.textContent = showPast ? data.private.length : data.private.filter(function (m) { return dayOfItem(m) === tk; }).length;
     el.tabs.forEach(function (t) { t.classList.toggle("is-on", t.dataset.tab === tab); });
     el.list.innerHTML = "";
     var items = data[tab];
     var todayKey = dayKey(new Date()), hasPast = false;
-    if (tab === "approved") {
+    var byDay = tab === "approved" || tab === "private";
+    if (byDay) {
       hasPast = items.some(function (m) { return dayOfItem(m) !== todayKey; });
       if (!showPast) items = items.filter(function (m) { return dayOfItem(m) === todayKey; });
     }
     var hasDone = tab === "questions" && data.done.length > 0;
-    if (!items.length && !(tab === "approved" && hasPast) && !hasDone) { state(pushNote || (tab === "pending" ? "Nichts wartet. Alles geprüft." : tab === "questions" ? "Keine offenen Fragen." : "Noch nichts auf der Wand.")); pushNote = ""; return; }
-    state(pushNote || (items.length ? "" : tab === "questions" ? "Keine offenen Fragen." : "Heute ist noch nichts auf der Wand."));
+    if (!items.length && !(byDay && hasPast) && !hasDone) { state(pushNote || (tab === "pending" ? "Nichts wartet. Alles geprüft." : tab === "questions" ? "Keine offenen Fragen." : tab === "private" ? "Noch keine Momente ohne Haken." : "Noch nichts auf der Wand.")); pushNote = ""; return; }
+    state(pushNote || (items.length ? "" : tab === "questions" ? "Keine offenen Fragen." : tab === "private" ? "Heute ist noch kein Moment ohne Haken gekommen." : "Heute ist noch nichts auf der Wand."));
     pushNote = "";
     var lastDay = null;
     items.forEach(function (m) {
-      if (tab === "approved") {
+      if (byDay) {
         var dk = dayOfItem(m);
         if (dk !== lastDay) { el.list.appendChild(groupHead(dayLabel(m))); lastDay = dk; }
       }
       var c = document.createElement("article");
-      c.className = "moment" + (tab === "questions" ? " moment--q" : "");
+      c.className = "moment" + (tab === "questions" ? " moment--q" : tab === "private" ? " moment--n" : "");
       if (tab === "questions") { var n = document.createElement("div"); n.className = "q-name"; n.textContent = m.name ? "Frage von " + m.name : "Frage ohne Namen"; c.appendChild(n); }
+      if (tab === "private") { var nn = document.createElement("div"); nn.className = "n-name"; nn.textContent = (m.name ? "Von " + m.name : "Ohne Namen") + " · nur für uns"; c.appendChild(nn); }
       var t = document.createElement("p"); t.className = "moment-text"; t.textContent = m.text;
       var meta = document.createElement("div"); meta.className = "moment-meta"; meta.textContent = [m.passage, when(m.ts)].filter(Boolean).join(" · ");
       var acts = document.createElement("div"); acts.className = "acts";
@@ -186,13 +193,14 @@
       } else if (tab === "pending") {
         acts.appendChild(btn("Freigeben", "btn btn--primary", function () { act(c, "approve", m); }));
         acts.appendChild(btn("Nicht zeigen", "btn btn--no", function () { askWhy(c, "reject", m); }));
-      } else {
+      } else if (tab === "approved") {
         acts.appendChild(btn("Von der Wand nehmen", "btn btn--no", function () { askWhy(c, "unpublish", m); }));
       }
-      c.appendChild(t); c.appendChild(meta); c.appendChild(acts);
+      c.appendChild(t); c.appendChild(meta);
+      if (tab !== "private") c.appendChild(acts); // Momente ohne Haken: nur lesen, nichts zu entscheiden
       el.list.appendChild(c);
     });
-    if (tab === "approved" && hasPast) {
+    if (byDay && hasPast) {
       var past = document.createElement("button"); past.type = "button"; past.className = "wall-past";
       past.textContent = showPast ? "Nur heute anzeigen" : "Momente der letzten Tage ansehen";
       past.addEventListener("click", function () { showPast = !showPast; render(); });

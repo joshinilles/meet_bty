@@ -1,7 +1,8 @@
 // Läuft bei jeder geprüften Formular-Einsendung (Netlify Forms, Formular "meet-impuls").
 // MEET-Momente mit gesetztem Haken "wall" landen als wartender Moment im Speicher der MEET WALL (p/<id>).
 // Fragen zum Text landen unter q/<id>, damit die Moderatoren sie auf der Prüfseite im Überblick sehen (nie auf der Wand).
-// Momente ohne Haken werden ignoriert (die E-Mail-Benachrichtigung bleibt in allen Fällen unberührt).
+// Momente ohne Haken landen unter n/<id> („nur für uns“, mit Vorname): die Moderatoren sehen sie auf der Prüfseite im Reiter
+// „Privat“, sie kommen nie auf die Wand und lösen keine Push aus (die E-Mail-Benachrichtigung bleibt in allen Fällen unberührt).
 // Nach dem Speichern bekommen die angemeldeten Moderator-Geräte (Portal → „Bescheid sagen“) eine Push-Benachrichtigung.
 import { writeJson, newId } from '../lib/wall-store.mjs';
 import { notifyModerators, moderatorPayload } from '../lib/push.mjs';
@@ -26,8 +27,19 @@ export async function storeSubmission(data) {
     const push = await notifyModerators(moderatorPayload.question(q));
     return { stored: true, id: q.id, kind: 'frage', push };
   }
-  if (clean(data.wall, 10).toLowerCase() !== 'ja') return { stored: false, why: 'kein Haken' };
   if (art !== 'MEET-Moment') return { stored: false, why: 'keine MEET-Moment-Einsendung' };
+  if (clean(data.wall, 10).toLowerCase() !== 'ja') {
+    const n = {
+      id: newId(),
+      text,
+      name: clean(data.vorname, 40),
+      passage: clean(data.bibelstelle, 80),
+      date: clean(data.datum, 10),
+      ts: new Date().toISOString()
+    };
+    await writeJson('n/' + n.id, n);
+    return { stored: true, id: n.id, kind: 'privat' };
+  }
   const m = {
     id: newId(),
     text,

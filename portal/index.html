@@ -130,6 +130,7 @@
         <a class="stat" id="stP" href="/studio/wall/?tab=pending"><b id="nP">–</b><span>wartet</span></a>
         <a class="stat" id="stQ" href="/studio/wall/?tab=questions"><b id="nQ">–</b><span>Fragen</span></a>
         <a class="stat" href="/studio/wall/?tab=approved"><b id="nA">–</b><span>heute oben</span></a>
+        <a class="stat" href="/studio/wall/?tab=private"><b id="nN">–</b><span>privat</span></a>
       </div>
       <div class="notify" id="notify" hidden>
         <div class="notify-row">
@@ -194,10 +195,10 @@
   var MONTHS = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sep.", "Okt.", "Nov.", "Dez."];
   var $ = function (id) { return document.getElementById(id); };
   var el = { gate: $("gate"), who: $("who"), pin: $("pin"), gateMsg: $("gateMsg"), grid: $("grid"), state: $("state"), foot: $("foot"), stand: $("stand"), hello: $("hello"), pDate: $("pDate"),
-    hRef: $("hRef"), hMeta: $("hMeta"), nP: $("nP"), nQ: $("nQ"), nA: $("nA"), stP: $("stP"), stQ: $("stQ"), pendList: $("pendList"), qList: $("qList"), kalHead: $("kalHead"), kalToday: $("kalToday"), kalTasks: $("kalTasks"), tools: $("tools"),
+    hRef: $("hRef"), hMeta: $("hMeta"), nP: $("nP"), nQ: $("nQ"), nA: $("nA"), nN: $("nN"), stP: $("stP"), stQ: $("stQ"), pendList: $("pendList"), qList: $("qList"), kalHead: $("kalHead"), kalToday: $("kalToday"), kalTasks: $("kalTasks"), tools: $("tools"),
     notify: $("notify"), ntfSub: $("ntfSub"), ntfBtn: $("ntfBtn"), ntfHint: $("ntfHint") };
   var pin = "", me = "", whoSel = "", kalRev = "", kal = null, timer = null, loading = false;
-  var data = { pending: [], questions: [], approved: [] };
+  var data = { pending: [], questions: [], approved: [], private: [] };
   var mods = { items: [], pushReady: true }; // wer bekommt Bescheid (Abos der Moderator-Geräte, von ?op=mod-subs)
 
   function settings() { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") || {}; } catch (e) { return {}; } }
@@ -284,13 +285,14 @@
 
   // ---------- WALL ----------
   function loadWall() {
-    return Promise.all([call(WALL, "pending"), call(WALL, "questions"), fetch(WALL, { cache: "no-store" }).then(function (r) { return r.json(); }).catch(function () { return { items: [] }; }), call(WALL, "mod-subs").catch(function () { return null; })])
-      .then(function (r) { data.pending = r[0].items || []; data.questions = r[1].items || []; data.approved = r[2].items || []; if (r[3]) mods = { items: r[3].items || [], pushReady: r[3].pushReady !== false }; renderWall(); renderNotify(); });
+    return Promise.all([call(WALL, "pending"), call(WALL, "questions"), fetch(WALL, { cache: "no-store" }).then(function (r) { return r.json(); }).catch(function () { return { items: [] }; }), call(WALL, "mod-subs").catch(function () { return null; }), call(WALL, "private").catch(function () { return { items: [] }; })])
+      .then(function (r) { data.pending = r[0].items || []; data.questions = r[1].items || []; data.approved = r[2].items || []; if (r[3]) mods = { items: r[3].items || [], pushReady: r[3].pushReady !== false }; data.private = r[4].items || []; renderWall(); renderNotify(); });
   }
   function renderWall() {
     var tk = dayKey(new Date());
     el.nP.textContent = data.pending.length; el.nQ.textContent = data.questions.length;
     el.nA.textContent = data.approved.filter(function (m) { var d = new Date(m.ts); return !isNaN(d) && dayKey(d) === tk; }).length;
+    el.nN.textContent = data.private.filter(function (m) { var d = new Date(m.ts); return !isNaN(d) && dayKey(d) === tk; }).length; // Momente ohne Haken, heute
     el.stP.classList.toggle("is-hot", data.pending.length > 0); el.stQ.classList.toggle("is-hot", data.questions.length > 0);
     document.title = (data.pending.length + data.questions.length ? "(" + (data.pending.length + data.questions.length) + ") " : "") + "MEET_ Portal";
     el.pendList.innerHTML = "";
