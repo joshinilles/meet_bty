@@ -57,12 +57,10 @@
 .empty{margin:0;font-size:13.5px;color:var(--muted)}
 .sub{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px}
 .notify{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
-.notify.is-on{border-color:rgba(212,246,90,.45)}
 .notify-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .notify-text{display:flex;flex-direction:column;gap:2px;min-width:0}
 .notify-text b{font-family:var(--head);font-size:14px}
 .notify-text span{font-size:12.5px;color:var(--muted);line-height:1.4}
-.notify.is-on .notify-text span{color:var(--soft)}
 .notify-acts{display:flex;gap:6px;flex-shrink:0}
 .notify .hint{margin:0;font-size:12.5px;line-height:1.45}
 .notify .hint.is-warn{color:var(--sunl)}
@@ -137,7 +135,6 @@
         <div class="notify-row">
           <div class="notify-text"><b id="ntfTitle">Bescheid sagen</b><span id="ntfSub">Push auf dieses Gerät, sobald ein MEETmoment auf Freigabe wartet oder eine Frage kommt.</span></div>
           <div class="notify-acts">
-            <button type="button" class="btn--mini btn--no" id="ntfTest" hidden>Test</button>
             <button type="button" class="btn--mini" id="ntfBtn">Einschalten</button>
           </div>
         </div>
@@ -198,7 +195,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var el = { gate: $("gate"), who: $("who"), pin: $("pin"), gateMsg: $("gateMsg"), grid: $("grid"), state: $("state"), foot: $("foot"), stand: $("stand"), hello: $("hello"), pDate: $("pDate"),
     hRef: $("hRef"), hMeta: $("hMeta"), nP: $("nP"), nQ: $("nQ"), nA: $("nA"), stP: $("stP"), stQ: $("stQ"), pendList: $("pendList"), qList: $("qList"), kalHead: $("kalHead"), kalToday: $("kalToday"), kalTasks: $("kalTasks"), tools: $("tools"),
-    notify: $("notify"), ntfSub: $("ntfSub"), ntfBtn: $("ntfBtn"), ntfTest: $("ntfTest"), ntfHint: $("ntfHint") };
+    notify: $("notify"), ntfSub: $("ntfSub"), ntfBtn: $("ntfBtn"), ntfHint: $("ntfHint") };
   var pin = "", me = "", whoSel = "", kalRev = "", kal = null, timer = null, loading = false;
   var data = { pending: [], questions: [], approved: [] };
   var mods = { items: [], pushReady: true }; // wer bekommt Bescheid (Abos der Moderator-Geräte, von ?op=mod-subs)
@@ -360,30 +357,24 @@
       .then(function (h) { myHash = h; }).catch(function () { mySub = null; myHash = ""; });
   }
   function ntfHint(t, warn) { el.ntfHint.textContent = t || ""; el.ntfHint.hidden = !t; el.ntfHint.classList.toggle("is-warn", !!warn); }
+  // Der Kasten dient nur dem Einschalten: sobald dieses Gerät angemeldet ist, verschwindet er ganz (Wunsch vom 23.10.2026).
+  // Abmelden geht dann über die Benachrichtigungs-Einstellungen des Geräts; tote Abos räumt der Server beim Versand weg.
   function renderNotify() {
-    el.notify.hidden = false;
     var mine = myHash && mods.items.some(function (m) { return m.hash === myHash; });
-    var others = mods.items.filter(function (m) { return m.hash !== myHash; });
-    var names = others.map(function (m) { return m.name || "ein Gerät"; });
-    var otherTxt = names.length ? " · Ausserdem: " + names.join(", ") : "";
-    el.notify.classList.toggle("is-on", !!mine);
-    el.ntfTest.hidden = !mine;
+    el.notify.hidden = !!mine;
+    if (mine) return;
+    var names = mods.items.map(function (m) { return m.name || "ein Gerät"; });
+    var otherTxt = names.length ? " · Angemeldet: " + names.join(", ") : "";
     if (!pushOk) {
       el.ntfBtn.hidden = true;
-      el.ntfSub.textContent = mods.items.length ? "Angemeldet: " + mods.items.map(function (m) { return m.name || "ein Gerät"; }).join(", ") : "Noch kein Gerät angemeldet.";
+      el.ntfSub.textContent = names.length ? "Angemeldet: " + names.join(", ") : "Noch kein Gerät angemeldet.";
       ntfHint(isIOS && !standalone
         ? "Auf dem iPhone geht das erst als App: Teilen-Symbol → „Zum Home-Bildschirm“, dann das Portal von dort öffnen und hier einschalten."
         : "Dieser Browser kann keine Push-Benachrichtigungen (oder in config.js fehlt pushKey).", false);
       return;
     }
     el.ntfBtn.hidden = false;
-    if (mine) {
-      el.ntfBtn.textContent = "Ausschalten"; el.ntfBtn.classList.add("btn--no");
-      el.ntfSub.textContent = "Dieses Gerät bekommt Bescheid, sobald ein MEETmoment wartet oder eine Frage kommt." + otherTxt;
-    } else {
-      el.ntfBtn.textContent = "Einschalten"; el.ntfBtn.classList.remove("btn--no");
-      el.ntfSub.textContent = (Notification.permission === "denied" ? "Benachrichtigungen sind für diese Seite blockiert – in den Browser-Einstellungen wieder erlauben." : "Push auf dieses Gerät, sobald ein MEETmoment auf Freigabe wartet oder eine Frage kommt.") + otherTxt;
-    }
+    el.ntfSub.textContent = (Notification.permission === "denied" ? "Benachrichtigungen sind für diese Seite blockiert – in den Browser-Einstellungen wieder erlauben." : "Push auf dieses Gerät, sobald ein MEETmoment auf Freigabe wartet oder eine Frage kommt.") + otherTxt;
     ntfHint(mods.pushReady ? "" : "Auf Netlify fehlt der Push-Schlüssel (VAPID_PRIVATE_KEY). Anmelden geht, verschickt wird erst, wenn er gesetzt ist.", true);
   }
   function modCall(op, body) {
@@ -391,32 +382,19 @@
   }
   el.ntfBtn.addEventListener("click", function () {
     el.notify.classList.add("is-busy"); ntfHint("");
-    var mine = myHash && mods.items.some(function (m) { return m.hash === myHash; });
-    var p = mine
-      ? modCall("mod-unsubscribe", { endpoint: mySub.endpoint })
-      : Promise.resolve(Notification.permission === "granted" ? "granted" : Notification.requestPermission()).then(function (perm) {
-          if (perm !== "granted") throw new Error(perm === "denied" ? "Benachrichtigungen wurden abgelehnt." : "Keine Erlaubnis für Benachrichtigungen.");
-          return swReady;
-        }).then(function (reg) {
-          if (!reg) throw new Error("Service Worker nicht bereit.");
-          return reg.pushManager.getSubscription().then(function (sub) { return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(cfg.pushKey) }); });
-        }).then(function (sub) {
-          mySub = sub;
-          return sha256(sub.endpoint).then(function (h) { myHash = h; return modCall("mod-subscribe", { sub: sub.toJSON ? sub.toJSON() : sub, name: personName(me) || me }); });
-        });
-    p.then(function () { renderNotify(); if (!mine) ntfHint(mods.pushReady ? "Eingeschaltet. Mit „Test“ kannst du gleich prüfen, ob die Push ankommt." : el.ntfHint.textContent, !mods.pushReady); })
+    Promise.resolve(Notification.permission === "granted" ? "granted" : Notification.requestPermission()).then(function (perm) {
+      if (perm !== "granted") throw new Error(perm === "denied" ? "Benachrichtigungen wurden abgelehnt." : "Keine Erlaubnis für Benachrichtigungen.");
+      return swReady;
+    }).then(function (reg) {
+      if (!reg) throw new Error("Service Worker nicht bereit.");
+      return reg.pushManager.getSubscription().then(function (sub) { return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(cfg.pushKey) }); });
+    }).then(function (sub) {
+      mySub = sub;
+      return sha256(sub.endpoint).then(function (h) { myHash = h; return modCall("mod-subscribe", { sub: sub.toJSON ? sub.toJSON() : sub, name: personName(me) || me }); });
+    }).then(function () { renderNotify(); state(mods.pushReady ? "Eingeschaltet · dieses Gerät bekommt Bescheid, sobald etwas wartet." : "Angemeldet · verschickt wird erst, wenn VAPID_PRIVATE_KEY auf Netlify gesetzt ist."); })
       .catch(function (e) { renderNotify(); ntfHint(e.message || String(e), true); })
       .finally(function () { el.notify.classList.remove("is-busy"); });
   });
-  el.ntfTest.addEventListener("click", function () {
-    if (!mySub) return;
-    el.notify.classList.add("is-busy"); ntfHint("Test wird geschickt …");
-    call(WALL, "mod-test", { endpoint: mySub.endpoint })
-      .then(function (r) { ntfHint(r.pushed ? "Test-Push ist raus – sie sollte gleich auf diesem Gerät erscheinen." : "Versand hat nicht geklappt: " + (r.why || "unbekannt"), !r.pushed); })
-      .catch(function (e) { ntfHint(e.message, true); })
-      .finally(function () { el.notify.classList.remove("is-busy"); });
-  });
-
   // ---------- Kalender ----------
   function loadKal() {
     return call(KAL, "all", { rev: kalRev }).then(function (r) {
