@@ -2,7 +2,9 @@
 // MEET-Momente mit gesetztem Haken "wall" landen als wartender Moment im Speicher der MEET WALL (p/<id>).
 // Fragen zum Text landen unter q/<id>, damit die Moderatoren sie auf der Prüfseite im Überblick sehen (nie auf der Wand).
 // Momente ohne Haken werden ignoriert (die E-Mail-Benachrichtigung bleibt in allen Fällen unberührt).
+// Nach dem Speichern bekommen die angemeldeten Moderator-Geräte (Portal → „Bescheid sagen“) eine Push-Benachrichtigung.
 import { writeJson, newId } from '../lib/wall-store.mjs';
+import { notifyModerators, moderatorPayload } from '../lib/push.mjs';
 
 const clean = (v, max) => (typeof v === 'string' ? v.replace(/\r\n?/g, '\n').trim().slice(0, max) : '');
 
@@ -21,7 +23,8 @@ export async function storeSubmission(data) {
       ts: new Date().toISOString()
     };
     await writeJson('q/' + q.id, q);
-    return { stored: true, id: q.id, kind: 'frage' };
+    const push = await notifyModerators(moderatorPayload.question(q));
+    return { stored: true, id: q.id, kind: 'frage', push };
   }
   if (clean(data.wall, 10).toLowerCase() !== 'ja') return { stored: false, why: 'kein Haken' };
   if (art !== 'MEET-Moment') return { stored: false, why: 'keine MEET-Moment-Einsendung' };
@@ -34,14 +37,15 @@ export async function storeSubmission(data) {
     status: 'wartet'
   };
   await writeJson('p/' + m.id, m);
-  return { stored: true, id: m.id };
+  const push = await notifyModerators(moderatorPayload.moment(m));
+  return { stored: true, id: m.id, push };
 }
 
 export default {
   async formSubmitted(event) {
     try {
       const r = await storeSubmission(event && event.data);
-      console.log('[wall] Einsendung', r.stored ? 'gespeichert ' + (r.kind || 'moment') + ' ' + r.id : 'übersprungen (' + r.why + ')');
+      console.log('[wall] Einsendung', r.stored ? 'gespeichert ' + (r.kind || 'moment') + ' ' + r.id + (r.push ? ' · Push an ' + r.push.sent + '/' + r.push.total + ' Moderator-Geräte' : '') : 'übersprungen (' + r.why + ')');
     } catch (e) {
       console.error('[wall] Speichern fehlgeschlagen:', e && e.message ? e.message : e);
     }

@@ -7,6 +7,8 @@
 //             qa/<hash>   beantwortete Frage (Hash des Fragetexts → Antwort), damit das Gerät des Fragenden sie abrufen kann
 //             s/<hash>    Push-Abo des Geräts, das diese Frage gestellt hat (Hash des Fragetexts → Web-Push-Subscription);
 //                         wird nach der Antwort-Push wieder gelöscht
+//             mod/<hash>  Push-Abo eines Moderator-Geräts (Hash des Endpoints → {sub, name, at}); bekommt Bescheid bei
+//                         neuem MEETmoment / neuer Frage (Portal → „Bescheid sagen“, lib/push.mjs)
 //             r/<hash>    abgelehnter Moment (Hash des Textes → Begründung), damit das Gerät des Absenders Bescheid weiss
 // Lokal (Entwicklungs-Server) ersetzt MEET_WALL_LOCAL_DIR die Blobs durch Dateien auf der Platte.
 import { getStore } from '@netlify/blobs';

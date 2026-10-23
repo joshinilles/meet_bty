@@ -56,6 +56,17 @@
 .q-name{font-family:var(--head);font-weight:700;font-size:13px;color:var(--lime)}
 .empty{margin:0;font-size:13.5px;color:var(--muted)}
 .sub{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.notify{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
+.notify.is-on{border-color:rgba(212,246,90,.45)}
+.notify-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.notify-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.notify-text b{font-family:var(--head);font-size:14px}
+.notify-text span{font-size:12.5px;color:var(--muted);line-height:1.4}
+.notify.is-on .notify-text span{color:var(--soft)}
+.notify-acts{display:flex;gap:6px;flex-shrink:0}
+.notify .hint{margin:0;font-size:12.5px;line-height:1.45}
+.notify .hint.is-warn{color:var(--sunl)}
+.notify.is-busy{opacity:.6;pointer-events:none}
 .t-time{font-family:var(--mono);font-size:12px;color:var(--lime);min-width:84px}
 .t-row{display:flex;gap:10px;align-items:baseline}
 .t-title{font-size:14.5px;flex:1}
@@ -122,6 +133,16 @@
         <a class="stat" id="stQ" href="/studio/wall/?tab=questions"><b id="nQ">–</b><span>Fragen</span></a>
         <a class="stat" href="/studio/wall/?tab=approved"><b id="nA">–</b><span>heute oben</span></a>
       </div>
+      <div class="notify" id="notify" hidden>
+        <div class="notify-row">
+          <div class="notify-text"><b id="ntfTitle">Bescheid sagen</b><span id="ntfSub">Push auf dieses Gerät, sobald ein MEETmoment auf Freigabe wartet oder eine Frage kommt.</span></div>
+          <div class="notify-acts">
+            <button type="button" class="btn--mini btn--no" id="ntfTest" hidden>Test</button>
+            <button type="button" class="btn--mini" id="ntfBtn">Einschalten</button>
+          </div>
+        </div>
+        <p class="hint" id="ntfHint" hidden></p>
+      </div>
       <div class="sub">Wartet auf Freigabe</div>
       <div class="list" id="pendList"><p class="empty">…</p></div>
       <div class="sub">Offene Fragen zum Text</div>
@@ -176,9 +197,11 @@
   var MONTHS = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sep.", "Okt.", "Nov.", "Dez."];
   var $ = function (id) { return document.getElementById(id); };
   var el = { gate: $("gate"), who: $("who"), pin: $("pin"), gateMsg: $("gateMsg"), grid: $("grid"), state: $("state"), foot: $("foot"), stand: $("stand"), hello: $("hello"), pDate: $("pDate"),
-    hRef: $("hRef"), hMeta: $("hMeta"), nP: $("nP"), nQ: $("nQ"), nA: $("nA"), stP: $("stP"), stQ: $("stQ"), pendList: $("pendList"), qList: $("qList"), kalHead: $("kalHead"), kalToday: $("kalToday"), kalTasks: $("kalTasks"), tools: $("tools") };
+    hRef: $("hRef"), hMeta: $("hMeta"), nP: $("nP"), nQ: $("nQ"), nA: $("nA"), stP: $("stP"), stQ: $("stQ"), pendList: $("pendList"), qList: $("qList"), kalHead: $("kalHead"), kalToday: $("kalToday"), kalTasks: $("kalTasks"), tools: $("tools"),
+    notify: $("notify"), ntfSub: $("ntfSub"), ntfBtn: $("ntfBtn"), ntfTest: $("ntfTest"), ntfHint: $("ntfHint") };
   var pin = "", me = "", whoSel = "", kalRev = "", kal = null, timer = null, loading = false;
   var data = { pending: [], questions: [], approved: [] };
+  var mods = { items: [], pushReady: true }; // wer bekommt Bescheid (Abos der Moderator-Geräte, von ?op=mod-subs)
 
   function settings() { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") || {}; } catch (e) { return {}; } }
   function savePin(p) { try { var s = settings(); s.studioPin = p; localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) { } }
@@ -264,8 +287,8 @@
 
   // ---------- WALL ----------
   function loadWall() {
-    return Promise.all([call(WALL, "pending"), call(WALL, "questions"), fetch(WALL, { cache: "no-store" }).then(function (r) { return r.json(); }).catch(function () { return { items: [] }; })])
-      .then(function (r) { data.pending = r[0].items || []; data.questions = r[1].items || []; data.approved = r[2].items || []; renderWall(); });
+    return Promise.all([call(WALL, "pending"), call(WALL, "questions"), fetch(WALL, { cache: "no-store" }).then(function (r) { return r.json(); }).catch(function () { return { items: [] }; }), call(WALL, "mod-subs").catch(function () { return null; })])
+      .then(function (r) { data.pending = r[0].items || []; data.questions = r[1].items || []; data.approved = r[2].items || []; if (r[3]) mods = { items: r[3].items || [], pushReady: r[3].pushReady !== false }; renderWall(); renderNotify(); });
   }
   function renderWall() {
     var tk = dayKey(new Date());
@@ -307,6 +330,92 @@
       data.approved.unshift(m); renderWall(); state("Freigegeben · steht jetzt auf der Wand.");
     }).catch(function (e) { card.classList.remove("is-busy"); state(e.message); });
   }
+
+  // ---------- Bescheid sagen (Web Push an die Moderator-Geräte) ----------
+  // Derselbe Service Worker wie die Startseite (/sw.js); das Abo liegt im WALL-Speicher unter mod/<hash>.
+  // Auf dem iPhone geht Push erst, wenn das Portal auf dem Home-Bildschirm liegt (dann ist es eine App).
+  var cfg = window.MEET_CONFIG || {};
+  var pushOk = !!(window.isSecureContext && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && cfg.pushKey);
+  var isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent || "");
+  var standalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  var swReady = pushOk ? navigator.serviceWorker.register("/sw.js").then(function () { return navigator.serviceWorker.ready; }).catch(function () { pushOk = false; return null; }) : Promise.resolve(null);
+  var mySub = null, myHash = "";
+  function b64ToBytes(b64) {
+    var pad = "=".repeat((4 - b64.length % 4) % 4);
+    var raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  function sha256(str) {
+    if (!(window.crypto && crypto.subtle)) return Promise.resolve("");
+    return crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)).then(function (buf) {
+      return Array.prototype.map.call(new Uint8Array(buf), function (b) { return (b < 16 ? "0" : "") + b.toString(16); }).join("");
+    });
+  }
+  // Vorhandenes Abo dieses Geräts lesen (ohne nachzufragen) und seinen Hash merken
+  function readMySub() {
+    return swReady.then(function (reg) { return reg ? reg.pushManager.getSubscription() : null; })
+      .then(function (sub) { mySub = sub || null; return mySub ? sha256(mySub.endpoint) : ""; })
+      .then(function (h) { myHash = h; }).catch(function () { mySub = null; myHash = ""; });
+  }
+  function ntfHint(t, warn) { el.ntfHint.textContent = t || ""; el.ntfHint.hidden = !t; el.ntfHint.classList.toggle("is-warn", !!warn); }
+  function renderNotify() {
+    el.notify.hidden = false;
+    var mine = myHash && mods.items.some(function (m) { return m.hash === myHash; });
+    var others = mods.items.filter(function (m) { return m.hash !== myHash; });
+    var names = others.map(function (m) { return m.name || "ein Gerät"; });
+    var otherTxt = names.length ? " · Ausserdem: " + names.join(", ") : "";
+    el.notify.classList.toggle("is-on", !!mine);
+    el.ntfTest.hidden = !mine;
+    if (!pushOk) {
+      el.ntfBtn.hidden = true;
+      el.ntfSub.textContent = mods.items.length ? "Angemeldet: " + mods.items.map(function (m) { return m.name || "ein Gerät"; }).join(", ") : "Noch kein Gerät angemeldet.";
+      ntfHint(isIOS && !standalone
+        ? "Auf dem iPhone geht das erst als App: Teilen-Symbol → „Zum Home-Bildschirm“, dann das Portal von dort öffnen und hier einschalten."
+        : "Dieser Browser kann keine Push-Benachrichtigungen (oder in config.js fehlt pushKey).", false);
+      return;
+    }
+    el.ntfBtn.hidden = false;
+    if (mine) {
+      el.ntfBtn.textContent = "Ausschalten"; el.ntfBtn.classList.add("btn--no");
+      el.ntfSub.textContent = "Dieses Gerät bekommt Bescheid, sobald ein MEETmoment wartet oder eine Frage kommt." + otherTxt;
+    } else {
+      el.ntfBtn.textContent = "Einschalten"; el.ntfBtn.classList.remove("btn--no");
+      el.ntfSub.textContent = (Notification.permission === "denied" ? "Benachrichtigungen sind für diese Seite blockiert – in den Browser-Einstellungen wieder erlauben." : "Push auf dieses Gerät, sobald ein MEETmoment auf Freigabe wartet oder eine Frage kommt.") + otherTxt;
+    }
+    ntfHint(mods.pushReady ? "" : "Auf Netlify fehlt der Push-Schlüssel (VAPID_PRIVATE_KEY). Anmelden geht, verschickt wird erst, wenn er gesetzt ist.", true);
+  }
+  function modCall(op, body) {
+    return call(WALL, op, body).then(function (r) { if (r && r.items) mods = { items: r.items, pushReady: r.pushReady !== false }; return r; });
+  }
+  el.ntfBtn.addEventListener("click", function () {
+    el.notify.classList.add("is-busy"); ntfHint("");
+    var mine = myHash && mods.items.some(function (m) { return m.hash === myHash; });
+    var p = mine
+      ? modCall("mod-unsubscribe", { endpoint: mySub.endpoint })
+      : Promise.resolve(Notification.permission === "granted" ? "granted" : Notification.requestPermission()).then(function (perm) {
+          if (perm !== "granted") throw new Error(perm === "denied" ? "Benachrichtigungen wurden abgelehnt." : "Keine Erlaubnis für Benachrichtigungen.");
+          return swReady;
+        }).then(function (reg) {
+          if (!reg) throw new Error("Service Worker nicht bereit.");
+          return reg.pushManager.getSubscription().then(function (sub) { return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(cfg.pushKey) }); });
+        }).then(function (sub) {
+          mySub = sub;
+          return sha256(sub.endpoint).then(function (h) { myHash = h; return modCall("mod-subscribe", { sub: sub.toJSON ? sub.toJSON() : sub, name: personName(me) || me }); });
+        });
+    p.then(function () { renderNotify(); if (!mine) ntfHint(mods.pushReady ? "Eingeschaltet. Mit „Test“ kannst du gleich prüfen, ob die Push ankommt." : el.ntfHint.textContent, !mods.pushReady); })
+      .catch(function (e) { renderNotify(); ntfHint(e.message || String(e), true); })
+      .finally(function () { el.notify.classList.remove("is-busy"); });
+  });
+  el.ntfTest.addEventListener("click", function () {
+    if (!mySub) return;
+    el.notify.classList.add("is-busy"); ntfHint("Test wird geschickt …");
+    call(WALL, "mod-test", { endpoint: mySub.endpoint })
+      .then(function (r) { ntfHint(r.pushed ? "Test-Push ist raus – sie sollte gleich auf diesem Gerät erscheinen." : "Versand hat nicht geklappt: " + (r.why || "unbekannt"), !r.pushed); })
+      .catch(function (e) { ntfHint(e.message, true); })
+      .finally(function () { el.notify.classList.remove("is-busy"); });
+  });
 
   // ---------- Kalender ----------
   function loadKal() {
@@ -422,7 +531,7 @@
   function open() {
     el.gate.hidden = true; el.grid.hidden = false;
     el.hello.textContent = "Hallo " + (personName(me) || "");
-    loadAll(); startTimer();
+    readMySub().then(function () { loadAll(); startTimer(); });
   }
 
   // ---------- Start ----------

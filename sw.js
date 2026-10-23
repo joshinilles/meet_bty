@@ -1,6 +1,7 @@
 /* MEET · meet-bty.com – Service Worker nur für Push-Benachrichtigungen
    (keine Offline-Kopie der Seite, damit nie ein alter Stand hängen bleibt).
-   Eine Push kommt, wenn eine Frage zum Text beantwortet wurde; Tippen öffnet die Startseite mit „Deine Frage“. */
+   Eine Push kommt, wenn eine Frage zum Text beantwortet wurde (Tippen öffnet die Startseite mit „Deine Frage“) –
+   oder, auf den Geräten der Moderatoren, wenn ein neuer MEETmoment auf Freigabe wartet (Tippen öffnet das Portal). */
 self.addEventListener("install", function () { self.skipWaiting(); });
 self.addEventListener("activate", function (e) { e.waitUntil(self.clients.claim()); });
 
@@ -9,7 +10,7 @@ self.addEventListener("push", function (e) {
   try { data = e.data ? e.data.json() : {}; } catch (err) { data = { body: e.data ? e.data.text() : "" }; }
   var title = data.title || "MEET";
   var opts = {
-    body: data.body || "Deine Frage wurde beantwortet.",
+    body: data.body || "",
     icon: "/assets/icon-192.png",
     badge: "/assets/icon-192.png",
     tag: data.tag || "meet-antwort",
