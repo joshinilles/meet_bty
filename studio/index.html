@@ -96,6 +96,10 @@ input.cap:focus{border-color:var(--lime)}
 .web-head .hint{text-align:right}
 .web .progress{margin:0}
 .choice .webmark{color:var(--lime);font-family:var(--f-mono);font-size:11px;letter-spacing:.06em}
+.webrow{display:flex;align-items:center;gap:12px;justify-content:space-between}
+.webrow strong{font-family:var(--f-display);font-size:15px;letter-spacing:-.01em}
+.webrow small{display:block;font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;color:var(--muted);margin-top:2px}
+.webrow .btn{padding:10px 14px;min-height:40px;font-size:14px;flex:none}
 
 /* Stage */
 .stage{gap:10px}
@@ -217,6 +221,12 @@ textarea.cap:focus{border-color:var(--pink)}
         <canvas class="thumb" width="270" height="480" aria-hidden="true"></canvas>
         <div class="meta"><span class="pill">06:15</span><strong>Video 2 · MEETmoment</strong><small>Wo Gott uns im Text begegnet ist</small><small class="webmark" id="web2" hidden></small></div>
       </button>
+    </div>
+    <!-- Was heute schon auf meet-bty.com steht – und der Weg, es wieder von der Startseite zu nehmen -->
+    <div class="web" id="webHome" hidden>
+      <div class="web-head"><span class="lab lime">Heute auf meet-bty.com</span><span class="hint" id="webHomeState"></span></div>
+      <div class="stack" id="webHomeList"></div>
+      <button class="btn ghost block" id="btnWebHomeAll" hidden>Beide von der Startseite nehmen</button>
     </div>
     <button class="btn ghost block" id="btnHlHome">MEETmoment-Highlight aus einem fertigen Video</button>
     <input class="filein" type="file" id="hlPick" accept="video/*,audio/*" tabindex="-1">
@@ -1595,7 +1605,39 @@ async function webCall(op, body) {
 }
 function webItem(n) { return web.day === todayKey() ? (web.items || []).find(v => v.n === n) : null; }
 function webTime(iso) { const d = new Date(iso); return isNaN(d) ? '' : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+async function webRemove(n) {
+  if (web.busy) return;
+  if (!confirm('Video ' + n + ' (' + (n === 1 ? 'Start' : 'MEETmoment') + ') von heute von der Startseite nehmen?')) return;
+  web.busy = true; renderWeb();
+  try { const j = await webCall('remove', { n }); web.day = todayKey(); web.items = j.items || []; toast('Von der Startseite genommen'); }
+  catch (e) { toast('Nicht geklappt: ' + e.message, 6000); }
+  web.busy = false; renderWeb();
+}
+function renderWebHome() {
+  const box = $('#webHome'), list = $('#webHomeList'); if (!box) return;
+  const items = web.day === todayKey() ? (web.items || []).filter(v => v.n === 1 || v.n === 2).sort((a, b) => a.n - b.n) : [];
+  box.hidden = !items.length; list.innerHTML = '';
+  $('#webHomeState').textContent = items.length === 2 ? 'Beide Videos sind online' : 'Ein Video ist online';
+  for (const it of items) {
+    const row = document.createElement('div'); row.className = 'webrow';
+    const t = document.createElement('div'); const st = document.createElement('strong'); st.textContent = 'Video ' + it.n + ' · ' + (it.n === 1 ? 'Start' : 'MEETmoment' + (it.name ? ' · ' + it.name : ''));
+    const sm = document.createElement('small'); sm.textContent = 'seit ' + webTime(it.at) + (it.duration ? ' · ' + fmtTime(it.duration) : '');
+    t.appendChild(st); t.appendChild(sm);
+    const b = document.createElement('button'); b.className = 'btn ghost'; b.textContent = 'Entfernen'; b.title = 'Von der Startseite nehmen'; b.disabled = web.busy; b.addEventListener('click', () => webRemove(it.n));
+    row.appendChild(t); row.appendChild(b); list.appendChild(row);
+  }
+  const all = $('#btnWebHomeAll'); all.hidden = items.length < 2; all.disabled = web.busy;
+}
+$('#btnWebHomeAll').addEventListener('click', async () => {
+  if (web.busy) return;
+  if (!confirm('Beide Videos von heute von der Startseite nehmen?')) return;
+  web.busy = true; renderWeb();
+  try { for (const n of [1, 2]) { const j = await webCall('remove', { n }); web.day = todayKey(); web.items = j.items || []; } toast('Beide Videos von der Startseite genommen'); }
+  catch (e) { toast('Nicht geklappt: ' + e.message, 6000); }
+  web.busy = false; renderWeb();
+});
 function renderWeb() {
+  renderWebHome();
   for (const n of [1, 2]) { const m = $('#web' + n); if (!m) continue; const it = webItem(n); m.hidden = !it; m.textContent = it ? '✓ Heute auf meet-bty.com · ' + webTime(it.at) : ''; }
   if (!result) return;
   const it = webItem(current.n), busy = web.busy;
@@ -1690,13 +1732,7 @@ $('#btnWebCheck').addEventListener('click', async () => {
   try { const c = await webCall('check', { origin: location.origin }); state.textContent = (c.steps || []).map(s => (s.ok ? '✓ ' : '✗ ') + s.text).join(' '); }
   catch (e) { state.textContent = 'Prüfung nicht möglich: ' + e.message; }
 });
-$('#btnWebRemove').addEventListener('click', async () => {
-  if (web.busy || !webItem(current.n)) return;
-  if (!confirm('Video ' + current.n + ' von heute von der Startseite nehmen?')) return;
-  try { const j = await webCall('remove', { n: current.n }); web.day = todayKey(); web.items = j.items || []; toast('Von der Startseite genommen'); }
-  catch (e) { toast('Nicht geklappt: ' + e.message, 6000); }
-  renderWeb();
-});
+$('#btnWebRemove').addEventListener('click', () => { if (webItem(current.n)) webRemove(current.n); });
 webStatus();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) webStatus(); });
 

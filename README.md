@@ -89,7 +89,8 @@ Adressen für Cloudflare R2, AWS Signature V4 ohne SDK), `netlify/lib/video-stor
 Store `meet-video`, Schlüssel `d/<Tag>.json`). Die Videodateien selbst liegen **nicht** auf Netlify (Functions nehmen
 höchstens 6 MB an, Bandbreite kostet), sondern bei **Cloudflare R2** (kostenlos bis 10 GB, kein Traffic-Entgelt).
 Das Studio lädt mit einer vorsignierten Adresse direkt vom Handy in den Bucket. Pro Morgen und Video gibt es einen
-Eintrag; erneutes Hochladen ersetzt das Video, „Von der Startseite nehmen“ löscht es.
+Eintrag; erneutes Hochladen ersetzt das Video. Entfernen geht auf dem Ergebnis-Screen („Von der Startseite nehmen“) oder auf der
+Studio-Übersicht im Kasten „Heute auf meet-bty.com“ (je Video „Entfernen“ oder „Beide von der Startseite nehmen“); die Datei wird dabei gelöscht.
 
 Einmalige Einrichtung (Cloudflare-Konto, ca. 10 Minuten):
 
