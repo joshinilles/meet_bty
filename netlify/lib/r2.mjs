@@ -11,10 +11,14 @@ import { createHash, createHmac } from 'node:crypto';
 
 export function r2Config() {
   const env = (k) => (process.env[k] || '').trim(); // Leerzeichen/Zeilenumbrüche aus dem Einfügen abschneiden
-  const account = env('R2_ACCOUNT_ID'), key = env('R2_ACCESS_KEY_ID'), secret = env('R2_SECRET_ACCESS_KEY');
+  // Konto-ID auch dann finden, wenn die ganze S3-Adresse eingefügt wurde (https://<id>.r2.cloudflarestorage.com oder <id>.eu.r2.…)
+  let account = env('R2_ACCOUNT_ID'), jurFromUrl = '';
+  const m = account.match(/^(?:https?:\/\/)?([0-9a-f]{32})(?:\.([a-z]+))?\.r2\.cloudflarestorage\.com\/?/i);
+  if (m) { account = m[1]; jurFromUrl = (m[2] || '').toLowerCase(); }
+  const key = env('R2_ACCESS_KEY_ID'), secret = env('R2_SECRET_ACCESS_KEY');
   const bucket = env('R2_BUCKET') || 'meet-daily';
   const publicUrl = env('R2_PUBLIC_URL').replace(/\/+$/, '');
-  const jur = (process.env.R2_JURISDICTION || '').trim().toLowerCase();
+  const jur = env('R2_JURISDICTION').toLowerCase() || jurFromUrl;
   if (!account || !key || !secret || !publicUrl) return null;
   return { account, key, secret, bucket, publicUrl, host: account + (jur ? '.' + jur : '') + '.r2.cloudflarestorage.com' };
 }
