@@ -225,24 +225,23 @@ h2{
 .clip{
   display:flex;flex-direction:column;
   min-height:0;
-  padding:14px 12px 8px;
+  padding:0;
   border-radius:18px;
-  background:var(--field);
-  border:1.2px solid transparent;
+  background:transparent;
+  border:0;
   color:#fff;
-  text-align:left;
+  text-align:center;
   font:inherit;
   cursor:pointer;
-  overflow:hidden;
-  transition:border-color .2s,transform .2s;
+  transition:transform .2s;
   -webkit-tap-highlight-color:transparent;
 }
-.clip:hover,.clip:focus-visible{border-color:var(--lime)}
+.clip:focus-visible{outline:2px solid var(--lime);outline-offset:4px}
 .clip:active{transform:scale(.985)}
-.clip-head{display:flex;flex-direction:column;min-height:38px;padding:0 2px}
-.clip-name{font-family:var(--head);font-weight:700;font-size:16px;letter-spacing:-.01em;line-height:1.15;color:#fff}
-.clip-media{position:relative;display:block;margin:2px -4px 0;aspect-ratio:9/11;flex:1}
-/* weicher Rahmen rundum: das Standbild löst sich an allen vier Seiten ins Violett des Kastens auf */
+.clip-head{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-height:38px;padding:0 4px}
+.clip-name{font-family:var(--head);font-weight:700;font-size:16px;letter-spacing:-.01em;line-height:1.15;color:#fff;text-align:center}
+.clip-media{position:relative;display:block;margin:2px 0 0;aspect-ratio:9/11;flex:1}
+/* weicher Rahmen rundum: das Standbild löst sich an allen vier Seiten ins Nachtviolett der Seite auf – kein Kasten dahinter */
 .clip-img{
   position:absolute;inset:0;width:100%;height:100%;
   object-fit:cover;object-position:center 30%;
@@ -272,8 +271,8 @@ h2{
 }
 .clip-play svg{width:20px;height:20px;margin-left:3px}
 .clip:hover .clip-play{transform:scale(1.08);background:rgba(255,255,255,.28)}
-.clip--soon{cursor:default;border:1.2px dashed rgba(255,255,255,.14);background:transparent}
-.clip--soon:hover,.clip--soon:focus-visible{border-color:rgba(255,255,255,.14)}
+.clip--soon{cursor:default}
+.clip--soon .clip-media{border:1.2px dashed rgba(255,255,255,.14);border-radius:18px;margin:6px 6px 0}
 .clip--soon .clip-name{color:var(--soft)}
 .clip--soon .clip-time{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--muted);margin-top:3px}
 .clip--soon .clip-media{aspect-ratio:auto;flex:1;min-height:60px}
