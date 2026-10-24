@@ -73,12 +73,12 @@
     <span class="passage" id="passage">1. Johannes 1,5–2,2</span>
   </div>
   <h1 id="homeTitle">Wie ist Gott dir heute begegnet?</h1>
-  <p class="lead">Wir freuen uns über deinen MEET-Moment.</p>
+  <p class="lead">Halt fest, was dir heute aufgefallen ist.</p>
   <div class="grow"></div>
   <!-- MEET DAILY: die beiden Videos von heute Morgen (05:45 Start, 06:15 MEETmoment), aus dem Studio direkt hochgeladen -->
   <section class="daily" id="homeDaily" hidden aria-labelledby="dailyLabel">
     <span class="label" id="dailyLabel">Heute Morgen bei MEET DAILY</span>
-    <ol class="flow" id="dailyGrid"></ol>
+    <div class="daily-grid" id="dailyGrid"></div>
   </section>
   <!-- Wochenende: kein MEET DAILY – stattdessen der Blick zurück auf die Woche (MEET WALL der letzten Tage, für alle offen) -->
   <button type="button" class="row row--wall row--week" id="homeWeek" hidden>
@@ -87,11 +87,13 @@
     <svg class="row-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
   </button>
   <div class="stack">
-    <button type="button" class="btn btn--primary btn--full" id="goMoment">MEET-Moment teilen</button>
+    <button type="button" class="btn btn--primary btn--full" id="goMoment">Meinen MEET-Moment festhalten</button>
     <button type="button" class="btn btn--text" id="goQuestion">Ich habe eine Frage zum Text</button>
     <!-- Frühere Fragen dieses Geräts (nicht von heute) liegen im Pop-up; Zahl der neuen Antworten seit dem letzten Blick -->
     <button type="button" class="ask-past" id="askPast" hidden><span>Deine Fragen der letzten Tage</span><span class="ask-past-badge" id="askPastNew" hidden></span></button>
   </div>
+  <!-- Eigene MEET-Momente bleiben auf diesem Gerät (localStorage) – der Blick zurück in die eigene Stille Zeit -->
+  <button type="button" class="ask-past" id="homeMine" hidden><span id="homeMineText">Meine MEET-Momente</span></button>
   <!-- Heutige Fragen zum Text dieses Geräts: offen oder beantwortet (Antwort kommt von der Freigabeseite) -->
   <div class="asks" id="homeAsks" hidden></div>
   <button type="button" class="row row--wall" id="homeWall" hidden>
@@ -145,7 +147,7 @@
 
     <p class="error" id="error" hidden>Das hat gerade nicht geklappt. Bitte probier es gleich noch einmal.</p>
 
-    <button type="submit" class="btn btn--primary btn--full" id="send" disabled>Teilen</button>
+    <button type="submit" class="btn btn--primary btn--full" id="send" disabled>Festhalten</button>
   </form>
 </section>
 
@@ -153,9 +155,9 @@
 <section class="screen screen--done" id="screen-done" hidden>
   <div class="grow"></div>
   <img src="assets/signet-meet.svg" alt="" class="signet">
-  <div class="kicker" id="sentKicker">Moment geteilt</div>
-  <h1 id="sentHeading">Danke fürs Teilen!</h1>
-  <p class="lead" id="sentBody">Vielleicht posten wir deinen MEET-Moment im Kanal.</p>
+  <div class="kicker" id="sentKicker">Moment festgehalten</div>
+  <h1 id="sentHeading">Festgehalten!</h1>
+  <p class="lead" id="sentBody">Dein MEET-Moment bleibt auf diesem Handy. Unter „Meine MEET-Momente“ findest du ihn wieder.</p>
   <div class="grow"></div>
   <!-- Nach einer Frage: Push-Benachrichtigung, sobald die Antwort da ist (nur wo der Browser das kann) -->
   <div class="push" id="pushBox" hidden>
@@ -208,6 +210,18 @@
       <button type="button" class="pop-close" id="playerClose" aria-label="Schliessen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     <video id="playerVideo" controls playsinline preload="metadata"></video>
+  </div>
+</div>
+<!-- Pop-up: die eigenen MEET-Momente (nur auf diesem Gerät) -->
+<div class="pop" id="minePop" hidden>
+  <div class="pop-back" id="minePopBack"></div>
+  <div class="pop-sheet" role="dialog" aria-modal="true" aria-labelledby="minePopTitle">
+    <div class="pop-head">
+      <span class="label" id="minePopTitle">Meine MEET-Momente</span>
+      <button type="button" class="pop-close" id="minePopClose" aria-label="Schliessen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="asks" id="minePopList"></div>
+    <p class="pop-note">Deine Momente bleiben nur auf diesem Gerät.</p>
   </div>
 </div>
 <!-- Pop-up: Fragen der letzten Tage samt Antworten -->

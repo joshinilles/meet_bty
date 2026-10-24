@@ -1,5 +1,6 @@
 /* MEET · meet-bty.com – vier Screens: Heute, Schreiben, Danke, MEET WALL
-   Ein Screen, eine Aufgabe. Versand als Netlify Form (POST auf "/", form-name "meet-impuls").
+   Die App begleitet die Stille Zeit: Videos von heute Morgen, den eigenen MEET-Moment festhalten (bleibt auf dem Gerät,
+   „Meine MEET-Momente“), auf Wunsch anonym auf die Wand. Versand als Netlify Form (POST auf "/", form-name "meet-impuls").
    Die MEET WALL (freigegebene Momente der anderen) ist nur vom Danke-Screen aus erreichbar: erst teilen, dann sehen. */
 (function () {
   "use strict";
@@ -15,10 +16,10 @@
       kicker: "Dein MEET-Moment",
       heading: "Schreib einfach drauflos.",
       placeholder: "Mir ist aufgefallen, dass …",
-      send: "Teilen",
-      sentKicker: "Moment geteilt",
-      sentHeading: function (n) { return n ? "Danke fürs Teilen, " + n + "!" : "Danke fürs Teilen!"; },
-      sentBody: "Vielleicht posten wir deinen MEET-Moment im Kanal."
+      send: "Festhalten",
+      sentKicker: "Moment festgehalten",
+      sentHeading: function (n) { return n ? "Festgehalten, " + n + "!" : "Festgehalten!"; },
+      sentBody: "Dein MEET-Moment bleibt auf diesem Handy. Unter „Meine MEET-Momente“ findest du ihn wieder."
     },
     question: {
       label: "Frage zum Text",
@@ -45,7 +46,7 @@
     addName: $("addName"), name: $("name"), error: $("error"), send: $("send"),
     wallRow: $("wallRow"), wall: $("wall"),
     sentKicker: $("sentKicker"), sentHeading: $("sentHeading"), sentBody: $("sentBody"),
-    reset: $("reset"), goWall: $("goWall"), pushBox: $("pushBox"), pushAsk: $("pushAsk"), pushHint: $("pushHint"), homeAsks: $("homeAsks"), askPast: $("askPast"), askPastNew: $("askPastNew"), askPop: $("askPop"), askPopBack: $("askPopBack"), askPopClose: $("askPopClose"), askPopList: $("askPopList"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
+    reset: $("reset"), goWall: $("goWall"), homeMine: $("homeMine"), homeMineText: $("homeMineText"), minePop: $("minePop"), minePopBack: $("minePopBack"), minePopClose: $("minePopClose"), minePopList: $("minePopList"), pushBox: $("pushBox"), pushAsk: $("pushAsk"), pushHint: $("pushHint"), homeAsks: $("homeAsks"), askPast: $("askPast"), askPastNew: $("askPastNew"), askPop: $("askPop"), askPopBack: $("askPopBack"), askPopClose: $("askPopClose"), askPopList: $("askPopList"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
     wallBack: $("wallBack"), wallKicker: $("wallKicker"), wallHint: $("wallHint"), wallList: $("wallList"), wallNote: $("wallNote"),
     wallMore: $("wallMore"), wallPast: $("wallPast"), wallHome: $("wallHome")
   };
@@ -184,6 +185,7 @@
   });
   window.addEventListener("popstate", function () {
     if (playerOpen()) { closePlayer(true); return; }
+    if (!el.minePop.hidden) { closeMinePop(true); return; }
     if (state.screen !== "home") goHome();
   });
 
@@ -256,7 +258,7 @@
       .then(function (res) {
         if (!res.ok) throw new Error("HTTP " + res.status);
         if (wantsWall) rememberOwn(text, cfg.passage);
-        if (state.mode === "moment") unlockWall();
+        if (state.mode === "moment") { rememberMine(text, cfg.passage, wantsWall); unlockWall(); }
         if (state.mode === "question") rememberAsk(text, cfg.passage);
         onSent(state.mode);
       })
@@ -779,6 +781,51 @@
   });
   el.wallHome.addEventListener("click", goHome);
 
+  // ---- Meine MEET-Momente: alles, was dieses Gerät festgehalten hat – bleibt lokal (localStorage), kein Ablauf ----
+  var MINE_KEY = "meet:moments", MINE_MAX = 300;
+  function readMine() {
+    try { var l = JSON.parse(localStorage.getItem(MINE_KEY) || "[]"); return Array.isArray(l) ? l.filter(function (m) { return m && m.text; }) : []; } catch (e) { return []; }
+  }
+  function rememberMine(text, passage, wall) {
+    var list = readMine();
+    list.unshift({ text: text, passage: passage || "", ts: new Date().toISOString(), wall: !!wall });
+    try { localStorage.setItem(MINE_KEY, JSON.stringify(list.slice(0, MINE_MAX))); } catch (e) {}
+    updateHomeMine();
+  }
+  function updateHomeMine() {
+    var n = readMine().length;
+    el.homeMine.hidden = !n;
+    el.homeMineText.textContent = "Meine MEET-Momente · " + n;
+  }
+  function mineCard(m) {
+    var c = document.createElement("article"); c.className = "ask ask--mine";
+    var head = document.createElement("div"); head.className = "ask-head";
+    var lab = document.createElement("span"); lab.className = "label"; lab.textContent = askDay(m.ts) || "MEET-Moment";
+    head.appendChild(lab);
+    if (m.wall) { var st = document.createElement("span"); st.className = "ask-state"; st.textContent = "Auf der Wand geteilt"; head.appendChild(st); }
+    var t = document.createElement("p"); t.className = "ask-text"; t.textContent = m.text;
+    c.appendChild(head); c.appendChild(t);
+    if (m.passage) { var w = document.createElement("p"); w.className = "ask-when"; w.textContent = m.passage; c.appendChild(w); }
+    return c;
+  }
+  function openMinePop() {
+    el.minePopList.innerHTML = "";
+    readMine().forEach(function (m) { el.minePopList.appendChild(mineCard(m)); });
+    el.minePop.hidden = false;
+    document.body.style.overflow = "hidden";
+    try { history.pushState({ pop: "mine" }, ""); } catch (e) {}
+  }
+  function closeMinePop(fromHistory) {
+    if (el.minePop.hidden) return;
+    if (!fromHistory && history.state && history.state.pop === "mine") { try { history.back(); return; } catch (e) {} }
+    el.minePop.hidden = true;
+    document.body.style.overflow = "";
+  }
+  el.homeMine.addEventListener("click", openMinePop);
+  el.minePopBack.addEventListener("click", function () { closeMinePop(false); });
+  el.minePopClose.addEventListener("click", function () { closeMinePop(false); });
+  updateHomeMine();
+
   // ---- MEET DAILY: die beiden Videos von heute Morgen, aus dem Studio direkt hochgeladen (Function video, Dateien bei R2) ----
   var DAILY_URL = "/.netlify/functions/video", DAILY_CACHE = "meet:daily";
   var DAILY_META = { 1: { name: "Start", time: "05:45" }, 2: { name: "MEETmoment", time: "06:15" } };
@@ -788,39 +835,23 @@
   var PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
   function stepTitle(v) { return v.n === 1 ? "Still werden" : "MEETmoment" + (v.name ? " mit " + v.name : ""); }
   // Ein Schritt des Ablaufs: Nummer, Titel, Uhrzeit und Länge, Play rechts – keine Titelkarte, die Bibelstelle steht schon oben
-  function stepThumb(v, soon) {
-    var th = document.createElement("span"); th.className = "step-thumb"; th.setAttribute("aria-hidden", "true");
-    if (v.poster && !soon) { var img = document.createElement("img"); img.className = "step-img"; img.src = v.poster; img.alt = ""; img.decoding = "async"; th.appendChild(img); }
-    var num = document.createElement("span"); num.className = "step-num"; num.textContent = String(v.n); th.appendChild(num);
-    if (!soon) { var play = document.createElement("span"); play.className = "step-play"; play.innerHTML = PLAY_SVG; th.appendChild(play); }
-    return th;
-  }
-  function stepRow(v) {
+  function clipTile(v, soon) {
     var meta = DAILY_META[v.n];
-    var li = document.createElement("li");
-    var b = document.createElement("button"); b.type = "button"; b.className = "row step";
-    var sub = [meta.time, fmtDur(v.duration)].filter(Boolean).join(" · ");
-    b.setAttribute("aria-label", "Schritt " + v.n + ": " + stepTitle(v) + " · " + sub + " abspielen");
-    var t = document.createElement("span"); t.className = "row-text";
-    var nm = document.createElement("span"); nm.className = "row-name"; nm.textContent = stepTitle(v);
-    var tm = document.createElement("span"); tm.className = "row-handle"; tm.textContent = sub;
-    t.appendChild(nm); t.appendChild(tm);
-    b.appendChild(stepThumb(v, false)); b.appendChild(t);
-    b.addEventListener("click", function () { openPlayer(v); });
-    li.appendChild(b);
-    return li;
-  }
-  function soonRow(n) {
-    var meta = DAILY_META[n];
-    var li = document.createElement("li");
-    var d = document.createElement("div"); d.className = "row step step--soon"; d.setAttribute("aria-hidden", "true");
-    var t = document.createElement("span"); t.className = "row-text";
-    var nm = document.createElement("span"); nm.className = "row-name"; nm.textContent = meta.name;
-    var tm = document.createElement("span"); tm.className = "row-handle"; tm.textContent = "kommt um " + meta.time;
-    t.appendChild(nm); t.appendChild(tm);
-    d.appendChild(stepThumb({ n: n }, true)); d.appendChild(t);
-    li.appendChild(d);
-    return li;
+    var sub = soon ? "kommt um " + meta.time : [meta.time, fmtDur(v.duration)].filter(Boolean).join(" · ");
+    var b = document.createElement(soon ? "div" : "button"); b.className = "clip" + (soon ? " clip--soon" : "");
+    if (soon) b.setAttribute("aria-hidden", "true"); else { b.type = "button"; b.setAttribute("aria-label", stepTitle(v) + " · " + sub + " abspielen"); }
+    var head = document.createElement("span"); head.className = "clip-head";
+    var nm = document.createElement("span"); nm.className = "clip-name"; nm.textContent = soon ? meta.name : stepTitle(v);
+    var tm = document.createElement("span"); tm.className = "clip-time"; tm.textContent = sub;
+    head.appendChild(nm); head.appendChild(tm);
+    var media = document.createElement("span"); media.className = "clip-media";
+    if (!soon) {
+      if (v.poster) { var img = document.createElement("img"); img.className = "clip-img"; img.src = v.poster; img.alt = ""; img.decoding = "async"; media.appendChild(img); }
+      var play = document.createElement("span"); play.className = "clip-play"; play.setAttribute("aria-hidden", "true"); play.innerHTML = PLAY_SVG; media.appendChild(play);
+      b.addEventListener("click", function () { openPlayer(v); });
+    }
+    b.appendChild(head); b.appendChild(media);
+    return b;
   }
   function renderDaily() {
     var items = daily.day === todayKey() ? daily.items.filter(function (v) { return v && v.url && (v.n === 1 || v.n === 2); }) : [];
@@ -829,8 +860,8 @@
     if (!items.length) return;
     var byN = {}; items.forEach(function (v) { byN[v.n] = v; });
     [1, 2].forEach(function (n) {
-      if (byN[n]) dEl.grid.appendChild(stepRow(byN[n]));
-      else if (n === 2) dEl.grid.appendChild(soonRow(2)); // der MEETmoment folgt um 06:15 – als zweiter Schritt schon angedeutet
+      if (byN[n]) dEl.grid.appendChild(clipTile(byN[n], false));
+      else if (n === 2) dEl.grid.appendChild(clipTile({ n: 2 }, true)); // der MEETmoment folgt um 06:15 – der Platz dafür steht schon
     });
   }
   function fetchDaily() {

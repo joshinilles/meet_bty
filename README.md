@@ -72,10 +72,15 @@ Lokal (file:// oder localhost) darf der Versand scheitern, die Erfolgskarte ersc
 
 Die beiden Morgen-Videos (05:45 Start, 06:15 MEETmoment) lassen sich im Studio nach dem Export mit
 **„Auf meet-bty.com stellen“** direkt hochladen (Studio-PIN nötig). Die Startseite zeigt die Videos des Tages
-als Ablauf in zwei Zeilen über „MEET-Moment teilen“: „1 Still werden“ (05:45) und „2 MEETmoment mit Name“ (06:15),
-links ein Standbild aus dem Video (das Studio greift es kurz nach der Titelkarte ab) mit Schrittzahl und Play, rechts Titel,
-Uhrzeit und Länge; Antippen öffnet den Player. Solange nur das erste Video da ist, steht Schritt 2 gestrichelt als
-„MEETmoment · kommt um 06:15“. Ohne Video des Tages ist der Block unsichtbar.
+als zwei Kacheln nebeneinander über „Meinen MEET-Moment festhalten“: „Still werden“ (05:45) und „MEETmoment mit Name“ (06:15),
+Titel und Länge oben, darunter ein Standbild aus dem Video (das Studio greift es kurz nach der Titelkarte ab), das oben weich
+aus dem Kasten tritt, mit durchsichtigem Play-Knopf; Antippen öffnet den Player. Solange nur das erste Video da ist, steht die
+zweite Kachel gestrichelt als „MEETmoment · kommt um 06:15“. Ohne Video des Tages ist der Block unsichtbar.
+
+**Meinen MEET-Moment festhalten** (seit 25. Oktober 2026): Die App begleitet die Stille Zeit – man hält den eigenen Moment fest,
+er bleibt auf dem Gerät (`localStorage` `meet:moments`, kein Ablauf, höchstens 300) und ist auf der Startseite unter
+„Meine MEET-Momente · n“ als Pop-up wieder abrufbar. Der Haken „darf anonym auf der MEET WALL erscheinen“ entscheidet
+weiterhin, ob er auf die Wand kommt; gesendet wird er wie bisher ans Team (Netlify Forms).
 Am **Wochenende** steht oben statt der Bibelstelle „Am Montag geht's weiter.“ und darunter der Zugang
 „Wie ist Gott uns in der letzten Woche begegnet?“ – die MEET WALL der letzten sieben Tage, für alle offen.
 
