@@ -760,31 +760,40 @@
   var DAILY_URL = "/.netlify/functions/video", DAILY_CACHE = "meet:daily";
   var DAILY_META = { 1: { name: "Start", time: "05:45" }, 2: { name: "MEETmoment", time: "06:15" } };
   var daily = { day: "", items: [] };
-  var dEl = { box: $("homeDaily"), grid: $("dailyGrid"), sub: $("dailySub"), player: $("player"), back: $("playerBack"), close: $("playerClose"), video: $("playerVideo"), title: $("playerTitle"), kicker: $("playerKicker") };
+  var dEl = { box: $("homeDaily"), grid: $("dailyGrid"), player: $("player"), back: $("playerBack"), close: $("playerClose"), video: $("playerVideo"), title: $("playerTitle"), kicker: $("playerKicker") };
   function fmtDur(s) { s = Math.round(s || 0); if (!s) return ""; return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + (s % 60) + " Min"; }
-  function clipTile(v) {
-    var meta = DAILY_META[v.n] || { name: v.title || "Video", time: "" };
-    var b = document.createElement("button"); b.type = "button"; b.className = "clip";
-    var parts = [meta.time, v.n === 2 && v.name ? v.name : "", fmtDur(v.duration)].filter(Boolean);
-    b.setAttribute("aria-label", meta.name + " · " + parts.join(" · ") + " abspielen");
-    if (v.poster) { var img = document.createElement("img"); img.className = "clip-poster"; img.src = v.poster; img.alt = ""; img.decoding = "async"; b.appendChild(img); }
-    var play = document.createElement("span"); play.className = "clip-play"; play.setAttribute("aria-hidden", "true");
-    play.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l12-7.5z"/></svg>';
-    b.appendChild(play);
-    var m = document.createElement("span"); m.className = "clip-meta";
-    var nm = document.createElement("span"); nm.className = "clip-name"; nm.textContent = meta.name;
-    var tm = document.createElement("span"); tm.className = "clip-time"; tm.textContent = parts.join(" · ");
-    m.appendChild(nm); m.appendChild(tm); b.appendChild(m);
+  var PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
+  function stepTitle(v) { return v.n === 1 ? "Still werden" : "MEETmoment" + (v.name ? " mit " + v.name : ""); }
+  // Ein Schritt des Ablaufs: Nummer, Titel, Uhrzeit und Länge, Play rechts – keine Titelkarte, die Bibelstelle steht schon oben
+  function stepRow(v) {
+    var meta = DAILY_META[v.n];
+    var li = document.createElement("li");
+    var b = document.createElement("button"); b.type = "button"; b.className = "row step";
+    var sub = [meta.time, fmtDur(v.duration)].filter(Boolean).join(" · ");
+    b.setAttribute("aria-label", "Schritt " + v.n + ": " + stepTitle(v) + " · " + sub + " abspielen");
+    var num = document.createElement("span"); num.className = "step-num"; num.setAttribute("aria-hidden", "true"); num.textContent = String(v.n);
+    var t = document.createElement("span"); t.className = "row-text";
+    var nm = document.createElement("span"); nm.className = "row-name"; nm.textContent = stepTitle(v);
+    var tm = document.createElement("span"); tm.className = "row-handle"; tm.textContent = sub;
+    t.appendChild(nm); t.appendChild(tm);
+    var play = document.createElement("span"); play.className = "step-play"; play.setAttribute("aria-hidden", "true"); play.innerHTML = PLAY_SVG;
+    b.appendChild(num); b.appendChild(t); b.appendChild(play);
     b.addEventListener("click", function () { openPlayer(v); });
-    return b;
+    li.appendChild(b);
+    return li;
   }
-  function soonTile(n) {
+  function soonRow(n) {
     var meta = DAILY_META[n];
-    var d = document.createElement("div"); d.className = "clip clip--soon"; d.setAttribute("aria-hidden", "true");
-    d.innerHTML = '<span class="clip-meta"><span class="clip-name"></span><span class="clip-time"></span></span>';
-    d.querySelector(".clip-name").textContent = meta.name;
-    d.querySelector(".clip-time").textContent = "kommt um " + meta.time;
-    return d;
+    var li = document.createElement("li");
+    var d = document.createElement("div"); d.className = "row step step--soon"; d.setAttribute("aria-hidden", "true");
+    var num = document.createElement("span"); num.className = "step-num"; num.textContent = String(n);
+    var t = document.createElement("span"); t.className = "row-text";
+    var nm = document.createElement("span"); nm.className = "row-name"; nm.textContent = meta.name;
+    var tm = document.createElement("span"); tm.className = "row-handle"; tm.textContent = "kommt um " + meta.time;
+    t.appendChild(nm); t.appendChild(tm);
+    d.appendChild(num); d.appendChild(t);
+    li.appendChild(d);
+    return li;
   }
   function renderDaily() {
     var items = daily.day === todayKey() ? daily.items.filter(function (v) { return v && v.url && (v.n === 1 || v.n === 2); }) : [];
@@ -793,10 +802,9 @@
     if (!items.length) return;
     var byN = {}; items.forEach(function (v) { byN[v.n] = v; });
     [1, 2].forEach(function (n) {
-      if (byN[n]) dEl.grid.appendChild(clipTile(byN[n]));
-      else if (n === 2) dEl.grid.appendChild(soonTile(2)); // der MEETmoment folgt um 06:15 – Platz dafür zeigen
+      if (byN[n]) dEl.grid.appendChild(stepRow(byN[n]));
+      else if (n === 2) dEl.grid.appendChild(soonRow(2)); // der MEETmoment folgt um 06:15 – als zweiter Schritt schon angedeutet
     });
-    dEl.sub.textContent = items.length === 2 ? "2 Videos" : "1 Video";
   }
   function fetchDaily() {
     var day = todayKey();
@@ -812,7 +820,7 @@
   function openPlayer(v) {
     var meta = DAILY_META[v.n] || { name: v.title || "Video", time: "" };
     dEl.kicker.textContent = "MEET DAILY · " + meta.time + (v.passage ? " · " + v.passage : "");
-    dEl.title.textContent = meta.name + (v.n === 2 && v.name ? " mit " + v.name : "");
+    dEl.title.textContent = stepTitle(v);
     dEl.video.poster = v.poster || "";
     dEl.video.src = v.url;
     dEl.player.hidden = false;
