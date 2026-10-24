@@ -265,7 +265,7 @@ h2{
    Teilen, Frage, Wand-Zugang und der Claim im Fuss bleiben weg – es gibt keinen Text, den man liest. */
 .day--weekend .passage{font-size:clamp(24px,7vw,28px)}
 .screen--weekend .lead,.screen--weekend .stack,.screen--weekend .claim{display:none}
-.row--week{
+.row.row--week{
   min-height:88px;
   padding:16px 18px 16px 14px;
   background:var(--lime);
@@ -273,11 +273,11 @@ h2{
   color:var(--night);
   box-shadow:0 10px 30px rgba(212,246,90,.18);
 }
-.row--week:hover,.row--week:focus-visible{background:var(--lime);border-color:#fff;color:var(--night)}
-.row--week .row-icon{background:rgba(47,16,65,.12);color:var(--night)}
-.row--week .row-name{font-size:18px;line-height:1.15;color:var(--night)}
-.row--week .row-handle{white-space:normal;color:rgba(47,16,65,.7)}
-.row--week .row-arrow{color:var(--night);width:24px;height:24px}
+.row.row--week:hover,.row.row--week:focus-visible{background:var(--lime);border-color:#fff;color:var(--night)}
+.row.row--week .row-icon{background:rgba(47,16,65,.12);color:var(--night)}
+.row.row--week .row-name{font-size:18px;line-height:1.15;color:var(--night)}
+.row.row--week .row-handle{white-space:normal;color:rgba(47,16,65,.7)}
+.row.row--week .row-arrow{color:var(--night);width:24px;height:24px}
 
 /* Player: Video gross in der Mitte, Rest abgedunkelt */
 .player{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center}
