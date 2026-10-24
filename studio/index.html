@@ -90,6 +90,12 @@ input.cap:focus{border-color:var(--lime)}
 .btn[disabled]{opacity:.45;cursor:default}
 .btn:focus-visible{outline:2px solid var(--paper);outline-offset:2px}
 .stack{display:flex;flex-direction:column;gap:10px}
+/* meet-bty.com: Video auf die Startseite stellen */
+.web{display:flex;flex-direction:column;gap:10px;background:var(--night2);border:1px solid rgba(212,246,90,.4);border-radius:14px;padding:14px 16px}
+.web-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.web-head .hint{text-align:right}
+.web .progress{margin:0}
+.choice .webmark{color:var(--lime);font-family:var(--f-mono);font-size:11px;letter-spacing:.06em}
 
 /* Stage */
 .stage{gap:10px}
@@ -205,11 +211,11 @@ textarea.cap:focus{border-color:var(--pink)}
     <div class="choices">
       <button class="choice" data-v="1" id="choice1">
         <canvas class="thumb" width="270" height="480" aria-hidden="true"></canvas>
-        <div class="meta"><span class="pill">05:45</span><strong>Video 1 · Start</strong><small>Begrüssung, Gebet, zur Ruhe kommen, „Heute lesen wir …“</small></div>
+        <div class="meta"><span class="pill">05:45</span><strong>Video 1 · Start</strong><small>Begrüssung, Gebet, zur Ruhe kommen, „Heute lesen wir …“</small><small class="webmark" id="web1" hidden></small></div>
       </button>
       <button class="choice" data-v="2" id="choice2">
         <canvas class="thumb" width="270" height="480" aria-hidden="true"></canvas>
-        <div class="meta"><span class="pill">06:15</span><strong>Video 2 · MEETmoment</strong><small>Wo Gott uns im Text begegnet ist</small></div>
+        <div class="meta"><span class="pill">06:15</span><strong>Video 2 · MEETmoment</strong><small>Wo Gott uns im Text begegnet ist</small><small class="webmark" id="web2" hidden></small></div>
       </button>
     </div>
     <button class="btn ghost block" id="btnHlHome">MEETmoment-Highlight aus einem fertigen Video</button>
@@ -239,7 +245,7 @@ textarea.cap:focus{border-color:var(--pink)}
           <textarea class="cap" id="igT3" rows="4"></textarea></div>
         <div class="row"><span>Satzvorschläge<small>Kurzbefehl: der iPhone-Kurzbefehl „MEETmoment-Satz“ schreibt das Video ab und öffnet das Studio mit Vorschlägen. Server: Abschrift über Netlify (OpenAI-Schlüssel nötig)</small></span>
           <div class="seg" data-set="hlSource"><button data-val="shortcut">Kurzbefehl</button><button data-val="server">Server</button></div></div>
-        <div class="row" style="flex-direction:column;align-items:stretch"><span>Studio-PIN<small>Dieselbe PIN wie STUDIO_PIN auf Netlify. Nötig für die Abschrift des MEETmoments (Satzvorschläge fürs Highlight)</small></span>
+        <div class="row" style="flex-direction:column;align-items:stretch"><span>Studio-PIN<small>Dieselbe PIN wie STUDIO_PIN auf Netlify. Nötig, um Videos auf meet-bty.com zu stellen und für die Abschrift des MEETmoments (Satzvorschläge fürs Highlight)</small></span>
           <input class="cap" id="studioPin" type="text" placeholder="PIN" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
         <div class="row"><span>Auflösung</span>
           <div class="seg" data-set="quality"><button data-val="1080">1080p</button><button data-val="720">720p</button></div></div>
@@ -317,6 +323,13 @@ textarea.cap:focus{border-color:var(--pink)}
         <p class="hint">Im Teilen-Menü <b>Instagram</b> wählen, dann <b>Reel</b>. Die Beschreibung aus der Zwischenablage einfügen und posten. Das erste Bild (Titelkarte) ist automatisch das Cover.</p>
       </div>
     </details>
+    <div class="web" id="webBox">
+      <div class="web-head"><span class="lab lime">meet-bty.com</span><span class="hint" id="webState">Noch nicht auf der Startseite</span></div>
+      <div class="progress" id="webProg" hidden><i id="webBar"></i></div>
+      <button class="btn block" id="btnWeb">Auf meet-bty.com stellen</button>
+      <button class="btn ghost block" id="btnWebRemove" hidden>Von der Startseite nehmen</button>
+      <p class="hint">Erscheint auf der Startseite über „MEET-Moment teilen“ – mit der Titelkarte als Vorschau. Braucht die Studio-PIN (Einstellungen).</p>
+    </div>
     <div class="stack">
       <button class="btn block" id="btnShare">An WhatsApp teilen</button>
       <button class="btn ghost block" id="btnSave" hidden>Speichern</button>
@@ -1563,8 +1576,94 @@ function showResult(blob, enc, procSecs, logLines) {
   if (!isMp4) toast('Achtung: WebM statt MP4. WhatsApp nimmt das Video möglicherweise nicht an.', 5000);
   $('#igCaption').value = igCaption(current.n); $('#igBox').hidden = false; $('#igBox').open = current.n === 2;
   $('#btnHl').hidden = current.n !== 2;
+  renderWeb(); webStatus();
   show('result');
 }
+
+/* ---------- meet-bty.com: Video auf die Startseite stellen (Function video, Datei direkt zu Cloudflare R2) ----------
+   Ablauf: op=sign (vorsignierte Adresse) → PUT der Videodatei mit Fortschritt → Titelkarte als JPEG ebenso →
+   op=publish trägt beides ins Tagesverzeichnis ein. Die Startseite zeigt die Videos des Tages über „MEET-Moment teilen“. */
+const VIDEO_URL = (/^https?:$/.test(location.protocol) && /(^|\.)meet-bty\.com$|^(localhost|127\.0\.0\.1)$/.test(location.hostname)) ? '/.netlify/functions/video' : 'https://meet-bty.com/.netlify/functions/video';
+let web = { day: null, items: [], busy: false };
+function webPin() { return settings.studioPin || ''; }
+async function webCall(op, body) {
+  const r = await fetch(VIDEO_URL + '?op=' + op, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-studio-pin': encodeURIComponent(webPin()) }, body: JSON.stringify(Object.assign({ day: todayKey() }, body || {})) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+function webItem(n) { return web.day === todayKey() ? (web.items || []).find(v => v.n === n) : null; }
+function webTime(iso) { const d = new Date(iso); return isNaN(d) ? '' : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+function renderWeb() {
+  for (const n of [1, 2]) { const m = $('#web' + n); if (!m) continue; const it = webItem(n); m.hidden = !it; m.textContent = it ? '✓ Heute auf meet-bty.com · ' + webTime(it.at) : ''; }
+  if (!result) return;
+  const it = webItem(current.n), busy = web.busy;
+  if (!busy) $('#webState').textContent = it ? 'Auf der Startseite · seit ' + webTime(it.at) + (it.name ? ' · ' + it.name : '') : (webPin() ? 'Noch nicht auf der Startseite' : 'Studio-PIN fehlt (Einstellungen)');
+  const b = $('#btnWeb'); b.textContent = it ? 'Nochmal hochladen (ersetzt das Video)' : 'Auf meet-bty.com stellen'; b.classList.toggle('ghost', !!it);
+  $('#btnWebRemove').hidden = !it || busy;
+}
+async function webStatus() {
+  if (!webPin()) { renderWeb(); return; }
+  try { const j = await webCall('status'); web.day = todayKey(); web.items = j.items || []; } catch (e) { }
+  renderWeb();
+}
+function putWithProgress(url, blob, type, onProgress) {
+  return new Promise((res, rej) => {
+    const x = new XMLHttpRequest(); x.open('PUT', url); x.setRequestHeader('Content-Type', type);
+    x.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
+    x.onload = () => (x.status >= 200 && x.status < 300) ? res() : rej(new Error('Speicher antwortet mit HTTP ' + x.status));
+    x.onerror = () => rej(new Error('Verbindung zum Speicher abgebrochen (Netz oder CORS-Regel des Buckets)'));
+    x.onabort = () => rej(new Error('Hochladen abgebrochen'));
+    x.send(blob);
+  });
+}
+function posterBlob() {
+  const c = document.createElement('canvas'); c.width = 540; c.height = 960;
+  drawCard(c.getContext('2d'), c.width, c.height, current, getRef());
+  return new Promise(res => c.toBlob(b => res(b), 'image/jpeg', 0.82));
+}
+$('#btnWeb').addEventListener('click', async () => {
+  if (!result || web.busy) return;
+  if (!webPin()) { toast('Zuerst die Studio-PIN in den Einstellungen eintragen', 4000); return; }
+  if (!(result.type || '').includes('mp4')) { toast('Nur MP4 lässt sich auf die Seite stellen (WebM spielt das iPhone nicht ab)', 5000); return; }
+  web.busy = true; renderWeb();
+  const btn = $('#btnWeb'), prog = $('#webProg'), bar = $('#webBar'), state = $('#webState');
+  btn.disabled = true; prog.hidden = false; bar.style.width = '0%';
+  let lock = null; try { if (navigator.wakeLock) lock = await navigator.wakeLock.request('screen'); } catch (e) { }
+  try {
+    state.textContent = 'Wird vorbereitet …';
+    const s = await webCall('sign', { n: current.n, kind: 'video', type: result.type, size: result.blob.size });
+    const mb = (result.blob.size / 1048576).toFixed(0);
+    await putWithProgress(s.uploadUrl, result.blob, result.type, p => { bar.style.width = (p * 100).toFixed(1) + '%'; state.textContent = 'Video wird hochgeladen … ' + Math.round(p * 100) + ' % von ' + mb + ' MB'; });
+    let posterKey = '';
+    try {
+      state.textContent = 'Titelkarte wird hochgeladen …';
+      const pb = await posterBlob();
+      if (pb) { const ps = await webCall('sign', { n: current.n, kind: 'poster', type: 'image/jpeg', size: pb.size }); await putWithProgress(ps.uploadUrl, pb, 'image/jpeg', null); posterKey = ps.key; }
+    } catch (e) { console.warn('Titelkarte nicht hochgeladen:', e); }
+    const rv = $('#resvid'), dur = isFinite(rv.duration) ? rv.duration : 0;
+    state.textContent = 'Wird eingetragen …';
+    const j = await webCall('publish', { n: current.n, key: s.key, posterKey, size: result.blob.size, duration: dur, passage: getRef(), name: current.n === 2 ? speakerName() : '', title: current.n === 2 ? 'MEETmoment' : 'Start' });
+    web.day = todayKey(); web.items = j.items || [];
+    toast('Das Video ist jetzt auf meet-bty.com', 4000);
+  } catch (e) {
+    toast('Hochladen nicht möglich: ' + e.message, 7000);
+    web.busy = false; renderWeb(); state.textContent = 'Nicht geklappt: ' + e.message;
+  } finally {
+    web.busy = false; btn.disabled = false; prog.hidden = true; renderWeb();
+    try { if (lock) await lock.release(); } catch (e) { }
+  }
+});
+$('#btnWebRemove').addEventListener('click', async () => {
+  if (web.busy || !webItem(current.n)) return;
+  if (!confirm('Video ' + current.n + ' von heute von der Startseite nehmen?')) return;
+  try { const j = await webCall('remove', { n: current.n }); web.day = todayKey(); web.items = j.items || []; toast('Von der Startseite genommen'); }
+  catch (e) { toast('Nicht geklappt: ' + e.message, 6000); }
+  renderWeb();
+});
+webStatus();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) webStatus(); });
+
 $('#btnShare').addEventListener('click', async () => {
   if (!result) return;
   try { await navigator.share({ files: [result.file] }); toast('Geteilt'); }
@@ -1950,6 +2049,7 @@ $('#btnHlBack').addEventListener('click', () => { if (result && current.n === 2)
 })();
 $('#studioPin').value = settings.studioPin || '';
 $('#studioPin').addEventListener('input', () => { settings.studioPin = $('#studioPin').value.trim(); saveSettings(); });
+$('#studioPin').addEventListener('change', () => { webStatus(); });
 hlHomeLabel();
 
 /* ---------- Home ---------- */

@@ -27,6 +27,9 @@ Gestaltung nach dem Claude-Design-Entwurf „MEET Impuls“ und dem MEET-Brand-K
 | `netlify/functions/assistent.mjs` | Claude (Opus 5.5, `@anthropic-ai/sdk`) leitet aus dem Chat Kalender-Aktionen ab (anlegen/ändern/löschen von Termin, Aufgabe, Beitrag, Abwesenheit); braucht `ANTHROPIC_API_KEY` auf Netlify; POST mit Studio-PIN |
 | `netlify/functions/kalender.mjs` | Speicher des Kalenders: Netlify Blobs (Store `meet-kalender`, ein Eintrag `data.json`, Schreiben nur bei unverändertem ETag), POST mit Studio-PIN |
 | `studio/wall/index.html` | **Freigabeseite der MEET WALL** (Studio-PIN): wartende Momente freigeben oder ablehnen, freigegebene wieder von der Wand nehmen |
+| `netlify/functions/video.mjs` | **MEET DAILY Videos**: vorsignierte Upload-Adressen für das Studio (PIN), Tagesverzeichnis der beiden Morgen-Videos (GET für die Startseite) |
+| `netlify/lib/r2.mjs` | Cloudflare R2 ohne SDK: AWS-Signature-V4-Adressen für PUT/HEAD/DELETE, öffentliche Adresse |
+| `netlify/lib/video-store.mjs` | Verzeichnis der Videos: Netlify Blobs (Store `meet-video`), lokal ersatzweise Dateien |
 | `netlify/functions/wall.mjs` | Liefert die freigegebenen Momente an die Seite (GET, anonym) und nimmt die Freigabe-Entscheidungen entgegen (POST mit PIN) |
 | `netlify/functions/submission-created.mjs` | Läuft bei jeder Formular-Einsendung; legt MEET-Momente mit gesetztem Haken als „wartend“ im Speicher ab |
 | `netlify/lib/wall-store.mjs` | Speicher der Wand: Netlify Blobs (Store `meet-wall`), lokal ersatzweise Dateien |
@@ -64,6 +67,40 @@ Einmalig in Netlify prüfen:
 2. Unter **Forms → Notifications** eine E-Mail-Benachrichtigung einrichten, damit das Team jede Nachricht sofort bekommt.
 
 Lokal (file:// oder localhost) darf der Versand scheitern, die Erfolgskarte erscheint trotzdem als Vorschau.
+
+## MEET DAILY Videos auf der Startseite
+
+Die beiden Morgen-Videos (05:45 Start, 06:15 MEETmoment) lassen sich im Studio nach dem Export mit
+**„Auf meet-bty.com stellen“** direkt hochladen (Studio-PIN nötig). Die Startseite zeigt die Videos des Tages
+als zwei Kacheln über „MEET-Moment teilen“ (Titelkarte als Vorschau, Antippen öffnet den Player); solange nur
+das erste da ist, steht an der zweiten Stelle „MEETmoment · kommt um 06:15“. Ohne Video des Tages ist der Block unsichtbar.
+
+Dateien: `netlify/functions/video.mjs` (signieren, Tagesverzeichnis, PIN), `netlify/lib/r2.mjs` (vorsignierte
+Adressen für Cloudflare R2, AWS Signature V4 ohne SDK), `netlify/lib/video-store.mjs` (Verzeichnis in Netlify Blobs,
+Store `meet-video`, Schlüssel `d/<Tag>.json`). Die Videodateien selbst liegen **nicht** auf Netlify (Functions nehmen
+höchstens 6 MB an, Bandbreite kostet), sondern bei **Cloudflare R2** (kostenlos bis 10 GB, kein Traffic-Entgelt).
+Das Studio lädt mit einer vorsignierten Adresse direkt vom Handy in den Bucket. Pro Morgen und Video gibt es einen
+Eintrag; erneutes Hochladen ersetzt das Video, „Von der Startseite nehmen“ löscht es.
+
+Einmalige Einrichtung (Cloudflare-Konto, ca. 10 Minuten):
+
+1. Cloudflare → **R2** → Bucket anlegen, z. B. `meet-daily` (Standort: automatisch / EU).
+2. Bucket → **Settings → Public access**: entweder „r2.dev subdomain“ aktivieren (Adresse `https://pub-….r2.dev`)
+   oder eine eigene Domain verbinden (z. B. `video.meet-bty.com`, dann über Cloudflare-DNS).
+3. Bucket → **Settings → CORS policy** eintragen, damit das Handy direkt hochladen darf:
+   ```json
+   [{ "AllowedOrigins": ["https://meet-bty.com", "https://www.meet-bty.com"],
+      "AllowedMethods": ["PUT", "GET", "HEAD"],
+      "AllowedHeaders": ["content-type"],
+      "MaxAgeSeconds": 3600 }]
+   ```
+4. R2 → **Manage R2 API Tokens** → Token anlegen mit „Object Read & Write“, nur für diesen Bucket.
+   Notieren: Access Key ID, Secret Access Key; die Account ID steht rechts auf der R2-Übersicht.
+5. Netlify → Site → **Environment variables**: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
+   `R2_BUCKET` (= Name aus Schritt 1), `R2_PUBLIC_URL` (= Adresse aus Schritt 2, ohne Schrägstrich am Ende).
+   Danach einmal neu deployen (Deploys → Trigger deploy).
+
+Solange die Variablen fehlen, meldet der Knopf im Studio „Video-Speicher nicht eingerichtet“; die Startseite bleibt unverändert.
 
 ## MEET WALL (Momente der anderen)
 

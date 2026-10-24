@@ -75,6 +75,11 @@
   <h1 id="homeTitle">Wie ist Gott dir heute begegnet?</h1>
   <p class="lead">Wir freuen uns über deinen MEET-Moment.</p>
   <div class="grow"></div>
+  <!-- MEET DAILY: die beiden Videos von heute Morgen (05:45 Start, 06:15 MEETmoment), aus dem Studio direkt hochgeladen -->
+  <section class="daily" id="homeDaily" hidden aria-labelledby="dailyLabel">
+    <div class="daily-head"><span class="label" id="dailyLabel">MEET DAILY · heute Morgen</span><span class="daily-sub" id="dailySub"></span></div>
+    <div class="daily-grid" id="dailyGrid"></div>
+  </section>
   <div class="stack">
     <button type="button" class="btn btn--primary btn--full" id="goMoment">MEET-Moment teilen</button>
     <button type="button" class="btn btn--text" id="goQuestion">Ich habe eine Frage zum Text</button>
@@ -188,6 +193,17 @@
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
   </button>
 </aside>
+<!-- Player: ein Video von heute Morgen, gross, mit den Bedienelementen des Browsers -->
+<div class="player" id="player" hidden>
+  <div class="player-back" id="playerBack"></div>
+  <div class="player-box" role="dialog" aria-modal="true" aria-labelledby="playerTitle">
+    <div class="player-head">
+      <span class="player-text"><span class="kicker" id="playerKicker">MEET DAILY</span><strong id="playerTitle">Video</strong></span>
+      <button type="button" class="pop-close" id="playerClose" aria-label="Schliessen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <video id="playerVideo" controls playsinline preload="metadata"></video>
+  </div>
+</div>
 <!-- Pop-up: Fragen der letzten Tage samt Antworten -->
 <div class="pop" id="askPop" hidden>
   <div class="pop-back" id="askPopBack"></div>

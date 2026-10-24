@@ -172,6 +172,7 @@
     if (state.screen !== "home") goHome();
   });
   window.addEventListener("popstate", function () {
+    if (playerOpen()) { closePlayer(true); return; }
     if (state.screen !== "home") goHome();
   });
 
@@ -754,6 +755,89 @@
     if (history.state && history.state.screen === "wall") history.back(); else goHome();
   });
   el.wallHome.addEventListener("click", goHome);
+
+  // ---- MEET DAILY: die beiden Videos von heute Morgen, aus dem Studio direkt hochgeladen (Function video, Dateien bei R2) ----
+  var DAILY_URL = "/.netlify/functions/video", DAILY_CACHE = "meet:daily";
+  var DAILY_META = { 1: { name: "Start", time: "05:45" }, 2: { name: "MEETmoment", time: "06:15" } };
+  var daily = { day: "", items: [] };
+  var dEl = { box: $("homeDaily"), grid: $("dailyGrid"), sub: $("dailySub"), player: $("player"), back: $("playerBack"), close: $("playerClose"), video: $("playerVideo"), title: $("playerTitle"), kicker: $("playerKicker") };
+  function fmtDur(s) { s = Math.round(s || 0); if (!s) return ""; return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + (s % 60) + " Min"; }
+  function clipTile(v) {
+    var meta = DAILY_META[v.n] || { name: v.title || "Video", time: "" };
+    var b = document.createElement("button"); b.type = "button"; b.className = "clip";
+    var parts = [meta.time, v.n === 2 && v.name ? v.name : "", fmtDur(v.duration)].filter(Boolean);
+    b.setAttribute("aria-label", meta.name + " · " + parts.join(" · ") + " abspielen");
+    if (v.poster) { var img = document.createElement("img"); img.className = "clip-poster"; img.src = v.poster; img.alt = ""; img.decoding = "async"; b.appendChild(img); }
+    var play = document.createElement("span"); play.className = "clip-play"; play.setAttribute("aria-hidden", "true");
+    play.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l12-7.5z"/></svg>';
+    b.appendChild(play);
+    var m = document.createElement("span"); m.className = "clip-meta";
+    var nm = document.createElement("span"); nm.className = "clip-name"; nm.textContent = meta.name;
+    var tm = document.createElement("span"); tm.className = "clip-time"; tm.textContent = parts.join(" · ");
+    m.appendChild(nm); m.appendChild(tm); b.appendChild(m);
+    b.addEventListener("click", function () { openPlayer(v); });
+    return b;
+  }
+  function soonTile(n) {
+    var meta = DAILY_META[n];
+    var d = document.createElement("div"); d.className = "clip clip--soon"; d.setAttribute("aria-hidden", "true");
+    d.innerHTML = '<span class="clip-meta"><span class="clip-name"></span><span class="clip-time"></span></span>';
+    d.querySelector(".clip-name").textContent = meta.name;
+    d.querySelector(".clip-time").textContent = "kommt um " + meta.time;
+    return d;
+  }
+  function renderDaily() {
+    var items = daily.day === todayKey() ? daily.items.filter(function (v) { return v && v.url && (v.n === 1 || v.n === 2); }) : [];
+    dEl.box.hidden = !items.length;
+    dEl.grid.textContent = "";
+    if (!items.length) return;
+    var byN = {}; items.forEach(function (v) { byN[v.n] = v; });
+    [1, 2].forEach(function (n) {
+      if (byN[n]) dEl.grid.appendChild(clipTile(byN[n]));
+      else if (n === 2) dEl.grid.appendChild(soonTile(2)); // der MEETmoment folgt um 06:15 – Platz dafür zeigen
+    });
+    dEl.sub.textContent = items.length === 2 ? "2 Videos" : "1 Video";
+  }
+  function fetchDaily() {
+    var day = todayKey();
+    return fetch(DAILY_URL + "?day=" + day, { headers: { Accept: "application/json" } })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (j) {
+        daily = { day: day, items: (j && j.items) || [] };
+        try { localStorage.setItem(DAILY_CACHE, JSON.stringify(daily)); } catch (e) {}
+        renderDaily();
+      });
+  }
+  function playerOpen() { return !dEl.player.hidden; }
+  function openPlayer(v) {
+    var meta = DAILY_META[v.n] || { name: v.title || "Video", time: "" };
+    dEl.kicker.textContent = "MEET DAILY · " + meta.time + (v.passage ? " · " + v.passage : "");
+    dEl.title.textContent = meta.name + (v.n === 2 && v.name ? " mit " + v.name : "");
+    dEl.video.poster = v.poster || "";
+    dEl.video.src = v.url;
+    dEl.player.hidden = false;
+    document.body.style.overflow = "hidden";
+    try { history.pushState({ player: true }, ""); } catch (e) {}
+    var p = dEl.video.play(); if (p && p.catch) p.catch(function () {});
+  }
+  function closePlayer(fromHistory) {
+    if (!playerOpen()) return;
+    if (!fromHistory && history.state && history.state.player) { try { history.back(); return; } catch (e) {} }
+    try { dEl.video.pause(); } catch (e) {}
+    dEl.video.removeAttribute("src"); try { dEl.video.load(); } catch (e) {}
+    dEl.player.hidden = true;
+    document.body.style.overflow = "";
+  }
+  dEl.close.addEventListener("click", function () { closePlayer(false); });
+  dEl.back.addEventListener("click", function () { closePlayer(false); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closePlayer(false); });
+  try { var dc = JSON.parse(localStorage.getItem(DAILY_CACHE) || "null"); if (dc && dc.day) daily = dc; } catch (e) {}
+  renderDaily();
+  if (window.fetch) {
+    fetchDaily().catch(function () {});
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) fetchDaily().catch(function () {}); });
+    setInterval(function () { if (!document.hidden && state.screen === "home") fetchDaily().catch(function () {}); }, 60000);
+  }
 
   setMode("moment");
   updateHomeWall();

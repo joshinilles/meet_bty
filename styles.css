@@ -218,6 +218,67 @@ h2{
 .foot .foot-links:hover{color:#fff}
 .claim{font-family:var(--head);font-weight:700;font-size:13px;letter-spacing:-.01em;color:#fff;opacity:.85}
 
+/* ---- MEET DAILY: die Videos von heute Morgen, als zwei Kacheln über „MEET-Moment teilen“ ---- */
+.daily{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
+.daily-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.daily-sub{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--muted);white-space:nowrap}
+.daily-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.clip{
+  position:relative;
+  display:flex;flex-direction:column;justify-content:flex-end;
+  aspect-ratio:3/4;
+  padding:12px;
+  border:1.2px solid rgba(255,255,255,.1);
+  border-radius:18px;
+  overflow:hidden;
+  background:var(--field) url(assets/verlauf-9x16.png) center/cover;
+  color:#fff;
+  text-align:left;
+  cursor:pointer;
+  font:inherit;
+  transition:border-color .2s,transform .2s;
+  -webkit-tap-highlight-color:transparent;
+}
+.clip:hover,.clip:focus-visible{border-color:var(--lime)}
+.clip:active{transform:scale(.985)}
+.clip-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 28%}
+.clip::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(47,16,65,0) 40%,rgba(47,16,65,.88) 100%);pointer-events:none}
+.clip-play{
+  position:absolute;top:50%;left:50%;z-index:1;
+  width:46px;height:46px;margin:-23px 0 0 -23px;
+  border-radius:50%;
+  background:var(--lime);color:var(--night);
+  display:grid;place-items:center;
+  box-shadow:0 6px 20px rgba(0,0,0,.35);
+  transition:transform .25s var(--spring);
+}
+.clip-play svg{width:20px;height:20px;margin-left:3px}
+.clip:hover .clip-play{transform:scale(1.08)}
+.clip-meta{position:relative;z-index:1;display:flex;flex-direction:column;gap:3px}
+.clip-name{font-family:var(--head);font-weight:700;font-size:16px;letter-spacing:-.01em;line-height:1.1}
+.clip-time{font-family:var(--mono);font-size:11px;letter-spacing:.04em;line-height:1.35;color:var(--muted)}
+.clip--soon{background:transparent;border-style:dashed;border-color:rgba(255,255,255,.18);cursor:default;justify-content:center;align-items:center;text-align:center}
+.clip--soon::after{display:none}
+.clip--soon .clip-name{color:var(--muted);font-size:15px}
+.clip--soon:hover{border-color:rgba(255,255,255,.18)}
+
+/* Player: Video gross in der Mitte, Rest abgedunkelt */
+.player{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center}
+.player[hidden]{display:none}
+.player-back{position:absolute;inset:0;background:rgba(22,7,32,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);animation:popFade .25s ease both}
+.player-box{
+  position:relative;
+  display:flex;flex-direction:column;gap:8px;
+  width:min(100vw,calc((100dvh - 120px) * 9 / 16 + 24px));
+  max-width:560px;
+  padding:max(8px,env(safe-area-inset-top)) 12px max(8px,env(safe-area-inset-bottom));
+  animation:rise .35s var(--spring) both;
+}
+.player-head{display:flex;align-items:center;gap:10px;min-height:44px}
+.player-text{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.player-text strong{font-family:var(--head);font-size:16px;letter-spacing:-.01em;line-height:1.15;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.player video{width:100%;aspect-ratio:9/16;max-height:calc(100dvh - 120px);border-radius:18px;background:#000;display:block}
+
 /* ---- Buttons ---- */
 .btn{
   border:0;
