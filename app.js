@@ -38,7 +38,7 @@
   var el = {
     topbar: $("topbar"), logoLink: $("logoLink"),
     screens: { home: $("screen-home"), write: $("screen-write"), done: $("screen-done"), wall: $("screen-wall") },
-    dateLabel: $("dateLabel"), passage: $("passage"),
+    dateLabel: $("dateLabel"), dayWord: $("dayWord"), passage: $("passage"), homeWeek: $("homeWeek"),
     goMoment: $("goMoment"), goQuestion: $("goQuestion"), back: $("back"),
     form: $("panel"), fArt: $("fArt"), fPassage: $("fPassage"), fDate: $("fDate"),
     kicker: $("kicker"), heading: $("heading"), text: $("text"),
@@ -46,7 +46,7 @@
     wallRow: $("wallRow"), wall: $("wall"),
     sentKicker: $("sentKicker"), sentHeading: $("sentHeading"), sentBody: $("sentBody"),
     reset: $("reset"), goWall: $("goWall"), pushBox: $("pushBox"), pushAsk: $("pushAsk"), pushHint: $("pushHint"), homeAsks: $("homeAsks"), askPast: $("askPast"), askPastNew: $("askPastNew"), askPop: $("askPop"), askPopBack: $("askPopBack"), askPopClose: $("askPopClose"), askPopList: $("askPopList"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
-    wallBack: $("wallBack"), wallKicker: $("wallKicker"), wallList: $("wallList"), wallNote: $("wallNote"),
+    wallBack: $("wallBack"), wallKicker: $("wallKicker"), wallHint: $("wallHint"), wallList: $("wallList"), wallNote: $("wallNote"),
     wallMore: $("wallMore"), wallPast: $("wallPast"), wallHome: $("wallHome")
   };
 
@@ -57,8 +57,16 @@
 
   // ---- Kopf: Datum & Bibelstelle ----
   var now = new Date();
+  // Wochenende: MEET DAILY pausiert – oben steht „Am Montag geht's weiter“, darunter der Blick zurück auf die Woche
+  var weekend = now.getDay() === 0 || now.getDay() === 6;
   el.dateLabel.textContent = now.getDate() + ". " + MONTHS[now.getMonth()];
   el.passage.textContent = cfg.passage;
+  if (weekend) {
+    el.dayWord.textContent = now.getDay() === 6 ? "Samstag" : "Sonntag";
+    el.passage.textContent = "Am Montag geht's weiter.";
+    el.passage.parentNode.classList.add("day--weekend");
+    el.homeWeek.hidden = false;
+  }
   el.fPassage.value = cfg.passage;
   el.fDate.value = now.toISOString().slice(0, 10);
   el.text.maxLength = cfg.maxChars;
@@ -103,7 +111,7 @@
   function setPassage(ref) {
     if (!ref || ref === cfg.passage) return;
     cfg.passage = ref;
-    el.passage.textContent = ref;
+    if (!weekend) el.passage.textContent = ref;
     el.fPassage.value = ref; // die Wand liest cfg.passage beim Öffnen neu
   }
   function fetchCsv(u) {
@@ -485,7 +493,7 @@
   var PAGE = 20;
   var POLL_MS = 60000;
   // Die Wand zeigt den heutigen Tag; frühere Tage erst nach Tippen auf „Momente der letzten Tage ansehen“
-  var wallState = { items: [], shown: 0, loaded: false, stale: false, past: false, timer: null };
+  var wallState = { items: [], shown: 0, loaded: false, stale: false, past: false, week: false, timer: null };
 
   function today() { return dayKey(new Date()); }
   function unlockWall() {
@@ -584,6 +592,7 @@
 
   // Die Wand lädt bei jedem Öffnen neu (Freigaben sollen sofort sichtbar sein) und holt offen alle 60 s nach
   function goWall() {
+    wallState.week = false;
     show("wall", "fwd");
     try { history.pushState({ screen: "wall" }, ""); } catch (e) {}
     loadWall();
@@ -594,6 +603,13 @@
     }, POLL_MS);
   }
   window.addEventListener("meet:screen", function () { if (state.screen !== "wall") clearInterval(wallState.timer); });
+  // Wochenende: die Wand der letzten sieben Tage, für alle offen – „Wie ist Gott uns in der letzten Woche begegnet?“
+  function goWallWeek() {
+    goWall();
+    wallState.week = true; wallState.past = true; wallState.shown = 0;
+    if (wallState.loaded) renderWall();
+  }
+  function inLastWeek(m) { var t = Date.parse(m.ts || ""); return !!t && Date.now() - t < 7 * 86400000; }
 
   function loadWall() {
     el.wallNote.hidden = true;
@@ -664,12 +680,15 @@
       return da === db ? 0 : da < db ? 1 : -1; // Tage absteigend, Reihenfolge innerhalb eines Tages bleibt (eigene zuerst)
     });
     if (!wallState.past) items = items.filter(isToday);
+    if (wallState.week) items = items.filter(inLastWeek);
     var hasPast = all.concat(own).some(function (m) { return !isToday(m); });
     var ownShown = items.filter(function (m) { return m.own; }).length;
-    el.wallKicker.textContent = wallState.past ? "Heute und die letzten Tage" : "Heute · " + cfg.passage;
+    el.wallKicker.textContent = wallState.week ? "Die letzte Woche" : wallState.past ? "Heute und die letzten Tage" : "Heute · " + cfg.passage;
+    el.wallHint.textContent = wallState.week ? "Was andere in der letzten Woche bei MEET erlebt haben. Anonym, ohne Namen." : "Was andere heute bei MEET erlebt haben. Anonym, ohne Namen.";
     el.wallPast.hidden = wallState.past || !hasPast;
     if (!items.length) {
-      note(wallState.past ? "Noch keine Momente auf der Wand. Deiner könnte der erste sein."
+      note(wallState.week ? "In der letzten Woche ist noch nichts auf der Wand gelandet."
+        : wallState.past ? "Noch keine Momente auf der Wand. Deiner könnte der erste sein."
         : "Heute noch keine Momente auf der Wand. Deiner könnte der erste sein.");
       el.wallMore.hidden = true;
       return;
@@ -749,6 +768,7 @@
 
   el.goWall.addEventListener("click", goWall);
   el.homeWall.addEventListener("click", goWall);
+  el.homeWeek.addEventListener("click", goWallWeek);
   el.wallMore.addEventListener("click", renderWall);
   el.wallPast.addEventListener("click", function () { wallState.past = true; wallState.shown = 0; renderWall(); });
   el.wallBack.addEventListener("click", function () {
@@ -765,19 +785,24 @@
   var PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
   function stepTitle(v) { return v.n === 1 ? "Still werden" : "MEETmoment" + (v.name ? " mit " + v.name : ""); }
   // Ein Schritt des Ablaufs: Nummer, Titel, Uhrzeit und Länge, Play rechts – keine Titelkarte, die Bibelstelle steht schon oben
+  function stepThumb(v, soon) {
+    var th = document.createElement("span"); th.className = "step-thumb"; th.setAttribute("aria-hidden", "true");
+    if (v.poster && !soon) { var img = document.createElement("img"); img.className = "step-img"; img.src = v.poster; img.alt = ""; img.decoding = "async"; th.appendChild(img); }
+    var num = document.createElement("span"); num.className = "step-num"; num.textContent = String(v.n); th.appendChild(num);
+    if (!soon) { var play = document.createElement("span"); play.className = "step-play"; play.innerHTML = PLAY_SVG; th.appendChild(play); }
+    return th;
+  }
   function stepRow(v) {
     var meta = DAILY_META[v.n];
     var li = document.createElement("li");
     var b = document.createElement("button"); b.type = "button"; b.className = "row step";
     var sub = [meta.time, fmtDur(v.duration)].filter(Boolean).join(" · ");
     b.setAttribute("aria-label", "Schritt " + v.n + ": " + stepTitle(v) + " · " + sub + " abspielen");
-    var num = document.createElement("span"); num.className = "step-num"; num.setAttribute("aria-hidden", "true"); num.textContent = String(v.n);
     var t = document.createElement("span"); t.className = "row-text";
     var nm = document.createElement("span"); nm.className = "row-name"; nm.textContent = stepTitle(v);
     var tm = document.createElement("span"); tm.className = "row-handle"; tm.textContent = sub;
     t.appendChild(nm); t.appendChild(tm);
-    var play = document.createElement("span"); play.className = "step-play"; play.setAttribute("aria-hidden", "true"); play.innerHTML = PLAY_SVG;
-    b.appendChild(num); b.appendChild(t); b.appendChild(play);
+    b.appendChild(stepThumb(v, false)); b.appendChild(t);
     b.addEventListener("click", function () { openPlayer(v); });
     li.appendChild(b);
     return li;
@@ -786,12 +811,11 @@
     var meta = DAILY_META[n];
     var li = document.createElement("li");
     var d = document.createElement("div"); d.className = "row step step--soon"; d.setAttribute("aria-hidden", "true");
-    var num = document.createElement("span"); num.className = "step-num"; num.textContent = String(n);
     var t = document.createElement("span"); t.className = "row-text";
     var nm = document.createElement("span"); nm.className = "row-name"; nm.textContent = meta.name;
     var tm = document.createElement("span"); tm.className = "row-handle"; tm.textContent = "kommt um " + meta.time;
     t.appendChild(nm); t.appendChild(tm);
-    d.appendChild(num); d.appendChild(t);
+    d.appendChild(stepThumb({ n: n }, true)); d.appendChild(t);
     li.appendChild(d);
     return li;
   }

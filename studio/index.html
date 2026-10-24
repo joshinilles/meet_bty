@@ -329,7 +329,7 @@ textarea.cap:focus{border-color:var(--pink)}
       <button class="btn block" id="btnWeb">Auf meet-bty.com stellen</button>
       <button class="btn ghost block" id="btnWebRemove" hidden>Von der Startseite nehmen</button>
       <button class="btn ghost block" id="btnWebCheck" hidden>Einrichtung prüfen</button>
-      <p class="hint">Erscheint auf der Startseite über „MEET-Moment teilen“ – mit der Titelkarte als Vorschau. Braucht die Studio-PIN (Einstellungen).</p>
+      <p class="hint">Erscheint auf der Startseite über „MEET-Moment teilen“ – mit einem Standbild aus dem Video als Vorschau. Braucht die Studio-PIN (Einstellungen).</p>
     </div>
     <div class="stack">
       <button class="btn block" id="btnShare">An WhatsApp teilen</button>
@@ -1619,7 +1619,29 @@ function putWithProgress(url, blob, type, onProgress) {
     x.send(blob);
   });
 }
-function posterBlob() {
+/* Vorschaubild für die Startseite: ein Standbild aus dem Video (kurz nachdem sich die Titelkarte aufgelöst hat),
+   damit man uns sieht – nur wenn das nicht klappt, die Titelkarte */
+function videoFrameBlob() {
+  return new Promise((res) => {
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto';
+    let finished = false;
+    const done = (b) => { if (finished) return; finished = true; clearTimeout(timer); try { v.removeAttribute('src'); v.load(); } catch (e) { } res(b); };
+    const timer = setTimeout(() => done(null), 8000);
+    v.addEventListener('error', () => done(null));
+    v.addEventListener('loadedmetadata', () => {
+      const d = isFinite(v.duration) ? v.duration : 0;
+      const want = Number(settings.cardSec) + Number(settings.transSec) + 1.5;
+      v.currentTime = d > 1 ? Math.min(want, Math.max(0.5, d - 0.5)) : 0.1;
+    });
+    v.addEventListener('seeked', () => {
+      try { const c = document.createElement('canvas'); c.width = 540; c.height = 960; c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); c.toBlob(b => done(b), 'image/jpeg', 0.82); }
+      catch (e) { done(null); }
+    }, { once: true });
+    v.src = result.url; try { v.load(); } catch (e) { }
+  });
+}
+async function posterBlob() {
+  try { const f = await videoFrameBlob(); if (f && f.size > 4000) return f; } catch (e) { }
   const c = document.createElement('canvas'); c.width = 540; c.height = 960;
   drawCard(c.getContext('2d'), c.width, c.height, current, getRef());
   return new Promise(res => c.toBlob(b => res(b), 'image/jpeg', 0.82));
@@ -1639,7 +1661,7 @@ $('#btnWeb').addEventListener('click', async () => {
     await putWithProgress(s.uploadUrl, result.blob, result.type, p => { bar.style.width = (p * 100).toFixed(1) + '%'; state.textContent = 'Video wird hochgeladen … ' + Math.round(p * 100) + ' % von ' + mb + ' MB'; });
     let posterKey = '';
     try {
-      state.textContent = 'Titelkarte wird hochgeladen …';
+      state.textContent = 'Vorschaubild wird hochgeladen …';
       const pb = await posterBlob();
       if (pb) { const ps = await webCall('sign', { n: current.n, kind: 'poster', type: 'image/jpeg', size: pb.size }); await putWithProgress(ps.uploadUrl, pb, 'image/jpeg', null); posterKey = ps.key; }
     } catch (e) { console.warn('Titelkarte nicht hochgeladen:', e); }

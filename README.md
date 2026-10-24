@@ -72,8 +72,12 @@ Lokal (file:// oder localhost) darf der Versand scheitern, die Erfolgskarte ersc
 
 Die beiden Morgen-Videos (05:45 Start, 06:15 MEETmoment) lassen sich im Studio nach dem Export mit
 **„Auf meet-bty.com stellen“** direkt hochladen (Studio-PIN nötig). Die Startseite zeigt die Videos des Tages
-als zwei Kacheln über „MEET-Moment teilen“ (Titelkarte als Vorschau, Antippen öffnet den Player); solange nur
-das erste da ist, steht an der zweiten Stelle „MEETmoment · kommt um 06:15“. Ohne Video des Tages ist der Block unsichtbar.
+als Ablauf in zwei Zeilen über „MEET-Moment teilen“: „1 Still werden“ (05:45) und „2 MEETmoment mit Name“ (06:15),
+links ein Standbild aus dem Video (das Studio greift es kurz nach der Titelkarte ab) mit Schrittzahl und Play, rechts Titel,
+Uhrzeit und Länge; Antippen öffnet den Player. Solange nur das erste Video da ist, steht Schritt 2 gestrichelt als
+„MEETmoment · kommt um 06:15“. Ohne Video des Tages ist der Block unsichtbar.
+Am **Wochenende** steht oben statt der Bibelstelle „Am Montag geht's weiter.“ und darunter der Zugang
+„Wie ist Gott uns in der letzten Woche begegnet?“ – die MEET WALL der letzten sieben Tage, für alle offen.
 
 Dateien: `netlify/functions/video.mjs` (signieren, Tagesverzeichnis, PIN), `netlify/lib/r2.mjs` (vorsignierte
 Adressen für Cloudflare R2, AWS Signature V4 ohne SDK), `netlify/lib/video-store.mjs` (Verzeichnis in Netlify Blobs,

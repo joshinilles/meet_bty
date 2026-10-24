@@ -218,30 +218,54 @@ h2{
 .foot .foot-links:hover{color:#fff}
 .claim{font-family:var(--head);font-weight:700;font-size:13px;letter-spacing:-.01em;color:#fff;opacity:.85}
 
-/* ---- MEET DAILY: der Ablauf von heute Morgen in zwei Schritten – erst still werden, dann der MEETmoment ---- */
+/* ---- MEET DAILY: der Ablauf von heute Morgen in zwei Schritten – erst still werden, dann der MEETmoment.
+   Links ein Standbild aus dem Video (man sieht uns), darauf die Schrittzahl und der Play-Knopf ---- */
 .daily{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
-.flow{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;position:relative}
+.flow{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;position:relative}
 .flow li{position:relative;display:flex}
 .flow li+li{margin-top:8px}
-/* Verbindungslinie zwischen den Schritten */
-.flow li+li::before{content:"";position:absolute;left:33px;top:-8px;height:8px;border-left:1.6px dashed rgba(255,255,255,.22)}
-.step{width:100%;text-align:left;cursor:pointer;font:inherit;min-height:64px;padding:10px 14px 10px 10px}
-.step-num{
-  width:44px;height:44px;border-radius:50%;flex:none;
-  display:grid;place-items:center;
-  font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.02em;
-  background:rgba(255,255,255,.08);color:#fff;
-  transition:background .2s,color .2s;
+.flow li+li::before{content:"";position:absolute;left:47px;top:-8px;height:8px;border-left:1.6px dashed rgba(255,255,255,.22)}
+.step{width:100%;text-align:left;cursor:pointer;font:inherit;min-height:0;padding:10px 16px 10px 10px;gap:14px}
+.step-thumb{
+  position:relative;flex:none;
+  width:76px;height:118px;
+  border-radius:12px;overflow:hidden;
+  background:var(--night3) url(assets/verlauf-9x16.png) center/cover;
 }
-.step:hover .step-num,.step:focus-visible .step-num{background:var(--lime);color:var(--night)}
-.step-play{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--lime);color:var(--night);transition:transform .25s var(--spring)}
+.step-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 35%}
+.step-thumb::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(47,16,65,.1),rgba(47,16,65,.35));pointer-events:none}
+.step-num{
+  position:absolute;top:6px;left:6px;z-index:1;
+  width:22px;height:22px;border-radius:50%;
+  display:grid;place-items:center;
+  font-family:var(--mono);font-size:11px;font-weight:600;
+  background:rgba(47,16,65,.85);color:#fff;
+  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+}
+.step-play{
+  position:absolute;left:50%;top:50%;z-index:1;
+  width:38px;height:38px;margin:-19px 0 0 -19px;border-radius:50%;
+  display:grid;place-items:center;
+  background:var(--lime);color:var(--night);
+  box-shadow:0 4px 14px rgba(0,0,0,.35);
+  transition:transform .25s var(--spring);
+}
 .step-play svg{width:16px;height:16px;margin-left:2px}
-.step:hover .step-play{transform:scale(1.08)}
+.step:hover .step-play{transform:scale(1.1)}
+.step .row-name{font-size:18px;line-height:1.15}
+.step .row-handle{margin-top:3px}
 .step--soon{cursor:default;border-style:dashed;border-color:rgba(255,255,255,.12);background:transparent;color:var(--muted)}
 .step--soon:hover,.step--soon:focus-visible{border-color:rgba(255,255,255,.12);background:transparent;color:var(--muted)}
-.step--soon .step-num{background:transparent;border:1.4px dashed rgba(255,255,255,.22);color:var(--muted)}
-.step--soon:hover .step-num{background:transparent;color:var(--muted)}
+.step--soon .step-thumb{background:transparent;border:1.4px dashed rgba(255,255,255,.22)}
+.step--soon .step-thumb::after{display:none}
+.step--soon .step-num{background:transparent;border:1.4px dashed rgba(255,255,255,.3);color:var(--muted)}
 .step--soon .row-name{color:var(--soft)}
+
+/* Wochenende: oben „Am Montag geht's weiter“, darunter der Blick zurück auf die Woche */
+.day--weekend .passage{font-size:clamp(24px,7vw,28px)}
+.row--week .row-icon{color:var(--lime)}
+.row--week .row-name{font-size:16px;line-height:1.2}
+.row--week .row-handle{white-space:normal}
 
 /* Player: Video gross in der Mitte, Rest abgedunkelt */
 .player{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center}
