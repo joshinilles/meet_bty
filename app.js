@@ -62,9 +62,12 @@
   el.dateLabel.textContent = now.getDate() + ". " + MONTHS[now.getMonth()];
   el.passage.textContent = cfg.passage;
   if (weekend) {
+    // Kein Text, den man liest – also auch kein Teilen und keine Frage; stattdessen der Claim und der Blick zurück auf die Woche
     el.dayWord.textContent = now.getDay() === 6 ? "Samstag" : "Sonntag";
     el.passage.textContent = "Am Montag geht's weiter.";
     el.passage.parentNode.classList.add("day--weekend");
+    el.screens.home.classList.add("screen--weekend");
+    $("homeTitle").textContent = "Mit Gott Leben leben.";
     el.homeWeek.hidden = false;
   }
   el.fPassage.value = cfg.passage;
@@ -512,7 +515,7 @@
 
   // Heute-Screen: Zugang zur Wand (nur freigeschaltete Geräte) samt Zahl der neuen Momente seit dem letzten Blick
   function updateHomeWall() {
-    var on = wallUnlocked();
+    var on = wallUnlocked() && !weekend; // am Wochenende führt nur der Kasten „letzte Woche“ zur Wand
     el.homeWall.hidden = !on;
     if (!on) return;
     var ownTexts = readOwn().map(function (o) { return o.text; });
