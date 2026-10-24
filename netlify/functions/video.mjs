@@ -6,9 +6,10 @@
 //   POST ?op=sign,    Body {day, n, kind, type, size} (PIN) → { uploadUrl, key, url, expires }  kind = video | poster
 //   POST ?op=publish, Body {day, n, key, posterKey, size, duration, passage, name, title} (PIN) → { ok, items }
 //   POST ?op=remove,  Body {day, n}                   (PIN) → { ok, items }  Video von der Startseite nehmen (und löschen)
+//   POST ?op=check,   Body {day, origin}              (PIN) → { ok, endpoint, steps:[{step, ok, text}] }  Selbstprüfung von Konto, Schlüssel und CORS-Regel
 // PIN: Header x-studio-pin = Umgebungsvariable STUDIO_PIN (dieselbe wie im Studio und bei der WALL).
 // Lokal (MEET_VIDEO_LOCAL_DIR gesetzt): statt R2 nimmt der Entwicklungs-Server die Datei unter /__media/<key> an.
-import { r2Config, presign, publicUrl, deleteObject, headObject } from '../lib/r2.mjs';
+import { r2Config, presign, publicUrl, deleteObject, headObject, checkSetup } from '../lib/r2.mjs';
 import { readDay, writeDay, publicView, isDay } from '../lib/video-store.mjs';
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'content-type, x-studio-pin' };
@@ -60,6 +61,11 @@ export default async (req) => {
     }
     // Ab hier wird der Dateispeicher gebraucht
     if (!local && !cfg) return json({ error: 'Video-Speicher nicht eingerichtet: auf Netlify fehlen R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY oder R2_PUBLIC_URL' }, 503);
+
+    if (op === 'check') {
+      if (local) return json({ ok: true, endpoint: 'lokaler Dateispeicher', steps: [{ step: 'lokal', ok: true, text: 'Lokaler Entwicklungs-Server, keine Prüfung nötig.' }] });
+      return json(await checkSetup(cfg, clean(body.origin, 120)));
+    }
 
     if (op === 'sign') {
       if (!n) return json({ error: 'n muss 1 oder 2 sein' }, 400);

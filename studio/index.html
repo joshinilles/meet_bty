@@ -328,6 +328,7 @@ textarea.cap:focus{border-color:var(--pink)}
       <div class="progress" id="webProg" hidden><i id="webBar"></i></div>
       <button class="btn block" id="btnWeb">Auf meet-bty.com stellen</button>
       <button class="btn ghost block" id="btnWebRemove" hidden>Von der Startseite nehmen</button>
+      <button class="btn ghost block" id="btnWebCheck" hidden>Einrichtung prüfen</button>
       <p class="hint">Erscheint auf der Startseite über „MEET-Moment teilen“ – mit der Titelkarte als Vorschau. Braucht die Studio-PIN (Einstellungen).</p>
     </div>
     <div class="stack">
@@ -1601,6 +1602,7 @@ function renderWeb() {
   if (!busy) $('#webState').textContent = it ? 'Auf der Startseite · seit ' + webTime(it.at) + (it.name ? ' · ' + it.name : '') : (webPin() ? 'Noch nicht auf der Startseite' : 'Studio-PIN fehlt (Einstellungen)');
   const b = $('#btnWeb'); b.textContent = it ? 'Nochmal hochladen (ersetzt das Video)' : 'Auf meet-bty.com stellen'; b.classList.toggle('ghost', !!it);
   $('#btnWebRemove').hidden = !it || busy;
+  $('#btnWebCheck').hidden = !!it || busy;
 }
 async function webStatus() {
   if (!webPin()) { renderWeb(); return; }
@@ -1612,7 +1614,7 @@ function putWithProgress(url, blob, type, onProgress) {
     const x = new XMLHttpRequest(); x.open('PUT', url); x.setRequestHeader('Content-Type', type);
     x.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
     x.onload = () => (x.status >= 200 && x.status < 300) ? res() : rej(new Error('Speicher antwortet mit HTTP ' + x.status));
-    x.onerror = () => rej(new Error('Verbindung zum Speicher abgebrochen (Netz oder CORS-Regel des Buckets)'));
+    x.onerror = () => rej(Object.assign(new Error('Verbindung zum Speicher abgebrochen'), { storage: true }));
     x.onabort = () => rej(new Error('Hochladen abgebrochen'));
     x.send(blob);
   });
@@ -1647,12 +1649,24 @@ $('#btnWeb').addEventListener('click', async () => {
     web.day = todayKey(); web.items = j.items || [];
     toast('Das Video ist jetzt auf meet-bty.com', 4000);
   } catch (e) {
-    toast('Hochladen nicht möglich: ' + e.message, 7000);
-    web.busy = false; renderWeb(); state.textContent = 'Nicht geklappt: ' + e.message;
+    let why = e.message;
+    if (e.storage) { // Upload direkt zum Speicher gescheitert: Function fragen, was genau fehlt (Konto, Schlüssel, CORS-Regel)
+      state.textContent = 'Verbindung abgebrochen – prüfe die Einrichtung …';
+      try { const c = await webCall('check', { origin: location.origin }); const bad = (c.steps || []).filter(s => !s.ok); why = bad.length ? bad.map(s => s.text).join(' ') : 'Einrichtung sieht richtig aus (' + c.endpoint + ') – vermutlich Netz; bitte noch einmal versuchen.'; }
+      catch (e2) { why += ' (Prüfung nicht möglich: ' + e2.message + ')'; }
+    }
+    toast('Hochladen nicht möglich: ' + why, 12000);
+    web.busy = false; renderWeb(); state.textContent = 'Nicht geklappt: ' + why;
   } finally {
     web.busy = false; btn.disabled = false; prog.hidden = true; renderWeb();
     try { if (lock) await lock.release(); } catch (e) { }
   }
+});
+$('#btnWebCheck').addEventListener('click', async () => {
+  if (!webPin()) { toast('Zuerst die Studio-PIN in den Einstellungen eintragen', 4000); return; }
+  const state = $('#webState'); state.textContent = 'Prüfe Einrichtung …';
+  try { const c = await webCall('check', { origin: location.origin }); state.textContent = (c.steps || []).map(s => (s.ok ? '✓ ' : '✗ ') + s.text).join(' '); }
+  catch (e) { state.textContent = 'Prüfung nicht möglich: ' + e.message; }
 });
 $('#btnWebRemove').addEventListener('click', async () => {
   if (web.busy || !webItem(current.n)) return;

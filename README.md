@@ -98,7 +98,10 @@ Einmalige Einrichtung (Cloudflare-Konto, ca. 10 Minuten):
    Notieren: Access Key ID, Secret Access Key; die Account ID steht rechts auf der R2-Übersicht.
 5. Netlify → Site → **Environment variables**: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
    `R2_BUCKET` (= Name aus Schritt 1), `R2_PUBLIC_URL` (= Adresse aus Schritt 2, ohne Schrägstrich am Ende).
+   Wurde der Bucket mit Standort **EU** angelegt, zusätzlich `R2_JURISDICTION` = `eu`.
    Danach einmal neu deployen (Deploys → Trigger deploy).
+6. Im Studio nach einem Export unter „meet-bty.com“ auf **„Einrichtung prüfen“** tippen: die Function testet Konto,
+   Schlüssel und CORS-Regel und sagt, was fehlt. Schlägt ein Upload fehl, läuft diese Prüfung automatisch.
 
 Solange die Variablen fehlen, meldet der Knopf im Studio „Video-Speicher nicht eingerichtet“; die Startseite bleibt unverändert.
 

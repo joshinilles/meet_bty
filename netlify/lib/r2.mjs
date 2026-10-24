@@ -6,14 +6,16 @@
 //   R2_SECRET_ACCESS_KEY  R2-API-Token: geheimer Schlüssel
 //   R2_BUCKET             Name des Buckets (Standard: meet-daily)
 //   R2_PUBLIC_URL         öffentliche Adresse des Buckets, z. B. https://pub-….r2.dev oder https://video.meet-bty.com
+//   R2_JURISDICTION       nur wenn der Bucket mit Standort „EU“ angelegt wurde: eu (Endpunkt <konto>.eu.r2.cloudflarestorage.com)
 import { createHash, createHmac } from 'node:crypto';
 
 export function r2Config() {
   const account = process.env.R2_ACCOUNT_ID || '', key = process.env.R2_ACCESS_KEY_ID || '', secret = process.env.R2_SECRET_ACCESS_KEY || '';
   const bucket = process.env.R2_BUCKET || 'meet-daily';
   const publicUrl = (process.env.R2_PUBLIC_URL || '').replace(/\/+$/, '');
+  const jur = (process.env.R2_JURISDICTION || '').trim().toLowerCase();
   if (!account || !key || !secret || !publicUrl) return null;
-  return { account, key, secret, bucket, publicUrl, host: account + '.r2.cloudflarestorage.com' };
+  return { account, key, secret, bucket, publicUrl, host: account + (jur ? '.' + jur : '') + '.r2.cloudflarestorage.com' };
 }
 
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
@@ -23,7 +25,7 @@ const encSeg = (s) => encodeURIComponent(s).replace(/[!'()*]/g, (c) => '%' + c.c
 const encKey = (k) => k.split('/').map(encSeg).join('/');
 
 // Vorsignierte Adresse für PUT (hochladen), DELETE (löschen) oder HEAD/GET. Gültigkeit in Sekunden.
-export function presign(cfg, method, key, expires = 900, now = new Date()) {
+export function presign(cfg, method, key, expires = 900, now = new Date(), extraQuery = null) {
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, ''); // 20261024T054500Z
   const date = amzDate.slice(0, 8);
   const scope = date + '/auto/s3/aws4_request';
@@ -34,6 +36,7 @@ export function presign(cfg, method, key, expires = 900, now = new Date()) {
   q.set('X-Amz-Date', amzDate);
   q.set('X-Amz-Expires', String(expires));
   q.set('X-Amz-SignedHeaders', 'host');
+  if (extraQuery) for (const k of Object.keys(extraQuery)) q.set(k, extraQuery[k]);
   const canonicalQuery = [...q.entries()].map(([k, v]) => encSeg(k) + '=' + encSeg(v)).sort().join('&');
   const canonicalUri = '/' + encSeg(cfg.bucket) + '/' + encKey(key);
   const canonical = [method, canonicalUri, canonicalQuery, 'host:' + cfg.host + '\n', 'host', 'UNSIGNED-PAYLOAD'].join('\n');
@@ -57,4 +60,39 @@ export async function headObject(cfg, key) {
     if (!r.ok) return null;
     return { size: Number(r.headers.get('content-length') || 0), type: r.headers.get('content-type') || '' };
   } catch (e) { return null; }
+}
+
+// Selbstprüfung für das Studio: stimmen Konto-ID/Endpunkt, Schlüssel und CORS-Regel? Liefert einen lesbaren Befund.
+export async function checkSetup(cfg, origin) {
+  const out = { endpoint: 'https://' + cfg.host + '/' + cfg.bucket, publicUrl: cfg.publicUrl, steps: [], ok: false };
+  // 1) HEAD auf einen Schlüssel, den es nicht gibt: 404 = Endpunkt und Schlüssel stimmen; 403 = Schlüssel/Token falsch
+  let r;
+  try { r = await fetch(presign(cfg, 'HEAD', '_pruefung/' + Date.now(), 60), { method: 'HEAD' }); }
+  catch (e) {
+    out.steps.push({ step: 'endpunkt', ok: false, text: 'Der Speicher-Endpunkt ' + cfg.host + ' ist nicht erreichbar – R2_ACCOUNT_ID prüfen (Account ID rechts auf der R2-Übersicht). ' + (e && e.message ? e.message : '') });
+    return out;
+  }
+  if (r.status === 404) out.steps.push({ step: 'zugang', ok: true, text: 'Konto, Bucket „' + cfg.bucket + '“ und API-Schlüssel stimmen.' });
+  else if (r.status === 403 || r.status === 401) { out.steps.push({ step: 'zugang', ok: false, text: 'Der Speicher lehnt den Schlüssel ab (HTTP ' + r.status + ') – R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY prüfen; der Token braucht „Object Read & Write“ für diesen Bucket.' + (cfg.host.includes('.eu.') ? '' : ' Wurde der Bucket mit Standort „EU“ angelegt, zusätzlich R2_JURISDICTION=eu setzen.') }); return out; }
+  else if (r.status === 400 || r.status === 301) { out.steps.push({ step: 'zugang', ok: false, text: 'Bucket oder Endpunkt passen nicht (HTTP ' + r.status + ') – R2_BUCKET prüfen; bei Standort „EU“ R2_JURISDICTION=eu setzen.' }); return out; }
+  else { out.steps.push({ step: 'zugang', ok: false, text: 'Unerwartete Antwort vom Speicher (HTTP ' + r.status + ').' }); return out; }
+  // 2) CORS-Regel des Buckets lesen (S3 GetBucketCors)
+  try {
+    const c = await fetch(presign(cfg, 'GET', '', 60, new Date(), { cors: '' }));
+    const xml = await c.text();
+    if (c.status === 404) { out.steps.push({ step: 'cors', ok: false, text: 'Im Bucket ist keine CORS-Regel gespeichert. Cloudflare → R2 → Bucket → Settings → CORS policy: die Regel aus der README eintragen und speichern.' }); return out; }
+    if (!c.ok) { out.steps.push({ step: 'cors', ok: false, text: 'CORS-Regel liess sich nicht lesen (HTTP ' + c.status + ').' }); return out; }
+    const origins = [...xml.matchAll(/<AllowedOrigin>([^<]*)<\/AllowedOrigin>/g)].map((m) => m[1]);
+    const methods = [...xml.matchAll(/<AllowedMethod>([^<]*)<\/AllowedMethod>/g)].map((m) => m[1].toUpperCase());
+    const headers = [...xml.matchAll(/<AllowedHeader>([^<]*)<\/AllowedHeader>/g)].map((m) => m[1].toLowerCase());
+    const probs = [];
+    if (origin && !origins.includes('*') && !origins.includes(origin)) probs.push('die Herkunft ' + origin + ' fehlt bei AllowedOrigins (eingetragen: ' + (origins.join(', ') || 'nichts') + ')');
+    if (!methods.includes('PUT')) probs.push('PUT fehlt bei AllowedMethods');
+    if (!headers.includes('*') && !headers.includes('content-type')) probs.push('content-type fehlt bei AllowedHeaders');
+    if (probs.length) out.steps.push({ step: 'cors', ok: false, text: 'CORS-Regel unvollständig: ' + probs.join('; ') + '.' });
+    else { out.steps.push({ step: 'cors', ok: true, text: 'CORS-Regel erlaubt den Upload von ' + (origin || 'der Seite') + '.' }); out.ok = true; }
+  } catch (e) {
+    out.steps.push({ step: 'cors', ok: false, text: 'CORS-Regel liess sich nicht lesen: ' + (e && e.message ? e.message : e) });
+  }
+  return out;
 }
