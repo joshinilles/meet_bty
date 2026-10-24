@@ -9,7 +9,7 @@
 //   POST ?op=check,   Body {day, origin}              (PIN) → { ok, endpoint, steps:[{step, ok, text}] }  Selbstprüfung von Konto, Schlüssel und CORS-Regel
 // PIN: Header x-studio-pin = Umgebungsvariable STUDIO_PIN (dieselbe wie im Studio und bei der WALL).
 // Lokal (MEET_VIDEO_LOCAL_DIR gesetzt): statt R2 nimmt der Entwicklungs-Server die Datei unter /__media/<key> an.
-import { r2Config, presign, publicUrl, deleteObject, headObject, checkSetup } from '../lib/r2.mjs';
+import { r2Config, presign, publicUrl, deleteObject, headObject, checkSetup, fetchWhy } from '../lib/r2.mjs';
 import { readDay, writeDay, publicView, isDay } from '../lib/video-store.mjs';
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'content-type, x-studio-pin' };
@@ -28,6 +28,14 @@ export default async (req) => {
   const url = new URL(req.url);
 
   if (req.method === 'GET') {
+    // Erreichbarkeit des Speicher-Endpunkts von Netlify aus (ohne PIN, ohne Schlüssel, nennt weder Konto noch Bucket)
+    if (url.searchParams.get('op') === 'ping') {
+      const cfg = r2Config();
+      if (!cfg) return json({ configured: false });
+      const t0 = Date.now();
+      try { const r = await fetch('https://' + cfg.host + '/', { method: 'HEAD' }); return json({ configured: true, reachable: true, status: r.status, ms: Date.now() - t0, node: process.version }); }
+      catch (e) { return json({ configured: true, reachable: false, error: fetchWhy(e), ms: Date.now() - t0, node: process.version }); }
+    }
     const day = url.searchParams.get('day') || '';
     if (!isDay(day)) return json({ error: 'day fehlt (YYYY-MM-DD)' }, 400);
     try {

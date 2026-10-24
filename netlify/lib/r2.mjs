@@ -10,13 +10,17 @@
 import { createHash, createHmac } from 'node:crypto';
 
 export function r2Config() {
-  const account = process.env.R2_ACCOUNT_ID || '', key = process.env.R2_ACCESS_KEY_ID || '', secret = process.env.R2_SECRET_ACCESS_KEY || '';
-  const bucket = process.env.R2_BUCKET || 'meet-daily';
-  const publicUrl = (process.env.R2_PUBLIC_URL || '').replace(/\/+$/, '');
+  const env = (k) => (process.env[k] || '').trim(); // Leerzeichen/Zeilenumbrüche aus dem Einfügen abschneiden
+  const account = env('R2_ACCOUNT_ID'), key = env('R2_ACCESS_KEY_ID'), secret = env('R2_SECRET_ACCESS_KEY');
+  const bucket = env('R2_BUCKET') || 'meet-daily';
+  const publicUrl = env('R2_PUBLIC_URL').replace(/\/+$/, '');
   const jur = (process.env.R2_JURISDICTION || '').trim().toLowerCase();
   if (!account || !key || !secret || !publicUrl) return null;
   return { account, key, secret, bucket, publicUrl, host: account + (jur ? '.' + jur : '') + '.r2.cloudflarestorage.com' };
 }
+
+// Fehlerursache von fetch lesbar machen (undici meldet nur „fetch failed“, die Ursache steckt in .cause)
+export const fetchWhy = (e) => { const c = e && e.cause; return [e && e.message, c && c.code, c && c.message].filter(Boolean).join(' · '); };
 
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
 const hmac = (k, s) => createHmac('sha256', k).update(s).digest();
@@ -69,7 +73,7 @@ export async function checkSetup(cfg, origin) {
   let r;
   try { r = await fetch(presign(cfg, 'HEAD', '_pruefung/' + Date.now(), 60), { method: 'HEAD' }); }
   catch (e) {
-    out.steps.push({ step: 'endpunkt', ok: false, text: 'Der Speicher-Endpunkt ' + cfg.host + ' ist nicht erreichbar – R2_ACCOUNT_ID prüfen (Account ID rechts auf der R2-Übersicht). ' + (e && e.message ? e.message : '') });
+    out.steps.push({ step: 'endpunkt', ok: false, text: 'Der Speicher-Endpunkt ' + cfg.host + ' ist nicht erreichbar – R2_ACCOUNT_ID prüfen (Account ID rechts auf der R2-Übersicht). ' + fetchWhy(e) });
     return out;
   }
   if (r.status === 404) out.steps.push({ step: 'zugang', ok: true, text: 'Konto, Bucket „' + cfg.bucket + '“ und API-Schlüssel stimmen.' });
@@ -92,7 +96,7 @@ export async function checkSetup(cfg, origin) {
     if (probs.length) out.steps.push({ step: 'cors', ok: false, text: 'CORS-Regel unvollständig: ' + probs.join('; ') + '.' });
     else { out.steps.push({ step: 'cors', ok: true, text: 'CORS-Regel erlaubt den Upload von ' + (origin || 'der Seite') + '.' }); out.ok = true; }
   } catch (e) {
-    out.steps.push({ step: 'cors', ok: false, text: 'CORS-Regel liess sich nicht lesen: ' + (e && e.message ? e.message : e) });
+    out.steps.push({ step: 'cors', ok: false, text: 'CORS-Regel liess sich nicht lesen: ' + fetchWhy(e) });
   }
   return out;
 }
