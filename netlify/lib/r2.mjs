@@ -98,9 +98,24 @@ export async function checkSetup(cfg, origin) {
     if (!methods.includes('PUT')) probs.push('PUT fehlt bei AllowedMethods');
     if (!headers.includes('*') && !headers.includes('content-type')) probs.push('content-type fehlt bei AllowedHeaders');
     if (probs.length) out.steps.push({ step: 'cors', ok: false, text: 'CORS-Regel unvollständig: ' + probs.join('; ') + '.' });
-    else { out.steps.push({ step: 'cors', ok: true, text: 'CORS-Regel erlaubt den Upload von ' + (origin || 'der Seite') + '.' }); out.ok = true; }
+    else out.steps.push({ step: 'cors', ok: true, text: 'CORS-Regel erlaubt den Upload von ' + (origin || 'der Seite') + '.' });
   } catch (e) {
     out.steps.push({ step: 'cors', ok: false, text: 'CORS-Regel liess sich nicht lesen: ' + fetchWhy(e) });
   }
+  // 3) Öffentliche Adresse: darüber spielt die Startseite die Videos ab (R2_PUBLIC_URL)
+  const pubHint = ' Die Adresse steht in Cloudflare → R2 → Bucket → Settings → Public access („Public Development URL“ einschalten, sieht aus wie https://pub-<lange Zeichenfolge>.r2.dev) oder ist die verbundene eigene Domain. Nach dem Ändern auf Netlify neu deployen.';
+  if (/…|\.\.\.|<|>/.test(cfg.publicUrl) || !/^https:\/\/[a-z0-9.-]+$/i.test(cfg.publicUrl)) {
+    out.steps.push({ step: 'public', ok: false, text: 'R2_PUBLIC_URL ist ein Platzhalter oder keine gültige Adresse („' + cfg.publicUrl + '“).' + pubHint });
+    return out;
+  }
+  try {
+    const r = await fetch(cfg.publicUrl + '/_pruefung', { method: 'HEAD' });
+    if (r.status === 404) out.steps.push({ step: 'public', ok: true, text: 'Öffentliche Adresse ' + cfg.publicUrl + ' antwortet.' });
+    else if (r.status === 401 || r.status === 403) out.steps.push({ step: 'public', ok: false, text: 'Die öffentliche Adresse ' + cfg.publicUrl + ' ist nicht freigegeben (HTTP ' + r.status + ').' + pubHint });
+    else out.steps.push({ step: 'public', ok: false, text: 'Die öffentliche Adresse ' + cfg.publicUrl + ' antwortet unerwartet (HTTP ' + r.status + ').' + pubHint });
+  } catch (e) {
+    out.steps.push({ step: 'public', ok: false, text: 'Die öffentliche Adresse ' + cfg.publicUrl + ' ist nicht erreichbar (' + fetchWhy(e) + ').' + pubHint });
+  }
+  out.ok = out.steps.every((s) => s.ok);
   return out;
 }

@@ -97,7 +97,8 @@ Einmalige Einrichtung (Cloudflare-Konto, ca. 10 Minuten):
 4. R2 → **Manage R2 API Tokens** → Token anlegen mit „Object Read & Write“, nur für diesen Bucket.
    Notieren: Access Key ID, Secret Access Key; die Account ID steht rechts auf der R2-Übersicht.
 5. Netlify → Site → **Environment variables**: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
-   `R2_BUCKET` (= Name aus Schritt 1), `R2_PUBLIC_URL` (= Adresse aus Schritt 2, ohne Schrägstrich am Ende).
+   `R2_BUCKET` (= Name aus Schritt 1), `R2_PUBLIC_URL` (= die echte Adresse aus Schritt 2, z. B. `https://pub-3f9a…c2.r2.dev`
+   in voller Länge, ohne Schrägstrich am Ende). `R2_ACCOUNT_ID` darf auch die ganze S3-Adresse sein, die Function liest die ID heraus.
    Wurde der Bucket mit Standort **EU** angelegt, zusätzlich `R2_JURISDICTION` = `eu`.
    Danach einmal neu deployen (Deploys → Trigger deploy).
 6. Im Studio nach einem Export unter „meet-bty.com“ auf **„Einrichtung prüfen“** tippen: die Function testet Konto,

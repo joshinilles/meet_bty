@@ -22,6 +22,13 @@ const SLUG = { 1: 'Start', 2: 'MEETmoment' };
 const TITLE = { 1: 'Start', 2: 'MEETmoment' };
 const rand = () => Math.random().toString(36).slice(2, 8);
 const clean = (s, max) => (typeof s === 'string' ? s.replace(/\s+/g, ' ').trim().slice(0, max) : '');
+// Adressen immer aus dem Schlüssel und der AKTUELLEN R2_PUBLIC_URL bilden – so greift eine korrigierte Variable auch für
+// schon hochgeladene Videos. Gespeicherte url/poster sind nur der Rückfall, falls die Einrichtung gerade fehlt.
+function withUrls(items) {
+  const local = process.env.MEET_VIDEO_LOCAL_DIR || '', cfg = local ? null : r2Config();
+  const f = (key) => (local ? '/__media/' + key : cfg ? publicUrl(cfg, key) : '');
+  return items.map((v) => ({ ...v, url: (v.key && f(v.key)) || v.url, poster: (v.posterKey && f(v.posterKey)) || v.poster || '' }));
+}
 
 export default async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
@@ -40,7 +47,7 @@ export default async (req) => {
     if (!isDay(day)) return json({ error: 'day fehlt (YYYY-MM-DD)' }, 400);
     try {
       const d = await readDay(day);
-      return json({ day, items: d.items.map(publicView), updated: d.updated }, 200, { 'Cache-Control': 'public, max-age=20' });
+      return json({ day, items: withUrls(d.items).map(publicView), updated: d.updated }, 200, { 'Cache-Control': 'public, max-age=20' });
     } catch (e) {
       return json({ error: 'Videos gerade nicht erreichbar: ' + msg(e) }, 502);
     }
@@ -65,7 +72,7 @@ export default async (req) => {
   try {
     if (op === 'status') {
       const d = await readDay(day);
-      return json({ items: d.items.map(publicView), updated: d.updated, ready: !!(local || cfg) });
+      return json({ items: withUrls(d.items).map(publicView), updated: d.updated, ready: !!(local || cfg) });
     }
     // Ab hier wird der Dateispeicher gebraucht
     if (!local && !cfg) return json({ error: 'Video-Speicher nicht eingerichtet: auf Netlify fehlen R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY oder R2_PUBLIC_URL' }, 503);
@@ -116,7 +123,7 @@ export default async (req) => {
       await writeDay(day, items);
       // altes Video desselben Morgens (ersetzt) aus dem Speicher nehmen – bestes Bemühen
       if (cfg && old) { for (const k of [old.key, old.posterKey]) if (k && k !== key && k !== posterKey) await deleteObject(cfg, k); }
-      return json({ ok: true, items: items.map(publicView) });
+      return json({ ok: true, items: withUrls(items).map(publicView) });
     }
 
     if (op === 'remove') {
@@ -126,7 +133,7 @@ export default async (req) => {
       const items = d.items.filter((v) => v.n !== n);
       await writeDay(day, items);
       if (cfg && old) { for (const k of [old.key, old.posterKey]) if (k) await deleteObject(cfg, k); }
-      return json({ ok: true, items: items.map(publicView) });
+      return json({ ok: true, items: withUrls(items).map(publicView) });
     }
 
     return json({ error: 'Unbekannte Aktion' }, 400);
