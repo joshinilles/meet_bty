@@ -837,17 +837,18 @@
   // Ein Schritt des Ablaufs: Nummer, Titel, Uhrzeit und Länge, Play rechts – keine Titelkarte, die Bibelstelle steht schon oben
   function clipTile(v, soon) {
     var meta = DAILY_META[v.n];
-    var sub = soon ? "kommt um " + meta.time : [meta.time, fmtDur(v.duration)].filter(Boolean).join(" · ");
+    var dur = soon ? "" : fmtDur(v.duration), sub = soon ? "kommt um " + meta.time : [meta.time, dur].filter(Boolean).join(" · ");
     var b = document.createElement(soon ? "div" : "button"); b.className = "clip" + (soon ? " clip--soon" : "");
     if (soon) b.setAttribute("aria-hidden", "true"); else { b.type = "button"; b.setAttribute("aria-label", stepTitle(v) + " · " + sub + " abspielen"); }
     var head = document.createElement("span"); head.className = "clip-head";
     var nm = document.createElement("span"); nm.className = "clip-name"; nm.textContent = soon ? meta.name : stepTitle(v);
-    var tm = document.createElement("span"); tm.className = "clip-time"; tm.textContent = sub;
-    head.appendChild(nm); head.appendChild(tm);
+    head.appendChild(nm);
+    if (soon) { var tm = document.createElement("span"); tm.className = "clip-time"; tm.textContent = sub; head.appendChild(tm); }
     var media = document.createElement("span"); media.className = "clip-media";
     if (!soon) {
       if (v.poster) { var img = document.createElement("img"); img.className = "clip-img"; img.src = v.poster; img.alt = ""; img.decoding = "async"; media.appendChild(img); }
       var play = document.createElement("span"); play.className = "clip-play"; play.setAttribute("aria-hidden", "true"); play.innerHTML = PLAY_SVG; media.appendChild(play);
+      if (dur) { var d = document.createElement("span"); d.className = "clip-dur"; d.textContent = dur.replace(" Min", ""); media.appendChild(d); }
       b.addEventListener("click", function () { openPlayer(v); });
     }
     b.appendChild(head); b.appendChild(media);

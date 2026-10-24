@@ -225,7 +225,7 @@ h2{
 .clip{
   display:flex;flex-direction:column;
   min-height:0;
-  padding:14px 14px 0;
+  padding:14px 12px 8px;
   border-radius:18px;
   background:var(--field);
   border:1.2px solid transparent;
@@ -239,15 +239,24 @@ h2{
 }
 .clip:hover,.clip:focus-visible{border-color:var(--lime)}
 .clip:active{transform:scale(.985)}
-.clip-head{display:flex;flex-direction:column;gap:3px;min-height:58px}
-.clip-name{font-family:var(--head);font-weight:700;font-size:16px;letter-spacing:-.01em;line-height:1.15}
-.clip-time{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--muted)}
-.clip-media{position:relative;display:block;margin:6px -14px 0;aspect-ratio:9/11;flex:1}
+.clip-head{display:flex;flex-direction:column;min-height:38px;padding:0 2px}
+.clip-name{font-family:var(--head);font-weight:700;font-size:16px;letter-spacing:-.01em;line-height:1.15;color:#fff}
+.clip-media{position:relative;display:block;margin:2px -4px 0;aspect-ratio:9/11;flex:1}
+/* weicher Rahmen rundum: das Standbild löst sich an allen vier Seiten ins Violett des Kastens auf */
 .clip-img{
   position:absolute;inset:0;width:100%;height:100%;
   object-fit:cover;object-position:center 30%;
-  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 42%);
-  mask-image:linear-gradient(to bottom,transparent 0,#000 42%);
+  -webkit-mask-image:linear-gradient(to right,transparent 0,#000 18%,#000 82%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 22%,#000 80%,transparent 100%);
+  -webkit-mask-composite:source-in;
+  mask-image:linear-gradient(to right,transparent 0,#000 18%,#000 82%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 22%,#000 80%,transparent 100%);
+  mask-composite:intersect;
+}
+.clip-dur{
+  position:absolute;right:10px;bottom:8px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.04em;
+  padding:3px 8px;border-radius:999px;
+  background:rgba(47,16,65,.7);color:#fff;
+  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
 }
 .clip-play{
   position:absolute;left:50%;top:56%;
@@ -266,6 +275,7 @@ h2{
 .clip--soon{cursor:default;border:1.2px dashed rgba(255,255,255,.14);background:transparent}
 .clip--soon:hover,.clip--soon:focus-visible{border-color:rgba(255,255,255,.14)}
 .clip--soon .clip-name{color:var(--soft)}
+.clip--soon .clip-time{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--muted);margin-top:3px}
 .clip--soon .clip-media{aspect-ratio:auto;flex:1;min-height:60px}
 
 /* Wochenende: oben „Am Montag geht's weiter“, als Überschrift der Claim, dann nur der Blick zurück auf die Woche.
