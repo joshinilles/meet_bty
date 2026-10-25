@@ -829,8 +829,10 @@
   // ---- MEET DAILY: die beiden Videos von heute Morgen, aus dem Studio direkt hochgeladen (Function video, Dateien bei R2) ----
   var DAILY_URL = "/.netlify/functions/video", DAILY_CACHE = "meet:daily";
   var DAILY_META = { 1: { name: "Start", time: "05:45" }, 2: { name: "MEETmoment", time: "06:15" } };
-  var daily = { day: "", items: [] };
-  var dEl = { box: $("homeDaily"), grid: $("dailyGrid"), player: $("player"), back: $("playerBack"), close: $("playerClose"), video: $("playerVideo"), title: $("playerTitle"), kicker: $("playerKicker") };
+  var daily = { day: "", items: [], react: {} };
+  var DAILY_FN = "/.netlify/functions/daily", USE_KEY = "meet:use:", DEVICE_KEY = "meet:device", PUSH_DAILY_KEY = "meet:push-daily";
+  var REACT = ["👍", "❤️", "😂", "😮", "😢", "🙏"]; // dieselben sechs wie die Schnellauswahl bei WhatsApp
+  var dEl = { box: $("homeDaily"), grid: $("dailyGrid"), player: $("player"), back: $("playerBack"), close: $("playerClose"), video: $("playerVideo"), title: $("playerTitle"), kicker: $("playerKicker"), react: $("playerReact") };
   function fmtDur(s) { s = Math.round(s || 0); if (!s) return ""; return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + (s % 60) + " Min"; }
   var PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
   function stepTitle(v) { return v.n === 1 ? "Wir werden still" : "MEETmoment" + (v.name ? " mit " + v.name : ""); }
@@ -851,6 +853,7 @@
       if (v.poster) { var img = document.createElement("img"); img.className = "clip-img"; img.src = v.poster; img.alt = ""; img.decoding = "async"; media.appendChild(img); }
       var play = document.createElement("span"); play.className = "clip-play"; play.setAttribute("aria-hidden", "true"); play.innerHTML = PLAY_SVG; media.appendChild(play);
       if (dur) { var d = document.createElement("span"); d.className = "clip-dur"; d.textContent = dur.replace(" Min", ""); media.appendChild(d); }
+      if (v.n === 2) { var rp = reactPill(2); if (rp) media.appendChild(rp); }
       b.addEventListener("click", function () { openPlayer(v); });
     }
     b.appendChild(head); b.appendChild(media);
@@ -872,9 +875,9 @@
     return fetch(DAILY_URL + "?day=" + day, { headers: { Accept: "application/json" } })
       .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(function (j) {
-        daily = { day: day, items: (j && j.items) || [] };
-        try { localStorage.setItem(DAILY_CACHE, JSON.stringify(daily)); } catch (e) {}
-        renderDaily();
+        daily = { day: day, items: (j && j.items) || [], react: daily.day === day ? daily.react || {} : {} };
+        saveDaily();
+        renderDaily(); maybeDeepPlay();
       });
   }
   function playerOpen() { return !dEl.player.hidden; }
@@ -882,6 +885,7 @@
     var meta = DAILY_META[v.n] || { name: v.title || "Video", time: "" };
     dEl.kicker.textContent = "MEET DAILY · " + meta.time + (v.passage ? " · " + v.passage : "");
     dEl.title.textContent = stepTitle(v);
+    playerItem = v; watch.last = -1; renderReact("");
     dEl.video.poster = v.poster || "";
     dEl.video.src = v.url;
     dEl.player.hidden = false;
@@ -893,6 +897,7 @@
     if (!playerOpen()) return;
     if (!fromHistory && history.state && history.state.player) { try { history.back(); return; } catch (e) {} }
     try { dEl.video.pause(); } catch (e) {}
+    saveWatch(true); playerItem = null; renderReact("");
     dEl.video.removeAttribute("src"); try { dEl.video.load(); } catch (e) {}
     dEl.player.hidden = true;
     document.body.style.overflow = "";
@@ -900,12 +905,160 @@
   dEl.close.addEventListener("click", function () { closePlayer(false); });
   dEl.back.addEventListener("click", function () { closePlayer(false); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closePlayer(false); });
+  function saveDaily() { try { localStorage.setItem(DAILY_CACHE, JSON.stringify(daily)); } catch (e) {} }
+
+  // ---- Nutzung: eine zufällige Gerätekennung (nur auf diesem Handy, der Server speichert ihren Hash) und der Tagesstand
+  //      mit Aufrufen, Sehdauer je Video und der eigenen Reaktion. Das Gerät schickt immer seinen ganzen Stand (?op=sync). ----
+  function deviceId() {
+    try {
+      var d = localStorage.getItem(DEVICE_KEY);
+      if (!d) {
+        var a = new Uint8Array(12);
+        if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(a); else for (var i = 0; i < a.length; i++) a[i] = Math.floor(Math.random() * 256);
+        d = ""; for (var k = 0; k < a.length; k++) d += ("0" + a[k].toString(16)).slice(-2);
+        localStorage.setItem(DEVICE_KEY, d);
+      }
+      return d;
+    } catch (e) { return ""; }
+  }
+  var use = { day: todayKey(), hits: 0, w: {}, x: {}, lastHit: 0 };
+  try { var uc = JSON.parse(localStorage.getItem(USE_KEY + use.day) || "null"); if (uc && uc.day === use.day) use = uc; } catch (e) {}
+  try { Object.keys(localStorage).forEach(function (k) { if (k.indexOf(USE_KEY) === 0 && k !== USE_KEY + use.day) localStorage.removeItem(k); }); } catch (e) {}
+  use.w = use.w || {}; use.x = use.x || {};
+  function saveUse() { try { localStorage.setItem(USE_KEY + use.day, JSON.stringify(use)); } catch (e) {} }
+  function syncUse(want) {
+    var dev = deviceId(); if (!dev || !window.fetch) return Promise.resolve(null);
+    var body = JSON.stringify({ day: use.day, device: dev, app: standalone, hits: use.hits, w: use.w, x: use.x, want: want || "" });
+    if (!want && navigator.sendBeacon) { try { if (navigator.sendBeacon(DAILY_FN + "?op=sync", new Blob([body], { type: "application/json" }))) return Promise.resolve(null); } catch (e) {} }
+    return fetch(DAILY_FN + "?op=sync", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: body, keepalive: true })
+      .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+  }
+  // Ein Aufruf = Seite geöffnet oder nach mindestens 10 Minuten wieder in den Vordergrund geholt
+  function hit() { var t = Date.now(); if (t - (use.lastHit || 0) < 10 * 60000) return; use.lastHit = t; use.hits = (use.hits || 0) + 1; saveUse(); syncUse(); }
+  hit();
+  document.addEventListener("visibilitychange", function () { if (document.hidden) { if (playerOpen()) saveWatch(true); } else hit(); });
+
+  // ---- Reaktionen (nur MEETmoment): eine pro Gerät, nochmal tippen nimmt sie zurück; Zahlen kommen von ?day= ----
+  function reactCounts(n) { return (daily.react && daily.react[n]) || {}; }
+  function reactPill(n) {
+    var c = reactCounts(n), keys = Object.keys(c).filter(function (k) { return c[k] > 0; }).sort(function (a, b) { return c[b] - c[a]; });
+    if (!keys.length) return null;
+    var t = 0; keys.forEach(function (k) { t += c[k]; });
+    var p = document.createElement("span"); p.className = "clip-react"; p.setAttribute("aria-label", t + " Reaktionen");
+    keys.slice(0, 2).forEach(function (k) { var e = document.createElement("span"); e.className = "e"; e.textContent = k; p.appendChild(e); });
+    p.appendChild(document.createTextNode(String(t)));
+    return p;
+  }
+  function setReaction(n, e) {
+    var old = use.x[n] || "";
+    if (old === e) e = "";
+    var c = daily.react[n] = daily.react[n] || {};
+    if (old && c[old]) c[old]--;
+    if (e) c[e] = (c[e] || 0) + 1;
+    if (e) use.x[n] = e; else delete use.x[n];
+    saveUse(); saveDaily(); renderReact(e); renderDaily();
+    syncUse("reactions").then(function (j) { if (j && j.reactions) { daily.react = j.reactions; saveDaily(); renderReact(""); renderDaily(); } });
+  }
+  function renderReact(pop) {
+    var on = !!(playerItem && playerItem.n === 2);
+    dEl.react.hidden = !on;
+    dEl.player.querySelector(".player-box").classList.toggle("has-react", on);
+    if (!on) return;
+    var c = reactCounts(2), mine = use.x[2] || "";
+    dEl.react.textContent = "";
+    REACT.forEach(function (e) {
+      var b = document.createElement("button"); b.type = "button";
+      b.className = "react-btn" + (mine === e ? " is-on" : "") + (pop === e ? " pop" : "");
+      b.setAttribute("aria-label", "Mit " + e + " reagieren"); b.setAttribute("aria-pressed", mine === e ? "true" : "false");
+      var s1 = document.createElement("span"); s1.className = "e"; s1.textContent = e;
+      var s2 = document.createElement("span"); s2.className = "c"; s2.textContent = c[e] ? String(c[e]) : "";
+      b.appendChild(s1); b.appendChild(s2);
+      b.addEventListener("click", function () { setReaction(2, e); });
+      dEl.react.appendChild(b);
+    });
+  }
+  function fetchReact() {
+    return fetch(DAILY_FN + "?day=" + todayKey(), { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j && j.reactions && daily.day === todayKey()) { daily.react = j.reactions; saveDaily(); renderReact(""); renderDaily(); } })
+      .catch(function () {});
+  }
+  function refreshDaily() { return fetchDaily().then(fetchReact, fetchReact); }
+
+  // ---- Sehdauer: gespielte Sekunden (sec), weiteste Stelle (max) und Länge (dur) je Video – gesendet bei Pause, Ende, Schliessen ----
+  var playerItem = null, watch = { last: -1, synced: 0 };
+  function curW(n) { return use.w[n] = use.w[n] || { sec: 0, max: 0, dur: 0 }; }
+  function saveWatch(send) { if (!playerItem) return; saveUse(); if (send) { watch.synced = Date.now(); syncUse(); } }
+  dEl.video.addEventListener("timeupdate", function () {
+    if (!playerItem || dEl.video.paused || dEl.video.seeking) return;
+    var t = dEl.video.currentTime, w = curW(playerItem.n);
+    if (watch.last >= 0) { var dt = t - watch.last; if (dt > 0 && dt < 2) w.sec += dt; }
+    watch.last = t;
+    if (t > w.max) w.max = t;
+    if (isFinite(dEl.video.duration) && dEl.video.duration > 0) w.dur = dEl.video.duration;
+    if (Date.now() - watch.synced > 30000) saveWatch(true); else if (Math.floor(t) % 5 === 0) saveUse();
+  });
+  dEl.video.addEventListener("play", function () { watch.last = dEl.video.currentTime; });
+  dEl.video.addEventListener("seeked", function () { watch.last = dEl.video.currentTime; });
+  dEl.video.addEventListener("pause", function () { saveWatch(true); });
+  dEl.video.addEventListener("ended", function () { if (playerItem) { var w = curW(playerItem.n); if (w.dur) w.max = w.dur; } saveWatch(true); });
+
+  // ---- Push „Sag mir Bescheid“: Abo für die Morgen-Videos (video.mjs schickt beim ersten Eintrag des Tages) ----
+  function dailyPushRemembered() { try { return localStorage.getItem(PUSH_DAILY_KEY) === "ja"; } catch (e) { return false; } }
+  function subscribeDaily() {
+    return swReady.then(function (reg) {
+      if (!reg) throw new Error("kein Service Worker");
+      return reg.pushManager.getSubscription().then(function (sub) {
+        return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(cfg.pushKey) });
+      });
+    }).then(function (sub) {
+      return fetch(DAILY_FN + "?op=subscribe", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ sub: sub.toJSON ? sub.toJSON() : sub }) })
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+    }).then(function () { try { localStorage.setItem(PUSH_DAILY_KEY, "ja"); } catch (e) {} return true; });
+  }
+  var hp = $("homePush"), hpName = $("homePushName"), hpSub = $("homePushSub");
+  function showDailyPush() {
+    if (!pushOk || Notification.permission === "denied") { hp.hidden = true; return; }
+    hp.hidden = dailyPushRemembered() && Notification.permission === "granted";
+  }
+  hp.addEventListener("click", function () {
+    hp.disabled = true; hpSub.textContent = "Einen Moment …";
+    Promise.resolve(Notification.requestPermission()).then(function (perm) {
+      if (perm !== "granted") throw new Error("keine Erlaubnis");
+      return subscribeDaily();
+    }).then(function () {
+      hp.classList.add("is-done"); hpName.textContent = "Alles klar!"; hpSub.textContent = "Wir sagen dir Bescheid, sobald das Video da ist.";
+      setTimeout(function () { hp.hidden = true; }, 3500);
+    }).catch(function (err) {
+      console.warn("[MEET] Push nicht eingerichtet:", err);
+      hp.disabled = false;
+      hpSub.textContent = Notification.permission === "denied" ? "Benachrichtigungen sind für MEET ausgeschaltet." : "Das hat gerade nicht geklappt – versuch es später nochmal.";
+      if (Notification.permission === "denied") setTimeout(function () { hp.hidden = true; }, 3500);
+    });
+  });
+  showDailyPush();
+  // Gerät hat schon zugestimmt: Abo einmal am Tag still auffrischen, falls der Browser es erneuert hat
+  if (pushOk && dailyPushRemembered() && Notification.permission === "granted") {
+    try { if (localStorage.getItem(PUSH_DAILY_KEY + "-at") !== todayKey()) { localStorage.setItem(PUSH_DAILY_KEY + "-at", todayKey()); subscribeDaily().catch(function () {}); } } catch (e) {}
+  }
+
+  // ---- Aus der Push getippt: /?play=1|2 öffnet das Video, sobald die Liste da ist ----
+  var playWant = 0; try { playWant = Number(new URLSearchParams(location.search).get("play")) || 0; } catch (e) {}
+  function maybeDeepPlay() {
+    if (!playWant || daily.day !== todayKey()) return;
+    var v = daily.items.filter(function (x) { return x && x.n === playWant && x.url; })[0];
+    if (!v) return;
+    playWant = 0; try { history.replaceState(null, "", location.pathname); } catch (e) {}
+    openPlayer(v);
+  }
+
   try { var dc = JSON.parse(localStorage.getItem(DAILY_CACHE) || "null"); if (dc && dc.day) daily = dc; } catch (e) {}
-  renderDaily();
+  daily.react = daily.react || {};
+  renderDaily(); maybeDeepPlay();
   if (window.fetch) {
-    fetchDaily().catch(function () {});
-    document.addEventListener("visibilitychange", function () { if (!document.hidden) fetchDaily().catch(function () {}); });
-    setInterval(function () { if (!document.hidden && state.screen === "home") fetchDaily().catch(function () {}); }, 60000);
+    refreshDaily();
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) refreshDaily(); });
+    setInterval(function () { if (!document.hidden && state.screen === "home") refreshDaily(); }, 60000);
   }
 
   setMode("moment");

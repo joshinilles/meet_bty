@@ -79,6 +79,13 @@
   <section class="daily" id="homeDaily" hidden aria-label="Heute Morgen bei MEET DAILY">
     <div class="daily-grid" id="dailyGrid"></div>
   </section>
+  <!-- Push „Sag mir Bescheid“: sobald morgens ein Video online ist (nur wo der Browser Web Push kann – iPhone als Home-Bildschirm-App);
+       nach dem Einschalten verschwindet die Zeile -->
+  <button type="button" class="row row--wall row--push" id="homePush" hidden>
+    <span class="row-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.5a6 6 0 0 1 12 0c0 6.5 2.5 8.5 2.5 8.5h-17S6 15 6 8.5"/><path d="M10.2 20.5a2 2 0 0 0 3.6 0"/></svg></span>
+    <span class="row-text"><span class="row-name" id="homePushName">Sag mir Bescheid</span><span class="row-handle" id="homePushSub">Push, sobald das Video morgens online ist</span></span>
+    <svg class="row-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
+  </button>
   <!-- Wochenende: kein MEET DAILY – stattdessen der Blick zurück auf die Woche (MEET WALL der letzten Tage, für alle offen) -->
   <button type="button" class="row row--wall row--week" id="homeWeek" hidden>
     <span class="row-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg></span>
@@ -209,6 +216,8 @@
       <button type="button" class="pop-close" id="playerClose" aria-label="Schliessen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     <video id="playerVideo" controls playsinline preload="metadata"></video>
+    <!-- Reaktionen wie bei WhatsApp – nur beim MEETmoment (Video 2), eine pro Gerät; Zahlen von allen -->
+    <div class="react" id="playerReact" hidden role="group" aria-label="Auf das Video reagieren"></div>
   </div>
 </div>
 <!-- Pop-up: die eigenen MEET-Momente (nur auf diesem Gerät) -->

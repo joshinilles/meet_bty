@@ -7,13 +7,16 @@
 //   POST ?op=mp-start, Body {day, n, type, size}      (PIN) → { key, uploadId, partSize, parts:[{partNumber, url}] }  grosse Videos in Stücken (S3 Multipart)
 //   POST ?op=mp-complete, Body {day, n, key, uploadId, size} (PIN) → { ok, size }  Stücke zusammensetzen (ETags holt die Function selbst – kein ExposeHeaders in CORS nötig)
 //   POST ?op=mp-abort, Body {day, n, key, uploadId}   (PIN) → { ok }
-//   POST ?op=publish, Body {day, n, key, posterKey, size, duration, passage, name, title} (PIN) → { ok, items }
+//   POST ?op=publish, Body {day, n, key, posterKey, size, duration, passage, name, title} (PIN) → { ok, items, pushed:{sent,total} }
+//        Beim ERSTEN Eintrag eines Videos am Tag bekommen die angemeldeten Jugendlichen eine Push (lib/push.mjs notifyDaily);
+//        „Nochmal hochladen (ersetzt)“ löst keine zweite aus.
 //   POST ?op=remove,  Body {day, n}                   (PIN) → { ok, items }  Video von der Startseite nehmen (und löschen)
 //   POST ?op=check,   Body {day, origin}              (PIN) → { ok, endpoint, steps:[{step, ok, text}] }  Selbstprüfung von Konto, Schlüssel und CORS-Regel
 // PIN: Header x-studio-pin = Umgebungsvariable STUDIO_PIN (dieselbe wie im Studio und bei der WALL).
 // Lokal (MEET_VIDEO_LOCAL_DIR gesetzt): statt R2 nimmt der Entwicklungs-Server die Datei unter /__media/<key> an.
 import { r2Config, presign, publicUrl, deleteObject, headObject, checkSetup, fetchWhy, PART_SIZE, multipartStart, multipartPartUrl, multipartListParts, multipartComplete, multipartAbort } from '../lib/r2.mjs';
 import { readDay, writeDay, publicView, isDay } from '../lib/video-store.mjs';
+import { notifyDaily, dailyPayload } from '../lib/push.mjs';
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'content-type, x-studio-pin' };
 const json = (obj, status = 200, extra = {}) =>
@@ -177,7 +180,13 @@ export default async (req) => {
       await writeDay(day, items);
       // altes Video desselben Morgens (ersetzt) aus dem Speicher nehmen – bestes Bemühen
       if (cfg && old) { for (const k of [old.key, old.posterKey]) if (k && k !== key && k !== posterKey) await deleteObject(cfg, k); }
-      return json({ ok: true, items: withUrls(items).map(publicView) });
+      // Push an die Jugendlichen – nur beim ersten Mal an diesem Morgen, und nie länger als 8 s warten
+      let pushed = { sent: 0, total: 0, skipped: !!old };
+      if (!old) {
+        try { pushed = await Promise.race([notifyDaily(dailyPayload(day, n, entry.passage, entry.name)), new Promise((res) => setTimeout(() => res({ sent: -1, total: 0, timeout: true }), 8000))]); }
+        catch (e) { console.warn('[video] Push nicht verschickt:', msg(e)); }
+      }
+      return json({ ok: true, items: withUrls(items).map(publicView), pushed });
     }
 
     if (op === 'remove') {

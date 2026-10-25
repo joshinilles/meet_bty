@@ -305,6 +305,36 @@ h2{
 .player-text{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
 .player-text strong{font-family:var(--head);font-size:16px;letter-spacing:-.01em;line-height:1.15;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .player video{width:100%;aspect-ratio:9/16;max-height:calc(100dvh - 120px);border-radius:18px;background:#000;display:block}
+.player-box.has-react video{max-height:calc(100dvh - 196px)}
+/* Reaktionen im Player (nur MEETmoment): die sechs Emojis der WhatsApp-Schnellauswahl, die eigene leuchtet Lime */
+.react{display:flex;justify-content:center;gap:6px;padding:2px 0 0}
+.react-btn{
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  min-width:44px;min-height:50px;padding:5px 6px;border-radius:14px;
+  background:rgba(255,255,255,.07);border:1.2px solid transparent;color:#fff;
+  font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;
+  transition:transform .2s var(--spring),background .2s,border-color .2s;
+}
+.react-btn .e{font-size:22px;line-height:1}
+.react-btn .c{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;line-height:1;min-height:11px;color:var(--muted)}
+.react-btn.is-on{background:rgba(212,246,90,.14);border-color:var(--lime)}
+.react-btn.is-on .c{color:var(--lime)}
+.react-btn:active{transform:scale(.92)}
+.react-btn.pop .e{animation:reactPop .4s var(--spring)}
+@keyframes reactPop{0%{transform:scale(1)}50%{transform:scale(1.55)}100%{transform:scale(1)}}
+/* Kachel: die Reaktionen von heute als Pille unten links, gegenüber der Dauer */
+.clip-react{
+  position:absolute;left:14px;bottom:13px;
+  display:inline-flex;align-items:center;gap:3px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.04em;
+  padding:3px 8px 3px 6px;border-radius:999px;
+  background:rgba(47,16,65,.7);color:#fff;
+  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+}
+.clip-react .e{font-size:13px;line-height:1}
+/* „Sag mir Bescheid“ (Push) – nach dem Einschalten kurz bestätigt, dann weg */
+.row--push.is-done{border-color:var(--lime)}
+.row--push:disabled{cursor:default;transform:none}
 
 /* ---- Buttons ---- */
 .btn{

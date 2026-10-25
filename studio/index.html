@@ -1801,7 +1801,7 @@ $('#btnWeb').addEventListener('click', async () => {
     state.textContent = 'Wird eingetragen …';
     const j = await webCall('publish', { n: current.n, key: videoKey, posterKey, size: upBlob.size, duration: dur, passage: getRef(), name: current.n === 2 ? speakerName() : '', title: current.n === 2 ? 'MEETmoment' : 'Start' });
     web.day = todayKey(); web.items = j.items || [];
-    toast('Das Video ist jetzt auf meet-bty.com', 4000);
+    const pu = j.pushed || {}; toast('Das Video ist jetzt auf meet-bty.com' + (pu.sent > 0 ? ' · Push an ' + pu.sent + (pu.sent === 1 ? ' Gerät' : ' Geräte') : pu.total > 0 && !pu.skipped ? ' · Push nicht verschickt' : ''), 5000);
   } catch (e) {
     let why = e.message;
     if (e.storage) { // Upload direkt zum Speicher gescheitert: Function fragen, was genau fehlt (Konto, Schlüssel, CORS-Regel)

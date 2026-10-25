@@ -56,6 +56,10 @@
 .q-name{font-family:var(--head);font-weight:700;font-size:13px;color:var(--lime)}
 .empty{margin:0;font-size:13.5px;color:var(--muted)}
 .sub{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.zrow{display:flex;align-items:baseline;gap:10px;padding:7px 10px;border-radius:10px;background:rgba(47,16,65,.55);font-size:13px}
+.zrow b{font-family:var(--head);font-size:13px;width:78px;flex:none;color:#fff}
+.zrow .zn{font-family:var(--mono);font-size:12px;color:var(--lime);flex:none;width:34px;text-align:right}
+.zrow .zv{flex:1;min-width:0;font-family:var(--mono);font-size:11.5px;letter-spacing:.02em;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .notify{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
 .notify-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .notify-text{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -124,6 +128,19 @@
       </div>
     </article>
 
+    <article class="card card--zahlen">
+      <div class="card-head"><span class="kicker">Zahlen · heute</span><span class="meta" id="zPush">–</span></div>
+      <div class="stats">
+        <div class="stat"><b id="zV">–</b><span>Besucher</span></div>
+        <div class="stat"><b id="zW1">–</b><span>Video 1</span></div>
+        <div class="stat"><b id="zW2">–</b><span>Video 2</span></div>
+        <div class="stat"><b id="zR">–</b><span>Reagiert</span></div>
+      </div>
+      <div class="meta" id="zMeta"></div>
+      <div class="sub">Letzte Tage</div>
+      <div class="list" id="zList"><p class="empty">…</p></div>
+    </article>
+
     <article class="card card--wall">
       <div class="card-head"><span class="kicker">MEET WALL</span><a href="/studio/wall/">Freigabe öffnen →</a></div>
       <div class="stats">
@@ -174,7 +191,7 @@
 <script>
 (function () {
   "use strict";
-  var WALL = "/.netlify/functions/wall", KAL = "/.netlify/functions/kalender", PLAN_PROXY = "/.netlify/functions/plan";
+  var WALL = "/.netlify/functions/wall", KAL = "/.netlify/functions/kalender", PLAN_PROXY = "/.netlify/functions/plan", DAILY = "/.netlify/functions/daily";
   var SETTINGS_KEY = "meetstudio:settings:v2"; // Studio-PIN – dieselbe wie Studio, WALL-Freigabe und Kalender
   var ICH_KEY = "meet_kal_ich";                 // Name – derselbe wie im Kalender
   var PLAN_CACHE = "meet:plan";                 // Jahresplan-CSV – derselbe Zwischenspeicher wie die Startseite
@@ -196,7 +213,8 @@
   var $ = function (id) { return document.getElementById(id); };
   var el = { gate: $("gate"), who: $("who"), pin: $("pin"), gateMsg: $("gateMsg"), grid: $("grid"), state: $("state"), foot: $("foot"), stand: $("stand"), hello: $("hello"), pDate: $("pDate"),
     hRef: $("hRef"), hMeta: $("hMeta"), nP: $("nP"), nQ: $("nQ"), nA: $("nA"), nN: $("nN"), stP: $("stP"), stQ: $("stQ"), pendList: $("pendList"), qList: $("qList"), kalHead: $("kalHead"), kalToday: $("kalToday"), kalTasks: $("kalTasks"), tools: $("tools"),
-    notify: $("notify"), ntfSub: $("ntfSub"), ntfBtn: $("ntfBtn"), ntfHint: $("ntfHint") };
+    notify: $("notify"), ntfSub: $("ntfSub"), ntfBtn: $("ntfBtn"), ntfHint: $("ntfHint"),
+    zPush: $("zPush"), zV: $("zV"), zW1: $("zW1"), zW2: $("zW2"), zR: $("zR"), zMeta: $("zMeta"), zList: $("zList") };
   var pin = "", me = "", whoSel = "", kalRev = "", kal = null, timer = null, loading = false;
   var data = { pending: [], questions: [], approved: [], private: [] };
   var mods = { items: [], pushReady: true }; // wer bekommt Bescheid (Abos der Moderator-Geräte, von ?op=mod-subs)
@@ -281,6 +299,40 @@
     fetchCsv(url).catch(function () { return fetchCsv(PLAN_PROXY + "?u=" + encodeURIComponent(url)); })
       .then(function (csv) { try { localStorage.setItem(PLAN_CACHE, JSON.stringify({ csv: csv, at: Date.now() })); } catch (e) { } showPlan(csv); })
       .catch(function () { if (el.hRef.textContent === "…") { el.hRef.textContent = "Jahresplan nicht erreichbar"; el.hMeta.textContent = ""; } });
+  }
+
+  // ---------- Zahlen (functions/daily.mjs ?op=stats): Besucher, Sehdauer, Reaktionen, Push-Abos ----------
+  function reactSum(r) { var t = 0; Object.keys(r || {}).forEach(function (k) { t += r[k] || 0; }); return t; }
+  function reactTop(r) { return Object.keys(r || {}).filter(function (k) { return r[k] > 0; }).sort(function (a, b) { return r[b] - r[a]; }).slice(0, 3).map(function (k) { return k + " " + r[k]; }).join("  "); }
+  function dayLabel(day, today) {
+    if (day === today) return "Heute";
+    var d = new Date(day + "T12:00:00"); var y = new Date(); y.setDate(y.getDate() - 1);
+    if (dayKey(y) === day) return "Gestern";
+    return WD[d.getDay()].slice(0, 2) + " " + d.getDate() + ". " + MONTHS[d.getMonth()];
+  }
+  function loadStats() {
+    return call(DAILY, "stats", { days: 8 }).then(function (r) {
+      var days = r.days || [], t = days[0] || { visitors: 0, hits: 0, app: 0, videos: { 1: {}, 2: {} }, reactions: { 1: {}, 2: {} } };
+      var v1 = t.videos[1] || {}, v2 = t.videos[2] || {};
+      el.zV.textContent = t.visitors; el.zW1.textContent = v1.views || 0; el.zW2.textContent = v2.views || 0; el.zR.textContent = reactSum(t.reactions[2]) + reactSum(t.reactions[1]);
+      var bits = [t.hits + " Aufruf" + (t.hits === 1 ? "" : "e"), t.app + " als App"];
+      if (v1.views) bits.push("Video 1 Ø " + (v1.avg || 0) + " % gesehen"); if (v2.views) bits.push("Video 2 Ø " + (v2.avg || 0) + " %");
+      var mins = (v1.minutes || 0) + (v2.minutes || 0); if (mins) bits.push(mins + " Min. insgesamt");
+      var top = reactTop(t.reactions[2]); if (top) bits.push(top);
+      el.zMeta.textContent = bits.join(" · ");
+      el.zPush.textContent = (r.subscribers || 0) + " Push-Abo" + (r.subscribers === 1 ? "" : "s") + (r.pushReady === false ? " · Schlüssel fehlt" : "");
+      el.zList.innerHTML = "";
+      days.slice(1).forEach(function (d) {
+        var row = document.createElement("div"); row.className = "zrow";
+        var b = document.createElement("b"); b.textContent = dayLabel(d.day, r.today);
+        var n = document.createElement("span"); n.className = "zn"; n.textContent = d.visitors;
+        var w1 = d.videos[1] || {}, w2 = d.videos[2] || {};
+        var v = document.createElement("span"); v.className = "zv";
+        v.textContent = [w1.views || w2.views ? (w1.views || 0) + " / " + (w2.views || 0) + " gesehen" : "keine Videos", w2.views && w2.avg ? "Ø " + w2.avg + " %" : "", reactTop(d.reactions[2])].filter(Boolean).join(" · ");
+        row.appendChild(b); row.appendChild(n); row.appendChild(v); el.zList.appendChild(row);
+      });
+      if (!days.slice(1).length) el.zList.appendChild(empty("Noch keine Tage."));
+    }).catch(function (e) { el.zMeta.textContent = "Zahlen gerade nicht erreichbar: " + e.message; });
   }
 
   // ---------- WALL ----------
@@ -474,7 +526,7 @@
   // ---------- Laden ----------
   function loadAll() {
     if (loading) return; loading = true; state("");
-    Promise.all([loadWall(), loadKal()]).then(function () {
+    Promise.all([loadWall(), loadKal(), loadStats()]).then(function () {
       var d = new Date(); el.stand.textContent = "Stand " + pad(d.getHours()) + ":" + pad(d.getMinutes()); el.foot.hidden = false;
     }).catch(function (e) {
       if (e && e.status === 401) { showGate("Die Studio-PIN stimmt nicht mehr."); return; }

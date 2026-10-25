@@ -1,10 +1,12 @@
-// Web Push für meet-bty.com – ein Versandweg für beide Richtungen:
+// Web Push für meet-bty.com – ein Versandweg für drei Richtungen:
 //   · an das Gerät, das eine Frage gestellt hat (Antwort ist da)        → wall.mjs pushAnswer()
 //   · an die Moderatoren (neuer MEETmoment wartet, neue Frage zum Text)  → notifyModerators(), ausgelöst von submission-created.mjs
+//   · an die Jugendlichen, sobald ein Morgen-Video online ist            → notifyDaily(), ausgelöst von video.mjs (publish)
 // Braucht auf Netlify VAPID_PRIVATE_KEY (und VAPID_SUBJECT = mailto:…); der öffentliche Schlüssel steht in config.js (pushKey)
 // oder in VAPID_PUBLIC_KEY. Ohne Schlüssel wird nichts verschickt, alles andere funktioniert weiter.
 import { createHash } from 'node:crypto';
 import { readJson, remove, listKeys } from './wall-store.mjs';
+import * as videoStore from './video-store.mjs';
 
 const msg = (e) => (e && e.message ? e.message : String(e));
 export const endpointHash = (endpoint) => createHash('sha256').update(String(endpoint || '')).digest('hex');
@@ -84,6 +86,31 @@ export const moderatorPayload = {
     tag: 'meet-mod-test'
   })
 };
+
+// ---- Jugendliche: Abos unter ps/<sha256 des Endpoints> im Store meet-video (functions/daily.mjs ?op=subscribe) ----
+// Schickt allen angemeldeten Geräten dieselbe Nachricht, sobald ein Morgen-Video online ist; verwaiste Abos fliegen raus.
+export async function notifyDaily(payload) {
+  let keys = [];
+  try { keys = await videoStore.listKeys('ps/'); } catch (e) { console.warn('[push] Abos der Jugendlichen nicht lesbar:', msg(e)); return { sent: 0, total: 0 }; }
+  if (!keys.length) return { sent: 0, total: 0 };
+  if (!(await pushReady())) { console.warn('[push] ' + keys.length + ' Abo(s), aber keine VAPID-Schlüssel'); return { sent: 0, total: keys.length }; }
+  const subs = await Promise.all(keys.map((k) => videoStore.readJson(k, null)));
+  const results = await Promise.all(subs.map(async (s, i) => {
+    if (!s || !s.sub) return false;
+    const r = await sendPush(s.sub, payload, { ttl: 6 * 3600, urgency: 'high' });
+    if (r.gone) await videoStore.remove(keys[i]).catch(() => { });
+    return r.ok;
+  }));
+  return { sent: results.filter(Boolean).length, total: keys.length };
+}
+
+// Nachrichtentexte für die Jugendlichen: Video 1 „Wir werden gemeinsam still“ mit der Bibelstelle, Video 2 „MEETmoment mit <Name>“.
+// Tippen öffnet die Startseite und spielt das Video gleich ab (?play=n).
+export function dailyPayload(day, n, passage, name) {
+  const ref = short(passage, 80);
+  if (n === 1) return { title: 'Wir werden gemeinsam still', body: ref ? ref + ' · Das Video ist da.' : 'Das erste Video von heute ist da.', url: '/?play=1', tag: 'meet-daily-' + day + '-1' };
+  return { title: 'MEETmoment' + (name ? ' mit ' + short(name, 30) : ''), body: ref ? ref + ' · Das Video ist da.' : 'Der MEETmoment von heute ist da.', url: '/?play=2', tag: 'meet-daily-' + day + '-2' };
+}
 
 // Der öffentliche Schlüssel steht in config.js; die Funktion liest ihn von dort, damit er nur an einer Stelle gepflegt wird
 let pubKeyCache = '';
