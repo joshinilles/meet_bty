@@ -980,13 +980,30 @@
 
   // ---- Reaktionen (nur MEETmoment): eine pro Gerät, nochmal tippen nimmt sie zurück; Zahlen kommen von ?day= ----
   function reactCounts(n) { return (daily.react && daily.react[n]) || {}; }
+  // Blase auf der Kachel: zu = die zwei häufigsten Emojis + Zahl; Antippen klappt sie auf (alle Emojis mit Zahl),
+  // ohne das Video zu starten; nach 6 s oder beim nächsten Tipp klappt sie wieder zu
   function reactPill(n) {
     var c = reactCounts(n), keys = Object.keys(c).filter(function (k) { return c[k] > 0; }).sort(function (a, b) { return c[b] - c[a]; });
     if (!keys.length) return null;
     var t = 0; keys.forEach(function (k) { t += c[k]; });
-    var p = document.createElement("span"); p.className = "clip-react"; p.setAttribute("aria-label", t + " Reaktionen");
-    keys.slice(0, 2).forEach(function (k) { var e = document.createElement("span"); e.className = "e"; e.textContent = k; p.appendChild(e); });
-    p.appendChild(document.createTextNode(String(t)));
+    var p = document.createElement("span"); p.className = "clip-react";
+    p.setAttribute("role", "button"); p.tabIndex = 0; p.setAttribute("aria-label", t + " Reaktionen anzeigen"); p.setAttribute("aria-expanded", "false");
+    var sum = document.createElement("span"); sum.className = "cr-sum";
+    keys.slice(0, 2).forEach(function (k) { var e = document.createElement("span"); e.className = "e"; e.textContent = k; sum.appendChild(e); });
+    sum.appendChild(document.createTextNode(String(t)));
+    var all = document.createElement("span"); all.className = "cr-all";
+    keys.forEach(function (k) {
+      var it = document.createElement("span"); it.className = "cr-item";
+      var e = document.createElement("span"); e.className = "e"; e.textContent = k;
+      var b = document.createElement("b"); b.textContent = String(c[k]);
+      it.appendChild(e); it.appendChild(b); all.appendChild(it);
+    });
+    p.appendChild(sum); p.appendChild(all);
+    var timer = null;
+    function setOpen(open) { p.classList.toggle("is-open", open); p.setAttribute("aria-expanded", open ? "true" : "false"); clearTimeout(timer); if (open) timer = setTimeout(function () { setOpen(false); }, 6000); }
+    function toggle(ev) { ev.preventDefault(); ev.stopPropagation(); setOpen(!p.classList.contains("is-open")); }
+    p.addEventListener("click", toggle);
+    p.addEventListener("keydown", function (ev) { if (ev.key === "Enter" || ev.key === " ") toggle(ev); });
     return p;
   }
   function setReaction(n, e) {

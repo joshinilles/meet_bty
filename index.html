@@ -68,6 +68,8 @@
 
 <!-- 1 · Heute -->
 <section class="screen screen--home" id="screen-home" aria-labelledby="homeTitle">
+  <!-- .home-main ist mindestens einen Bildschirm hoch: so liegt der Fuss direkt unter der WALL, aber nie im ersten Bild -->
+  <div class="home-main">
   <div class="day">
     <span class="label"><span id="dayWord">Heute</span> · <span id="dateLabel">heute</span></span>
     <span class="passage" id="passage">1. Johannes 1,5–2,2</span>
@@ -106,7 +108,8 @@
     <span class="row-badge" id="homeWallNew" hidden></span>
     <svg class="row-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
   </button>
-  <!-- Tiefer gelegt: erst sichtbar, wenn man unter der MEET WALL weiterscrollt -->
+  </div>
+  <!-- Direkt unter der WALL, aber erst sichtbar, wenn man scrollt (siehe .home-main) -->
   <div class="deep">
   <p class="soon">MEET2gether kommt bald</p>
   <footer class="foot">
