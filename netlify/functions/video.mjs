@@ -10,12 +10,15 @@
 //   POST ?op=publish, Body {day, n, key, posterKey, size, duration, passage, name, title} (PIN) → { ok, items, pushed:{sent,total} }
 //        Beim ERSTEN Eintrag eines Videos am Tag bekommen die angemeldeten Jugendlichen eine Push (lib/push.mjs notifyDaily);
 //        „Nochmal hochladen (ersetzt)“ löst keine zweite aus.
-//   POST ?op=remove,  Body {day, n}                   (PIN) → { ok, items }  Video von der Startseite nehmen (und löschen)
+//   POST ?op=remove,  Body {day, n}                   (PIN) → { ok, items }  Video von der Startseite nehmen (und löschen; fliegt auch aus dem Archiv)
+//   GET  ?op=archive                                        → { seasons: [{id, title, from, to, items: [{day, name, passage, url, poster, duration}]}] }
+//        Die MEETmoments (Video 2) aller Tage, nach Staffel (Bibelbuch) gebündelt, neueste zuerst – angepinnt auf der MEET WALL (60 s Cache)
+//   POST ?op=archive-rebuild, Body {day}              (PIN) → { ok, seasons, items }  Archiv aus allen Tagesverzeichnissen neu aufbauen
 //   POST ?op=check,   Body {day, origin}              (PIN) → { ok, endpoint, steps:[{step, ok, text}] }  Selbstprüfung von Konto, Schlüssel und CORS-Regel
 // PIN: Header x-studio-pin = Umgebungsvariable STUDIO_PIN (dieselbe wie im Studio und bei der WALL).
 // Lokal (MEET_VIDEO_LOCAL_DIR gesetzt): statt R2 nimmt der Entwicklungs-Server die Datei unter /__media/<key> an.
 import { r2Config, presign, publicUrl, deleteObject, headObject, checkSetup, fetchWhy, PART_SIZE, multipartStart, multipartPartUrl, multipartListParts, multipartComplete, multipartAbort } from '../lib/r2.mjs';
-import { readDay, writeDay, publicView, isDay } from '../lib/video-store.mjs';
+import { readDay, writeDay, publicView, isDay, readArchive, writeArchive, archivePut, archiveDrop, archiveView, listKeys } from '../lib/video-store.mjs';
 import { notifyDaily, dailyPayload } from '../lib/push.mjs';
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'content-type, x-studio-pin' };
@@ -48,6 +51,13 @@ export default async (req) => {
       const t0 = Date.now();
       try { const r = await fetch('https://' + cfg.host + '/', { method: 'HEAD' }); return json({ configured: true, reachable: true, status: r.status, ms: Date.now() - t0, node: process.version }); }
       catch (e) { return json({ configured: true, reachable: false, error: fetchWhy(e), ms: Date.now() - t0, node: process.version }); }
+    }
+    if (url.searchParams.get('op') === 'archive') {
+      try {
+        const a = await readArchive();
+        const seasons = a.seasons.map((se) => ({ id: se.id, title: se.title, from: se.from || '', to: se.to || '', items: withUrls(se.items).map(archiveView) }));
+        return json({ seasons, updated: a.updated || '' }, 200, { 'Cache-Control': 'public, max-age=60' });
+      } catch (e) { return json({ error: 'Archiv gerade nicht erreichbar: ' + msg(e) }, 502); }
     }
     const day = url.searchParams.get('day') || '';
     if (!isDay(day)) return json({ error: 'day fehlt (YYYY-MM-DD)' }, 400);
@@ -178,6 +188,8 @@ export default async (req) => {
       };
       const items = d.items.filter((v) => v.n !== n).concat([entry]);
       await writeDay(day, items);
+      // MEETmoment ins Archiv der Staffel (bleibt, auch wenn der Tag vorbei ist – angepinnt auf der WALL)
+      if (n === 2) { try { await writeArchive(archivePut(await readArchive(), { day, ...entry })); } catch (e) { console.warn('[video] Archiv nicht aktualisiert:', msg(e)); } }
       // altes Video desselben Morgens (ersetzt) aus dem Speicher nehmen – bestes Bemühen
       if (cfg && old) { for (const k of [old.key, old.posterKey]) if (k && k !== key && k !== posterKey) await deleteObject(cfg, k); }
       // Push an die Jugendlichen – nur beim ersten Mal an diesem Morgen, und nie länger als 8 s warten
@@ -196,7 +208,20 @@ export default async (req) => {
       const items = d.items.filter((v) => v.n !== n);
       await writeDay(day, items);
       if (cfg && old) { for (const k of [old.key, old.posterKey]) if (k) await deleteObject(cfg, k); }
+      if (n === 2) { try { await writeArchive(archiveDrop(await readArchive(), day)); } catch (e) { console.warn('[video] Archiv nicht aktualisiert:', msg(e)); } }
       return json({ ok: true, items: withUrls(items).map(publicView) });
+    }
+
+    if (op === 'archive-rebuild') {
+      const keys = (await listKeys('d/')).filter((k) => /^d\/\d{4}-\d{2}-\d{2}\.json$/.test(k));
+      let a = { seasons: [] }, count = 0;
+      for (const k of keys) {
+        const dd = await readDay(k.slice(2, 12));
+        const v2 = dd.items.find((v) => v.n === 2 && v.key);
+        if (v2) { a = archivePut(a, { day: dd.day, ...v2 }); count++; }
+      }
+      await writeArchive(a);
+      return json({ ok: true, seasons: a.seasons.length, items: count });
     }
 
     return json({ error: 'Unbekannte Aktion' }, 400);

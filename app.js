@@ -48,7 +48,8 @@
     sentKicker: $("sentKicker"), sentHeading: $("sentHeading"), sentBody: $("sentBody"),
     reset: $("reset"), goWall: $("goWall"), homeMine: $("homeMine"), homeMineText: $("homeMineText"), minePop: $("minePop"), minePopBack: $("minePopBack"), minePopClose: $("minePopClose"), minePopTodayWrap: $("minePopTodayWrap"), minePopTodayLabel: $("minePopTodayLabel"), minePopToday: $("minePopToday"), minePopPastWrap: $("minePopPastWrap"), minePopPast: $("minePopPast"), mineMore: $("mineMore"), goMomentText: $("goMomentText"), goMomentBadge: $("goMomentBadge"), homeMineBadge: $("homeMineBadge"), pushBox: $("pushBox"), pushAsk: $("pushAsk"), pushHint: $("pushHint"), homeAsks: $("homeAsks"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
     wallBack: $("wallBack"), wallKicker: $("wallKicker"), wallHint: $("wallHint"), wallList: $("wallList"), wallNote: $("wallNote"),
-    wallMore: $("wallMore"), wallPast: $("wallPast"), wallHome: $("wallHome")
+    wallMore: $("wallMore"), wallPast: $("wallPast"), wallHome: $("wallHome"),
+    wallPin: $("wallPin"), wallPinLabel: $("wallPinLabel"), wallPinMore: $("wallPinMore"), wallPinStrips: $("wallPinStrips")
   };
 
   var reduce = false;
@@ -585,6 +586,7 @@
   function goWall() {
     wallState.week = false;
     show("wall", "fwd");
+    fetchArchive();
     try { history.pushState({ screen: "wall" }, ""); } catch (e) {}
     loadWall();
     clearInterval(wallState.timer);
@@ -659,7 +661,58 @@
 
   // Eine Liste, nach Tagen gegliedert („Heute · Bibelstelle“, „Gestern · …“, Datum). Innerhalb eines Tages
   // stehen die eigenen Momente zuerst, dann die der anderen, neueste oben. Ohne „letzte Tage“ nur der heutige Tag.
+  // ---- Angepinnt: die MEETmoments (Video 2) aller Tage, nach Staffel gebündelt – Archiv der laufenden Staffel oben auf der Wand ----
+  var ARCHIVE_CACHE = "meet:archive", archive = { seasons: [], more: false };
+  try { var ac = JSON.parse(localStorage.getItem(ARCHIVE_CACHE) || "null"); if (ac && ac.seasons) archive.seasons = ac.seasons; } catch (e) {}
+  function fetchArchive() {
+    if (!window.fetch) return;
+    fetch(DAILY_URL + "?op=archive", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.seasons) return;
+        archive.seasons = j.seasons;
+        try { localStorage.setItem(ARCHIVE_CACHE, JSON.stringify({ seasons: j.seasons })); } catch (e) {}
+        renderPinned();
+      }).catch(function () {});
+  }
+  var WD_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+  function pinDate(day) { var d = new Date(day + "T12:00:00"); return isNaN(d) ? day : WD_SHORT[d.getDay()] + " " + d.getDate() + "." + (d.getMonth() + 1) + "."; }
+  function pinTile(v) {
+    var b = document.createElement("button"); b.type = "button"; b.className = "pin-tile";
+    b.setAttribute("aria-label", "MEETmoment" + (v.name ? " mit " + v.name : "") + " vom " + pinDate(v.day) + " abspielen");
+    var media = document.createElement("span"); media.className = "pin-media";
+    if (v.poster) { var img = document.createElement("img"); img.src = v.poster; img.alt = ""; img.loading = "lazy"; img.decoding = "async"; media.appendChild(img); }
+    var play = document.createElement("span"); play.className = "pin-play"; play.setAttribute("aria-hidden", "true"); play.innerHTML = PLAY_SVG; media.appendChild(play);
+    var dur = fmtDur(v.duration); if (dur) { var d = document.createElement("span"); d.className = "pin-dur"; d.textContent = dur.replace(" Min", ""); media.appendChild(d); }
+    var nm = document.createElement("span"); nm.className = "pin-name"; nm.textContent = v.name || "MEETmoment";
+    var dt = document.createElement("span"); dt.className = "pin-date"; dt.textContent = pinDate(v.day) + (v.passage ? " · " + v.passage.replace(/^(\d\.\s*)?[^\d,;:]+\s*/, "") : "");
+    b.appendChild(media); b.appendChild(nm); b.appendChild(dt);
+    b.addEventListener("click", function () { openPlayer({ n: 2, title: "MEETmoment", name: v.name, passage: v.passage, url: v.url, poster: v.poster, duration: v.duration, day: v.day }); });
+    return b;
+  }
+  function pinSeason(se, withTitle) {
+    var box = document.createElement("div"); box.className = "pin-season";
+    if (withTitle) { var t = document.createElement("span"); t.className = "pin-season-title"; t.textContent = "Staffel · " + se.title; box.appendChild(t); }
+    var strip = document.createElement("div"); strip.className = "pin-strip";
+    se.items.forEach(function (v) { if (v && v.url) strip.appendChild(pinTile(v)); });
+    box.appendChild(strip);
+    return box;
+  }
+  function renderPinned() {
+    var seasons = archive.seasons.filter(function (se) { return se && se.items && se.items.length; });
+    el.wallPin.hidden = !seasons.length;
+    if (!seasons.length) return;
+    var cur = seasons[0];
+    el.wallPinLabel.textContent = "Angepinnt · " + cur.title;
+    el.wallPinStrips.innerHTML = "";
+    el.wallPinStrips.appendChild(pinSeason(cur, false));
+    el.wallPinMore.hidden = seasons.length < 2;
+    el.wallPinMore.firstChild.textContent = archive.more ? "Weniger" : "Frühere Staffeln";
+    if (archive.more) seasons.slice(1).forEach(function (se) { el.wallPinStrips.appendChild(pinSeason(se, true)); });
+  }
+  el.wallPinMore.addEventListener("click", function () { archive.more = !archive.more; renderPinned(); });
   function renderWall() {
+    renderPinned();
     el.wallList.innerHTML = "";
     var all = wallState.items;
     var own = readOwn().map(function (o) { return ownEntry(o, all); });
@@ -915,7 +968,7 @@
     return fetch(DAILY_URL + "?day=" + day, { headers: { Accept: "application/json" } })
       .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(function (j) {
-        daily = { day: day, items: (j && j.items) || [], react: daily.day === day ? daily.react || {} : {} };
+        daily = { day: day, items: ((j && j.items) || []).map(function (v) { v.day = day; return v; }), react: daily.day === day ? daily.react || {} : {} };
         saveDaily();
         renderDaily(); maybeDeepPlay();
       });
@@ -923,7 +976,9 @@
   function playerOpen() { return !dEl.player.hidden; }
   function openPlayer(v) {
     var meta = DAILY_META[v.n] || { name: v.title || "Video", time: "" };
-    dEl.kicker.textContent = "MEET DAILY · " + meta.time + (v.passage ? " · " + v.passage : "");
+    if (!v.day) v.day = daily.day || todayKey();
+    var old = v.day !== todayKey();
+    dEl.kicker.textContent = "MEET DAILY · " + (old ? pinDate(v.day) : meta.time) + (v.passage ? " · " + v.passage : "");
     dEl.title.textContent = stepTitle(v);
     playerItem = v; watch.last = -1; renderReact("");
     dEl.video.poster = v.poster || "";
@@ -1018,7 +1073,7 @@
     syncUse("reactions").then(function (j) { if (j && j.reactions) { daily.react = j.reactions; saveDaily(); renderReact(""); renderDaily(); } });
   }
   function renderReact(pop) {
-    var on = !!(playerItem && playerItem.n === 2);
+    var on = !!(playerItem && playerItem.n === 2 && playerItem.day === todayKey()); // Reaktionen nur auf das Video von heute
     dEl.react.hidden = !on;
     if (!on) hidePick();
     dEl.player.querySelector(".player-box").classList.toggle("has-react", on);
@@ -1080,9 +1135,9 @@
   // ---- Sehdauer: gespielte Sekunden (sec), weiteste Stelle (max) und Länge (dur) je Video – gesendet bei Pause, Ende, Schliessen ----
   var playerItem = null, watch = { last: -1, synced: 0 };
   function curW(n) { return use.w[n] = use.w[n] || { sec: 0, max: 0, dur: 0 }; }
-  function saveWatch(send) { if (!playerItem) return; saveUse(); if (send) { watch.synced = Date.now(); syncUse(); } }
+  function saveWatch(send) { if (!playerItem || playerItem.day !== todayKey()) return; saveUse(); if (send) { watch.synced = Date.now(); syncUse(); } }
   dEl.video.addEventListener("timeupdate", function () {
-    if (!playerItem || dEl.video.paused || dEl.video.seeking) return;
+    if (!playerItem || playerItem.day !== todayKey() || dEl.video.paused || dEl.video.seeking) return; // Sehdauer nur für heute
     var t = dEl.video.currentTime, w = curW(playerItem.n);
     if (watch.last >= 0) { var dt = t - watch.last; if (dt > 0 && dt < 2) w.sec += dt; }
     watch.last = t;
