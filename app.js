@@ -833,7 +833,7 @@
   var dEl = { box: $("homeDaily"), grid: $("dailyGrid"), player: $("player"), back: $("playerBack"), close: $("playerClose"), video: $("playerVideo"), title: $("playerTitle"), kicker: $("playerKicker") };
   function fmtDur(s) { s = Math.round(s || 0); if (!s) return ""; return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + (s % 60) + " Min"; }
   var PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
-  function stepTitle(v) { return v.n === 1 ? "Still werden" : "MEETmoment" + (v.name ? " mit " + v.name : ""); }
+  function stepTitle(v) { return v.n === 1 ? "Wir werden still" : "MEETmoment" + (v.name ? " mit " + v.name : ""); }
   // Ein Schritt des Ablaufs: Nummer, Titel, Uhrzeit und Länge, Play rechts – keine Titelkarte, die Bibelstelle steht schon oben
   function clipTile(v, soon) {
     var meta = DAILY_META[v.n];
@@ -842,6 +842,8 @@
     if (soon) b.setAttribute("aria-hidden", "true"); else { b.type = "button"; b.setAttribute("aria-label", stepTitle(v) + " · " + sub + " abspielen"); }
     var head = document.createElement("span"); head.className = "clip-head";
     var nm = document.createElement("span"); nm.className = "clip-name"; nm.textContent = soon ? meta.name : stepTitle(v);
+    // „mit Niklas“ immer auf eine eigene zweite Zeile – so steht „MEETmoment“ auf einer Höhe mit „Wir werden still“
+    if (!soon && v.n === 2 && v.name) { nm.textContent = "MEETmoment"; var who = document.createElement("span"); who.className = "clip-who"; who.textContent = "mit " + v.name; nm.appendChild(who); }
     head.appendChild(nm);
     if (soon) { var tm = document.createElement("span"); tm.className = "clip-time"; tm.textContent = sub; head.appendChild(tm); }
     var media = document.createElement("span"); media.className = "clip-media";
