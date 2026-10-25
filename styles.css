@@ -218,8 +218,8 @@ h2{
 .foot .foot-links:hover{color:#fff}
 .claim{font-family:var(--head);font-weight:700;font-size:13px;letter-spacing:-.01em;color:#fff;opacity:.85}
 
-/* ---- MEET DAILY: die zwei Videos von heute Morgen nebeneinander – Titel oben, darunter ein Standbild aus dem Video,
-   das oben weich aus dem Kasten heraustritt; der Play-Knopf ist durchsichtig, das Gesicht bleibt sichtbar ---- */
+/* ---- MEET DAILY: die zwei Videos von heute Morgen nebeneinander – Titel oben, darunter ein Standbild aus dem Video
+   im selben Kasten wie der Tagesblock (18px Rundung, Feldfarbe); der Play-Knopf ist durchsichtig, das Gesicht bleibt sichtbar ---- */
 .daily{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
 .daily-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .clip{
@@ -240,16 +240,9 @@ h2{
 .clip:active{transform:scale(.985)}
 .clip-head{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-height:38px;padding:0 4px}
 .clip-name{font-family:var(--head);font-weight:700;font-size:16px;letter-spacing:-.01em;line-height:1.15;color:#fff;text-align:center}
-.clip-media{position:relative;display:block;margin:2px 0 0;aspect-ratio:9/11;flex:1}
-/* weicher Rahmen rundum: das Standbild löst sich an allen vier Seiten ins Nachtviolett der Seite auf – kein Kasten dahinter */
-.clip-img{
-  position:absolute;inset:0;width:100%;height:100%;
-  object-fit:cover;object-position:center 30%;
-  -webkit-mask-image:linear-gradient(to right,transparent 0,#000 18%,#000 82%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 22%,#000 80%,transparent 100%);
-  -webkit-mask-composite:source-in;
-  mask-image:linear-gradient(to right,transparent 0,#000 18%,#000 82%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 22%,#000 80%,transparent 100%);
-  mask-composite:intersect;
-}
+.clip-media{position:relative;display:block;margin:8px 0 0;aspect-ratio:9/11;flex:1;border-radius:18px;overflow:hidden;background:var(--field);isolation:isolate}
+/* scharfer Kasten wie der Tagesblock: das Standbild füllt ihn randlos, kein weicher Verlauf mehr */
+.clip-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 30%}
 .clip-dur{
   position:absolute;right:10px;bottom:8px;
   font-family:var(--mono);font-size:11px;letter-spacing:.04em;
@@ -258,7 +251,7 @@ h2{
   -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
 }
 .clip-play{
-  position:absolute;left:50%;top:56%;
+  position:absolute;left:50%;top:50%;
   width:52px;height:52px;margin:-26px 0 0 -26px;
   border-radius:50%;
   display:grid;place-items:center;
@@ -272,7 +265,7 @@ h2{
 .clip-play svg{width:20px;height:20px;margin-left:3px}
 .clip:hover .clip-play{transform:scale(1.08);background:rgba(255,255,255,.28)}
 .clip--soon{cursor:default}
-.clip--soon .clip-media{border:1.2px dashed rgba(255,255,255,.14);border-radius:18px;margin:6px 6px 0}
+.clip--soon .clip-media{border:1.2px dashed rgba(255,255,255,.14);background:transparent}
 .clip--soon .clip-name{color:var(--soft)}
 .clip--soon .clip-time{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--muted);margin-top:3px}
 .clip--soon .clip-media{aspect-ratio:auto;flex:1;min-height:60px}
