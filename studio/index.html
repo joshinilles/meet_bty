@@ -1651,15 +1651,59 @@ async function webStatus() {
   try { const j = await webCall('status'); web.day = todayKey(); web.items = j.items || []; } catch (e) { }
   renderWeb();
 }
-function putWithProgress(url, blob, type, onProgress) {
+/* Ein Stück (oder eine kleine Datei) per PUT hochladen. Die Daten gehen als Bytes aus dem Speicher (ArrayBuffer), nicht als
+   Blob: Safari schickt grosse Blobs manchmal als leeren Körper (WebKit-Fehler 319985). Fehler nennen Status und Antwort. */
+function putWithProgress(url, data, type, onProgress) {
   return new Promise((res, rej) => {
     const x = new XMLHttpRequest(); x.open('PUT', url); x.setRequestHeader('Content-Type', type);
-    x.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
-    x.onload = () => (x.status >= 200 && x.status < 300) ? res() : rej(new Error('Speicher antwortet mit HTTP ' + x.status));
-    x.onerror = () => rej(Object.assign(new Error('Verbindung zum Speicher abgebrochen'), { storage: true }));
+    let loaded = 0;
+    x.upload.onprogress = e => { if (e.lengthComputable) { loaded = e.loaded; if (onProgress) onProgress(e.loaded / e.total); } };
+    x.onload = () => {
+      if (x.status >= 200 && x.status < 300) return res();
+      const code = (/<Code>([^<]*)<\/Code>/.exec(x.responseText || '') || [])[1];
+      rej(Object.assign(new Error('Speicher antwortet mit HTTP ' + x.status + (code ? ' (' + code + ')' : '')), { status: x.status, retry: x.status >= 500 || x.status === 429 }));
+    };
+    x.onerror = () => rej(Object.assign(new Error('Verbindung zum Speicher abgebrochen (nach ' + (loaded / 1048576).toFixed(1) + ' MB)'), { storage: true, retry: true }));
     x.onabort = () => rej(new Error('Hochladen abgebrochen'));
-    x.send(blob);
+    x.ontimeout = () => rej(Object.assign(new Error('Speicher antwortet nicht (Zeitüberschreitung)'), { retry: true }));
+    x.timeout = 180000;
+    x.send(data);
   });
+}
+/* Video hochladen: kleine Dateien in einem Stück (op=sign), grosse in Stücken von partSize (op=mp-start … mp-complete).
+   Jedes Stück wird bei Netzproblemen bis zu dreimal wiederholt; der Fortschritt läuft über alles. Liefert den Schlüssel. */
+const WEB_SINGLE_MAX = 10 * 1048576;
+async function uploadVideo(blob, type, n, onProgress, onState) {
+  const total = blob.size;
+  if (total <= WEB_SINGLE_MAX) {
+    const s = await webCall('sign', { n, kind: 'video', type, size: total });
+    await putWithProgress(s.uploadUrl, await blob.arrayBuffer(), type, onProgress);
+    return s.key;
+  }
+  const mp = await webCall('mp-start', { n, type, size: total });
+  let done = 0;
+  try {
+    for (const part of mp.parts) {
+      const start = (part.partNumber - 1) * mp.partSize, end = Math.min(total, start + mp.partSize);
+      const bytes = await blob.slice(start, end).arrayBuffer();
+      if (bytes.byteLength !== end - start) throw new Error('Stück ' + part.partNumber + ' liess sich nicht aus dem Video lesen (' + bytes.byteLength + ' statt ' + (end - start) + ' Byte)');
+      for (let attempt = 1; ; attempt++) {
+        try { await putWithProgress(part.url, bytes, type, p => onProgress((done + p * bytes.byteLength) / total)); break; }
+        catch (e) {
+          if (!e.retry || attempt >= 3) throw Object.assign(e, { message: 'Stück ' + part.partNumber + ' von ' + mp.parts.length + ': ' + e.message });
+          if (onState) onState('Stück ' + part.partNumber + ' wird wiederholt (' + attempt + ') …');
+          await new Promise(r => setTimeout(r, 1500 * attempt));
+        }
+      }
+      done += bytes.byteLength;
+    }
+    if (onState) onState('Video wird zusammengesetzt …');
+    await webCall('mp-complete', { n, key: mp.key, uploadId: mp.uploadId, size: total });
+    return mp.key;
+  } catch (e) {
+    webCall('mp-abort', { n, key: mp.key, uploadId: mp.uploadId }).catch(() => { });
+    throw e;
+  }
 }
 /* Vorschaubild für die Startseite: ein Standbild aus dem Video (kurz nachdem sich die Titelkarte aufgelöst hat),
    damit man uns sieht – nur wenn das nicht klappt, die Titelkarte */
@@ -1698,25 +1742,26 @@ $('#btnWeb').addEventListener('click', async () => {
   let lock = null; try { if (navigator.wakeLock) lock = await navigator.wakeLock.request('screen'); } catch (e) { }
   try {
     state.textContent = 'Wird vorbereitet …';
-    const s = await webCall('sign', { n: current.n, kind: 'video', type: result.type, size: result.blob.size });
     const mb = (result.blob.size / 1048576).toFixed(0);
-    await putWithProgress(s.uploadUrl, result.blob, result.type, p => { bar.style.width = (p * 100).toFixed(1) + '%'; state.textContent = 'Video wird hochgeladen … ' + Math.round(p * 100) + ' % von ' + mb + ' MB'; });
+    const videoKey = await uploadVideo(result.blob, result.type, current.n,
+      p => { bar.style.width = (p * 100).toFixed(1) + '%'; state.textContent = 'Video wird hochgeladen … ' + Math.round(p * 100) + ' % von ' + mb + ' MB'; },
+      t => { state.textContent = t; });
     let posterKey = '';
     try {
       state.textContent = 'Vorschaubild wird hochgeladen …';
       const pb = await posterBlob();
-      if (pb) { const ps = await webCall('sign', { n: current.n, kind: 'poster', type: 'image/jpeg', size: pb.size }); await putWithProgress(ps.uploadUrl, pb, 'image/jpeg', null); posterKey = ps.key; }
+      if (pb) { const ps = await webCall('sign', { n: current.n, kind: 'poster', type: 'image/jpeg', size: pb.size }); await putWithProgress(ps.uploadUrl, await pb.arrayBuffer(), 'image/jpeg', null); posterKey = ps.key; }
     } catch (e) { console.warn('Titelkarte nicht hochgeladen:', e); }
     const rv = $('#resvid'), dur = isFinite(rv.duration) ? rv.duration : 0;
     state.textContent = 'Wird eingetragen …';
-    const j = await webCall('publish', { n: current.n, key: s.key, posterKey, size: result.blob.size, duration: dur, passage: getRef(), name: current.n === 2 ? speakerName() : '', title: current.n === 2 ? 'MEETmoment' : 'Start' });
+    const j = await webCall('publish', { n: current.n, key: videoKey, posterKey, size: result.blob.size, duration: dur, passage: getRef(), name: current.n === 2 ? speakerName() : '', title: current.n === 2 ? 'MEETmoment' : 'Start' });
     web.day = todayKey(); web.items = j.items || [];
     toast('Das Video ist jetzt auf meet-bty.com', 4000);
   } catch (e) {
     let why = e.message;
     if (e.storage) { // Upload direkt zum Speicher gescheitert: Function fragen, was genau fehlt (Konto, Schlüssel, CORS-Regel)
       state.textContent = 'Verbindung abgebrochen – prüfe die Einrichtung …';
-      try { const c = await webCall('check', { origin: location.origin }); const bad = (c.steps || []).filter(s => !s.ok); why = bad.length ? bad.map(s => s.text).join(' ') : 'Einrichtung sieht richtig aus (' + c.endpoint + ') – vermutlich Netz; bitte noch einmal versuchen.'; }
+      try { const c = await webCall('check', { origin: location.origin }); const bad = (c.steps || []).filter(s => !s.ok); why = e.message + ' – ' + (bad.length ? bad.map(s => s.text).join(' ') : 'Einrichtung sieht richtig aus (' + c.endpoint + '), vermutlich Netz; bitte noch einmal versuchen.'); }
       catch (e2) { why += ' (Prüfung nicht möglich: ' + e2.message + ')'; }
     }
     toast('Hochladen nicht möglich: ' + why, 12000);

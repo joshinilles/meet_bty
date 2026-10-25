@@ -88,7 +88,12 @@ Dateien: `netlify/functions/video.mjs` (signieren, Tagesverzeichnis, PIN), `netl
 Adressen für Cloudflare R2, AWS Signature V4 ohne SDK), `netlify/lib/video-store.mjs` (Verzeichnis in Netlify Blobs,
 Store `meet-video`, Schlüssel `d/<Tag>.json`). Die Videodateien selbst liegen **nicht** auf Netlify (Functions nehmen
 höchstens 6 MB an, Bandbreite kostet), sondern bei **Cloudflare R2** (kostenlos bis 10 GB, kein Traffic-Entgelt).
-Das Studio lädt mit einer vorsignierten Adresse direkt vom Handy in den Bucket. Pro Morgen und Video gibt es einen
+Das Studio lädt mit einer vorsignierten Adresse direkt vom Handy in den Bucket. Videos über 10 MB gehen in Stücken
+von 8 MB hoch (S3 Multipart: `op=mp-start` → PUT je Teil → `op=mp-complete`; die Function liest die ETags selbst, die
+CORS-Regel braucht kein `ExposeHeaders`). Jedes Stück wird bei Netzproblemen bis zu dreimal wiederholt, und die Stücke
+gehen als Bytes aus dem Speicher statt als Blob – Safari schickt grosse Blobs sonst manchmal als leeren Körper
+(WebKit-Fehler 319985, iOS 26.5–27). Beim Eintragen prüft die Function die Grösse im Speicher gegen die Datei im
+Studio; passt sie nicht, wird gelöscht und um einen neuen Versuch gebeten. Pro Morgen und Video gibt es einen
 Eintrag; erneutes Hochladen ersetzt das Video. Entfernen geht auf dem Ergebnis-Screen („Von der Startseite nehmen“) oder auf der
 Studio-Übersicht im Kasten „Heute auf meet-bty.com“ (je Video „Entfernen“ oder „Beide von der Startseite nehmen“); die Datei wird dabei gelöscht.
 

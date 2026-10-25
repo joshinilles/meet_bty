@@ -4,12 +4,15 @@
 //   GET  /.netlify/functions/video?day=YYYY-MM-DD          → { day, items: [{n,title,name,passage,url,poster,size,duration,at}] }  (öffentlich, 20 s Cache)
 //   POST ?op=status,  Body {day}                      (PIN) → { items }  Stand des Tages ohne Cache (Studio)
 //   POST ?op=sign,    Body {day, n, kind, type, size} (PIN) → { uploadUrl, key, url, expires }  kind = video | poster
+//   POST ?op=mp-start, Body {day, n, type, size}      (PIN) → { key, uploadId, partSize, parts:[{partNumber, url}] }  grosse Videos in Stücken (S3 Multipart)
+//   POST ?op=mp-complete, Body {day, n, key, uploadId, size} (PIN) → { ok, size }  Stücke zusammensetzen (ETags holt die Function selbst – kein ExposeHeaders in CORS nötig)
+//   POST ?op=mp-abort, Body {day, n, key, uploadId}   (PIN) → { ok }
 //   POST ?op=publish, Body {day, n, key, posterKey, size, duration, passage, name, title} (PIN) → { ok, items }
 //   POST ?op=remove,  Body {day, n}                   (PIN) → { ok, items }  Video von der Startseite nehmen (und löschen)
 //   POST ?op=check,   Body {day, origin}              (PIN) → { ok, endpoint, steps:[{step, ok, text}] }  Selbstprüfung von Konto, Schlüssel und CORS-Regel
 // PIN: Header x-studio-pin = Umgebungsvariable STUDIO_PIN (dieselbe wie im Studio und bei der WALL).
 // Lokal (MEET_VIDEO_LOCAL_DIR gesetzt): statt R2 nimmt der Entwicklungs-Server die Datei unter /__media/<key> an.
-import { r2Config, presign, publicUrl, deleteObject, headObject, checkSetup, fetchWhy } from '../lib/r2.mjs';
+import { r2Config, presign, publicUrl, deleteObject, headObject, checkSetup, fetchWhy, PART_SIZE, multipartStart, multipartPartUrl, multipartListParts, multipartComplete, multipartAbort } from '../lib/r2.mjs';
 import { readDay, writeDay, publicView, isDay } from '../lib/video-store.mjs';
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'content-type, x-studio-pin' };
@@ -68,6 +71,13 @@ export default async (req) => {
   const local = process.env.MEET_VIDEO_LOCAL_DIR || '';
   const cfg = local ? null : r2Config();
   const urlFor = (key) => (local ? '/__media/' + key : publicUrl(cfg, key));
+  // Lokal spielt der Entwicklungs-Server den Speicher (MEET_VIDEO_LOCAL_URL, z. B. http://127.0.0.1:8095) – auch für Multipart
+  const localBase = process.env.MEET_VIDEO_LOCAL_URL || '';
+  const keyFor = (kind, type) => {
+    const ext = kind === 'poster' ? (type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : 'jpg') : (type === 'video/webm' ? 'webm' : type === 'video/quicktime' ? 'mov' : 'mp4');
+    return 'daily/' + day + '/' + n + '-' + SLUG[n] + (kind === 'poster' ? '-karte' : '') + '-' + rand() + '.' + ext;
+  };
+  const keyOk = (key) => key.startsWith('daily/' + day + '/' + n + '-') && !/\.\./.test(key);
 
   try {
     if (op === 'status') {
@@ -91,11 +101,53 @@ export default async (req) => {
       if (size <= 0) return json({ error: 'Dateigrösse fehlt' }, 400);
       if (kind === 'video' && size > MAX_VIDEO) return json({ error: 'Video zu gross (' + (size / 1e6).toFixed(0) + ' MB)' }, 413);
       if (kind === 'poster' && size > MAX_POSTER) return json({ error: 'Vorschaubild zu gross' }, 413);
-      const ext = kind === 'poster' ? (type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : 'jpg') : (type === 'video/webm' ? 'webm' : type === 'video/quicktime' ? 'mov' : 'mp4');
-      const key = 'daily/' + day + '/' + n + '-' + SLUG[n] + (kind === 'poster' ? '-karte' : '') + '-' + rand() + '.' + ext;
+      const key = keyFor(kind, type);
       const expires = 1800;
       const uploadUrl = local ? '/__media/' + key : presign(cfg, 'PUT', key, expires);
       return json({ uploadUrl, key, url: urlFor(key), expires, method: 'PUT' });
+    }
+
+    if (op === 'mp-start') {
+      if (!n) return json({ error: 'n muss 1 oder 2 sein' }, 400);
+      const type = clean(body.type, 60), size = Number(body.size) || 0;
+      if (!/^video\/(mp4|quicktime|webm)$/.test(type)) return json({ error: 'Nur MP4-Videos (' + (type || 'unbekannt') + ')' }, 400);
+      if (size <= 0) return json({ error: 'Dateigrösse fehlt' }, 400);
+      if (size > MAX_VIDEO) return json({ error: 'Video zu gross (' + (size / 1e6).toFixed(0) + ' MB)' }, 413);
+      const key = keyFor('video', type), count = Math.max(1, Math.ceil(size / PART_SIZE)), expires = 3600;
+      let uploadId;
+      if (local) {
+        const r = await fetch(localBase + '/__media/' + key + '?uploads', { method: 'POST' });
+        uploadId = (/<UploadId>([^<]*)<\/UploadId>/.exec(await r.text()) || [])[1];
+        if (!uploadId) return json({ error: 'Lokaler Speicher startet den Upload nicht' }, 502);
+      } else uploadId = await multipartStart(cfg, key, type);
+      const parts = [];
+      for (let i = 1; i <= count; i++) parts.push({ partNumber: i, url: local ? '/__media/' + key + '?partNumber=' + i + '&uploadId=' + encodeURIComponent(uploadId) : multipartPartUrl(cfg, key, uploadId, i, expires) });
+      return json({ key, uploadId, partSize: PART_SIZE, parts, expires, url: urlFor(key) });
+    }
+
+    if (op === 'mp-complete' || op === 'mp-abort') {
+      if (!n) return json({ error: 'n muss 1 oder 2 sein' }, 400);
+      const key = clean(body.key, 200), uploadId = clean(body.uploadId, 400);
+      if (!keyOk(key) || !uploadId) return json({ error: 'Schlüssel passt nicht zu Tag und Video' }, 400);
+      if (op === 'mp-abort') {
+        if (local) await fetch(localBase + '/__media/' + key + '?uploadId=' + encodeURIComponent(uploadId), { method: 'DELETE' }); else await multipartAbort(cfg, key, uploadId);
+        return json({ ok: true });
+      }
+      const want = Number(body.size) || 0;
+      let got = 0;
+      if (local) {
+        const r = await fetch(localBase + '/__media/' + key + '?uploadId=' + encodeURIComponent(uploadId), { method: 'POST' });
+        if (!r.ok) return json({ error: 'Lokaler Speicher setzt das Video nicht zusammen (HTTP ' + r.status + ')' }, 502);
+        const h = await fetch(localBase + '/__media/' + key, { method: 'HEAD' }); got = Number(h.headers.get('content-length') || 0);
+      } else {
+        const parts = await multipartListParts(cfg, key, uploadId);
+        const have = parts.reduce((a, p) => a + p.size, 0);
+        if (want && have !== want) { await multipartAbort(cfg, key, uploadId); return json({ error: 'Im Speicher sind nur ' + (have / 1048576).toFixed(1) + ' von ' + (want / 1048576).toFixed(1) + ' MB angekommen (' + parts.length + ' Teile) – bitte noch einmal hochladen' }, 409); }
+        await multipartComplete(cfg, key, uploadId, parts);
+        const h = await headObject(cfg, key); got = h ? h.size : 0;
+      }
+      if (want && got !== want) { if (cfg) await deleteObject(cfg, key); return json({ error: 'Das Video ist im Speicher unvollständig (' + (got / 1048576).toFixed(1) + ' von ' + (want / 1048576).toFixed(1) + ' MB) – bitte noch einmal hochladen' }, 409); }
+      return json({ ok: true, size: got });
     }
 
     if (op === 'publish') {
@@ -108,6 +160,8 @@ export default async (req) => {
       if (cfg) {
         const h = await headObject(cfg, key);
         if (!h) return json({ error: 'Das Video ist im Speicher nicht angekommen – bitte noch einmal hochladen' }, 409);
+        // Grösse muss stimmen: Safari schickt grosse Dateien manchmal als leeren Körper (0 Byte kommen an)
+        if (size && h.size !== size) { await deleteObject(cfg, key); return json({ error: 'Das Video ist im Speicher unvollständig angekommen (' + (h.size / 1048576).toFixed(1) + ' von ' + (size / 1048576).toFixed(1) + ' MB) – bitte noch einmal hochladen' }, 409); }
         if (h.size) size = h.size;
       }
       const d = await readDay(day);

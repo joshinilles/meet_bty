@@ -33,7 +33,7 @@ const encSeg = (s) => encodeURIComponent(s).replace(/[!'()*]/g, (c) => '%' + c.c
 const encKey = (k) => k.split('/').map(encSeg).join('/');
 
 // Vorsignierte Adresse für PUT (hochladen), DELETE (löschen) oder HEAD/GET. Gültigkeit in Sekunden.
-export function presign(cfg, method, key, expires = 900, now = new Date(), extraQuery = null) {
+export function presign(cfg, method, key, expires = 900, now = new Date(), extraQuery = null, opts = {}) {
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, ''); // 20261024T054500Z
   const date = amzDate.slice(0, 8);
   const scope = date + '/auto/s3/aws4_request';
@@ -46,7 +46,8 @@ export function presign(cfg, method, key, expires = 900, now = new Date(), extra
   q.set('X-Amz-SignedHeaders', 'host');
   if (extraQuery) for (const k of Object.keys(extraQuery)) q.set(k, extraQuery[k]);
   const canonicalQuery = [...q.entries()].map(([k, v]) => encSeg(k) + '=' + encSeg(v)).sort().join('&');
-  const canonicalUri = '/' + encSeg(cfg.bucket) + '/' + encKey(key);
+  // Bucket-Operationen (key leer): R2 will „/bucket“ ohne Schrägstrich am Ende (mit Schrägstrich antwortet es HTTP 400)
+  const canonicalUri = '/' + encSeg(cfg.bucket) + (key === '' && opts.noSlash ? '' : '/' + encKey(key));
   const canonical = [method, canonicalUri, canonicalQuery, 'host:' + cfg.host + '\n', 'host', 'UNSIGNED-PAYLOAD'].join('\n');
   const toSign = ['AWS4-HMAC-SHA256', amzDate, scope, sha256(canonical)].join('\n');
   const kSigning = hmac(hmac(hmac(hmac('AWS4' + cfg.secret, date), 'auto'), 's3'), 'aws4_request');
@@ -70,6 +71,48 @@ export async function headObject(cfg, key) {
   } catch (e) { return null; }
 }
 
+// Fehlertext aus einer S3-XML-Antwort („Code: Message“), für lesbare Befunde
+export const s3Error = (xml) => { const c = /<Code>([^<]*)<\/Code>/.exec(xml || ''), m = /<Message>([^<]*)<\/Message>/.exec(xml || ''); return [c && c[1], m && m[1]].filter(Boolean).join(': '); };
+
+// Mehrteiliger Upload (S3 Multipart): grosse Videos gehen in Stücken von PART_SIZE hoch – jedes Stück ist eine kurze
+// Anfrage, die das Studio bei Netzproblemen einzeln wiederholt. Das umgeht ausserdem einen Safari-Fehler, bei dem
+// grosse Blobs als leerer Körper ankommen (das Studio schickt die Stücke als Bytes aus dem Speicher).
+export const PART_SIZE = 8 * 1048576;
+export async function multipartStart(cfg, key, type) {
+  const r = await fetch(presign(cfg, 'POST', key, 60, new Date(), { uploads: '' }), { method: 'POST', headers: { 'Content-Type': type } });
+  const xml = await r.text();
+  const id = /<UploadId>([^<]*)<\/UploadId>/.exec(xml);
+  if (!r.ok || !id) throw new Error('Speicher startet den Upload nicht (HTTP ' + r.status + (s3Error(xml) ? ', ' + s3Error(xml) : '') + ')');
+  return id[1];
+}
+export const multipartPartUrl = (cfg, key, uploadId, partNumber, expires) => presign(cfg, 'PUT', key, expires, new Date(), { partNumber: String(partNumber), uploadId });
+export async function multipartListParts(cfg, key, uploadId) {
+  const parts = []; let marker = '';
+  for (let i = 0; i < 20; i++) {
+    const q = { uploadId, 'max-parts': '1000' }; if (marker) q['part-number-marker'] = marker;
+    const r = await fetch(presign(cfg, 'GET', key, 60, new Date(), q));
+    const xml = await r.text();
+    if (!r.ok) throw new Error('Teile liessen sich nicht lesen (HTTP ' + r.status + (s3Error(xml) ? ', ' + s3Error(xml) : '') + ')');
+    for (const m of xml.matchAll(/<Part>([\s\S]*?)<\/Part>/g)) {
+      const n = /<PartNumber>(\d+)<\/PartNumber>/.exec(m[1]), e = /<ETag>([^<]*)<\/ETag>/.exec(m[1]), sz = /<Size>(\d+)<\/Size>/.exec(m[1]);
+      if (n && e) parts.push({ partNumber: Number(n[1]), etag: e[1].replace(/&quot;/g, '"'), size: sz ? Number(sz[1]) : 0 });
+    }
+    const trunc = /<IsTruncated>true<\/IsTruncated>/.test(xml), next = /<NextPartNumberMarker>(\d+)<\/NextPartNumberMarker>/.exec(xml);
+    if (!trunc || !next) break; marker = next[1];
+  }
+  return parts.sort((a, b) => a.partNumber - b.partNumber);
+}
+export async function multipartComplete(cfg, key, uploadId, parts) {
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const body = '<CompleteMultipartUpload>' + parts.map((p) => '<Part><PartNumber>' + p.partNumber + '</PartNumber><ETag>' + esc(p.etag) + '</ETag></Part>').join('') + '</CompleteMultipartUpload>';
+  const r = await fetch(presign(cfg, 'POST', key, 60, new Date(), { uploadId }), { method: 'POST', headers: { 'Content-Type': 'application/xml' }, body });
+  const xml = await r.text();
+  if (!r.ok || /<Error>/.test(xml)) throw new Error('Speicher setzt das Video nicht zusammen (HTTP ' + r.status + (s3Error(xml) ? ', ' + s3Error(xml) : '') + ')');
+}
+export async function multipartAbort(cfg, key, uploadId) {
+  try { await fetch(presign(cfg, 'DELETE', key, 60, new Date(), { uploadId }), { method: 'DELETE' }); } catch (e) { }
+}
+
 // Selbstprüfung für das Studio: stimmen Konto-ID/Endpunkt, Schlüssel und CORS-Regel? Liefert einen lesbaren Befund.
 export async function checkSetup(cfg, origin) {
   const out = { endpoint: 'https://' + cfg.host + '/' + cfg.bucket, publicUrl: cfg.publicUrl, steps: [], ok: false };
@@ -86,10 +129,11 @@ export async function checkSetup(cfg, origin) {
   else { out.steps.push({ step: 'zugang', ok: false, text: 'Unerwartete Antwort vom Speicher (HTTP ' + r.status + ').' }); return out; }
   // 2) CORS-Regel des Buckets lesen (S3 GetBucketCors)
   try {
-    const c = await fetch(presign(cfg, 'GET', '', 60, new Date(), { cors: '' }));
-    const xml = await c.text();
+    let c = await fetch(presign(cfg, 'GET', '', 60, new Date(), { cors: '' }, { noSlash: true }));
+    let xml = await c.text();
+    if (c.status === 400) { c = await fetch(presign(cfg, 'GET', '', 60, new Date(), { cors: '' })); xml = await c.text(); } // Schreibweise mit Schrägstrich als Rückfall
     if (c.status === 404) { out.steps.push({ step: 'cors', ok: false, text: 'Im Bucket ist keine CORS-Regel gespeichert. Cloudflare → R2 → Bucket → Settings → CORS policy: die Regel aus der README eintragen und speichern.' }); return out; }
-    if (!c.ok) { out.steps.push({ step: 'cors', ok: false, text: 'CORS-Regel liess sich nicht lesen (HTTP ' + c.status + ').' }); return out; }
+    if (!c.ok) { out.steps.push({ step: 'cors', ok: false, text: 'CORS-Regel liess sich nicht lesen (HTTP ' + c.status + (s3Error(xml) ? ', ' + s3Error(xml) : '') + '). Der Upload selbst hängt nicht an dieser Prüfung.' }); return out; }
     const origins = [...xml.matchAll(/<AllowedOrigin>([^<]*)<\/AllowedOrigin>/g)].map((m) => m[1]);
     const methods = [...xml.matchAll(/<AllowedMethod>([^<]*)<\/AllowedMethod>/g)].map((m) => m[1].toUpperCase());
     const headers = [...xml.matchAll(/<AllowedHeader>([^<]*)<\/AllowedHeader>/g)].map((m) => m[1].toLowerCase());
