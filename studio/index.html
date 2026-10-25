@@ -339,7 +339,7 @@ textarea.cap:focus{border-color:var(--pink)}
       <button class="btn block" id="btnWeb">Auf meet-bty.com stellen</button>
       <button class="btn ghost block" id="btnWebRemove" hidden>Von der Startseite nehmen</button>
       <button class="btn ghost block" id="btnWebCheck" hidden>Einrichtung prüfen</button>
-      <p class="hint">Erscheint auf der Startseite über „MEET-Moment teilen“ – mit einem Standbild aus dem Video als Vorschau. Braucht die Studio-PIN (Einstellungen).</p>
+      <p class="hint">Erscheint auf der Startseite über „MEET-Moment teilen“ – ohne Titelkarte (die Bibelstelle steht dort schon), mit einem Standbild aus dem Video als Vorschau. Braucht die Studio-PIN (Einstellungen).</p>
     </div>
     <div class="stack">
       <button class="btn block" id="btnShare">An WhatsApp teilen</button>
@@ -780,6 +780,7 @@ function aacDescription(sampleRate, channels) {
   let sfi = rates.indexOf(sampleRate); if (sfi < 0) sfi = 3;
   return new Uint8Array([(2 << 3) | (sfi >> 1), ((sfi & 1) << 7) | (channels << 3)]);
 }
+function cutUs() { return (Number(settings.cardSec) + (Number(settings.transSec) || 0)) * 1e6; }
 class WCSession {
   constructor(o) { this.W = o.W; this.H = o.H; this.fps = o.fps; this.sr = o.sampleRate; this.audio = o.audio; this.bitrate = o.bitrate; this.live = o.live; this.defer = !!o.deferMux; this.audioRaw = o.audioRaw || null; this.err = null; this.lastKey = -1e12; this.aq = []; this.aqLen = 0; this.asamples = 0; this.audioOffsetUs = 0; this.vchunks = null; this.nframes = 0; }
   async start() {
@@ -823,7 +824,9 @@ class WCSession {
   get busy() { return this.venc ? this.venc.encodeQueueSize : 0; }
   addFrame(canvas, tsUs, forceKey) {
     if (this.err) throw this.err;
-    const key = forceKey || (tsUs - this.lastKey >= 2e6);
+    let key = forceKey || (tsUs - this.lastKey >= 2e6);
+    /* Schlüsselbild genau nach Titelkarte + Übergang: dort schneidet cardlessBlob() die Fassung für meet-bty.com ab */
+    if (this.cutUs != null && tsUs >= this.cutUs) { key = true; this.cutUs = null; }
     if (key) this.lastKey = tsUs;
     const f = new VideoFrame(canvas, { timestamp: Math.round(tsUs) });
     try { this.venc.encode(f, { keyFrame: key }); } finally { f.close(); }
@@ -1026,7 +1029,7 @@ async function startLiveWC() {
   const cleanup = () => { clearInterval(timer); cancelAnimationFrame(raf); stopCamMonitor(); recording = null; btn.classList.remove('on'); btn.disabled = false; $('#recTime').hidden = true; out.classList.remove('show', 'mirror'); $('#hudCorners').classList.remove('off'); };
   try {
     await countdown(3);
-    session = new WCSession({ W, H, fps, bitrate, live: true, deferMux: true });
+    session = new WCSession({ W, H, fps, bitrate, live: true, deferMux: true }); session.cutUs = cutUs();
     await session.start();
     drawCard(octx, W, H, current, getRef()); wipePrepare(out);
     const n = Math.round(cardSec * fps);
@@ -1436,7 +1439,7 @@ async function processFiles(files, opt) {
       const firstAud = (parts.find(p => p.audio && !p.audio.silent) || {}).audio || null;
       if (!firstAud) diag('Export ohne Ton'); else diag(`Ton: AAC · ${firstAud.sampleRate} Hz · ${firstAud.channels === 1 ? 'Mono' : 'Stereo'}, wird 1:1 übernommen`);
       totalDur = parts.reduce((a, p) => a + Math.max(p.video ? spanSec(p.video.samples, p.video.timescale) : 0, p.audio && !p.audio.silent ? spanSec(p.audio.samples, p.audio.timescale) : 0), 0);
-      session = new WCSession({ W, H, fps, bitrate, live: false, audioRaw: firstAud });
+      session = new WCSession({ W, H, fps, bitrate, live: false, audioRaw: firstAud }); session.cutUs = cutUs();
       await session.start();
       drawCard(octx, W, H, current, getRef()); wipePrepare(out);
       const n = Math.round(cardSec * fps);
@@ -1707,7 +1710,7 @@ async function uploadVideo(blob, type, n, onProgress, onState) {
 }
 /* Vorschaubild für die Startseite: ein Standbild aus dem Video (kurz nachdem sich die Titelkarte aufgelöst hat),
    damit man uns sieht – nur wenn das nicht klappt, die Titelkarte */
-function videoFrameBlob() {
+function videoFrameBlob(url, atSec) {
   return new Promise((res) => {
     const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto';
     let finished = false;
@@ -1716,21 +1719,59 @@ function videoFrameBlob() {
     v.addEventListener('error', () => done(null));
     v.addEventListener('loadedmetadata', () => {
       const d = isFinite(v.duration) ? v.duration : 0;
-      const want = Number(settings.cardSec) + Number(settings.transSec) + 1.5;
+      const want = atSec;
       v.currentTime = d > 1 ? Math.min(want, Math.max(0.5, d - 0.5)) : 0.1;
     });
     v.addEventListener('seeked', () => {
       try { const c = document.createElement('canvas'); c.width = 540; c.height = 960; c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); c.toBlob(b => done(b), 'image/jpeg', 0.82); }
       catch (e) { done(null); }
     }, { once: true });
-    v.src = result.url; try { v.load(); } catch (e) { }
+    v.src = url; try { v.load(); } catch (e) { }
   });
 }
-async function posterBlob() {
-  try { const f = await videoFrameBlob(); if (f && f.size > 4000) return f; } catch (e) { }
+async function posterBlob(url, atSec) {
+  try { const f = await videoFrameBlob(url, atSec); if (f && f.size > 4000) return f; } catch (e) { }
   const c = document.createElement('canvas'); c.width = 540; c.height = 960;
   drawCard(c.getContext('2d'), c.width, c.height, current, getRef());
   return new Promise(res => c.toBlob(b => res(b), 'image/jpeg', 0.82));
+}
+/* Fassung für meet-bty.com ohne Titelkarte und Übergang – die Bibelstelle steht auf der Startseite schon; die Karte bleibt nur im WhatsApp-Video.
+   Nichts wird neu kodiert: ab dem Schlüsselbild, das die Aufnahme nach dem Übergang setzt (WCSession.cutUs), werden Bild- und Tonpakete
+   neu verpackt. Gibt null zurück, wenn dort kein Schlüsselbild liegt (z. B. MediaRecorder-Ersatzweg) – dann geht das Video mit Karte hoch. */
+async function cardlessBlob(blob) {
+  const cut = cutUs() / 1e6;
+  const an = await analyzeFile(blob, { aborted: false }, () => { });
+  const v = an.video, a = an.audio && !an.audio.silent ? an.audio : null;
+  if (!v || !/^avc1/.test(v.codec || '') || an.audio === null) return null;
+  const vs = v.samples, vts = v.timescale, v0 = vs[0].cts;
+  const k = vs.findIndex(x => x.is_sync && (x.cts - v0) / vts >= cut - 0.02);
+  if (k < 0 || (vs[k].cts - v0) / vts > cut + 0.25 || k >= vs.length - 1) return null;
+  const t0 = (vs[k].cts - v0) / vts;
+  const { Muxer, ArrayBufferTarget } = window.Mp4Muxer;
+  const mcfg = { target: new ArrayBufferTarget(), video: { codec: 'avc', width: v.width, height: v.height }, fastStart: 'in-memory', firstTimestampBehavior: 'offset' };
+  if (a) mcfg.audio = { codec: 'aac', sampleRate: a.sampleRate, numberOfChannels: a.channels };
+  const mx = new Muxer(mcfg);
+  let vmeta = { decoderConfig: { codec: v.codec, codedWidth: v.width, codedHeight: v.height, description: v.description } };
+  const ameta = a ? { decoderConfig: { codec: 'mp4a.40.2', sampleRate: a.sampleRate, numberOfChannels: a.channels, description: a.description } } : null;
+  /* zusammenhängende Pakete in Blöcken bis 2 MB lesen (wie hlMux) */
+  const copy = async (ss, add) => {
+    let i = 0;
+    while (i < ss.length) {
+      let j = i, start = ss[i].offset, end = start + ss[i].size;
+      while (j + 1 < ss.length && ss[j + 1].offset === end && end - start < 2 * 1048576) { j++; end += ss[j].size; }
+      const buf = new Uint8Array(await blob.slice(start, end).arrayBuffer()); let p = 0;
+      for (let q = i; q <= j; q++) { add(buf.slice(p, p + ss[q].size), ss[q]); p += ss[q].size; }
+      i = j + 1;
+    }
+  };
+  await copy(vs.slice(k), (d, x) => { mx.addVideoChunkRaw(d, x.is_sync ? 'key' : 'delta', ((x.cts - v0) / vts - t0) * 1e6, x.duration / vts * 1e6, vmeta); vmeta = undefined; });
+  if (a) {
+    const ats = a.timescale, a0 = a.samples.length ? a.samples[0].cts : 0;
+    await copy(a.samples.filter(x => (x.cts - a0) / ats >= t0 - 0.001), (d, x) => mx.addAudioChunkRaw(d, 'key', ((x.cts - a0) / ats - t0) * 1e6, x.duration / ats * 1e6, ameta));
+  }
+  mx.finalize();
+  const last = vs[vs.length - 1];
+  return { blob: new Blob([mx.target.buffer], { type: 'video/mp4' }), duration: (last.cts - v0 + last.duration) / vts - t0 };
 }
 $('#btnWeb').addEventListener('click', async () => {
   if (!result || web.busy) return;
@@ -1741,20 +1782,24 @@ $('#btnWeb').addEventListener('click', async () => {
   btn.disabled = true; prog.hidden = false; bar.style.width = '0%';
   let lock = null; try { if (navigator.wakeLock) lock = await navigator.wakeLock.request('screen'); } catch (e) { }
   try {
-    state.textContent = 'Wird vorbereitet …';
-    const mb = (result.blob.size / 1048576).toFixed(0);
-    const videoKey = await uploadVideo(result.blob, result.type, current.n,
+    state.textContent = 'Titelkarte wird weggelassen …';
+    let up = null; try { up = await cardlessBlob(result.blob); } catch (e) { console.warn('Fassung ohne Titelkarte nicht möglich:', e); }
+    const upBlob = up ? up.blob : result.blob, upType = up ? 'video/mp4' : result.type;
+    const mb = (upBlob.size / 1048576).toFixed(0);
+    const videoKey = await uploadVideo(upBlob, upType, current.n,
       p => { bar.style.width = (p * 100).toFixed(1) + '%'; state.textContent = 'Video wird hochgeladen … ' + Math.round(p * 100) + ' % von ' + mb + ' MB'; },
       t => { state.textContent = t; });
     let posterKey = '';
     try {
       state.textContent = 'Vorschaubild wird hochgeladen …';
-      const pb = await posterBlob();
+      const purl = up ? URL.createObjectURL(upBlob) : result.url;
+      const pb = await posterBlob(purl, up ? 1.5 : cutUs() / 1e6 + 1.5);
+      if (up) URL.revokeObjectURL(purl);
       if (pb) { const ps = await webCall('sign', { n: current.n, kind: 'poster', type: 'image/jpeg', size: pb.size }); await putWithProgress(ps.uploadUrl, await pb.arrayBuffer(), 'image/jpeg', null); posterKey = ps.key; }
     } catch (e) { console.warn('Titelkarte nicht hochgeladen:', e); }
-    const rv = $('#resvid'), dur = isFinite(rv.duration) ? rv.duration : 0;
+    const rv = $('#resvid'), dur = up ? up.duration : (isFinite(rv.duration) ? rv.duration : 0);
     state.textContent = 'Wird eingetragen …';
-    const j = await webCall('publish', { n: current.n, key: videoKey, posterKey, size: result.blob.size, duration: dur, passage: getRef(), name: current.n === 2 ? speakerName() : '', title: current.n === 2 ? 'MEETmoment' : 'Start' });
+    const j = await webCall('publish', { n: current.n, key: videoKey, posterKey, size: upBlob.size, duration: dur, passage: getRef(), name: current.n === 2 ? speakerName() : '', title: current.n === 2 ? 'MEETmoment' : 'Start' });
     web.day = todayKey(); web.items = j.items || [];
     toast('Das Video ist jetzt auf meet-bty.com', 4000);
   } catch (e) {
@@ -2197,7 +2242,7 @@ window.MEET = { selfTest: async (sec, v) => {
   const p = liveMode() === 'wc' ? startLiveWC() : startLiveRaw();
   await sleep(3200 + sec * 1000); if (recording) recording.stop();
   await p; osc.stop(); a.close();
-}, reprocess: (v) => { current = VIDEOS[v || 1]; return processFile(result.file, {}); }, result: () => result, processFromUrl: async (u, v) => { current = VIDEOS[v || 1]; const r = await fetch(u); const b = await r.blob(); return processFile(new File([b], 'test.mp4', { type: b.type || 'video/mp4' }), {}); }, settings, caps, drawCard, drawCard2, wipePrepare, wipeDraw, VIDEOS, IMG, loadPlan, planLookup, plan: () => plan, drawHighlight, drawInvite, openHighlight, hlFiles, hl: () => hl, hlAudioChunks, hlMux };
+}, reprocess: (v) => { current = VIDEOS[v || 1]; return processFile(result.file, {}); }, result: () => result, cardless: () => cardlessBlob(result.blob), processFromUrl: async (u, v) => { current = VIDEOS[v || 1]; const r = await fetch(u); const b = await r.blob(); return processFile(new File([b], 'test.mp4', { type: b.type || 'video/mp4' }), {}); }, settings, caps, drawCard, drawCard2, wipePrepare, wipeDraw, VIDEOS, IMG, loadPlan, planLookup, plan: () => plan, drawHighlight, drawInvite, openHighlight, hlFiles, hl: () => hl, hlAudioChunks, hlMux };
 })();
 </script>
 
