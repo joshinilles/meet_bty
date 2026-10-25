@@ -750,3 +750,18 @@ html.links-in .links>*:nth-child(6){animation-delay:.38s}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none !important;transition:none !important}
 }
+
+/* ---- Mein MEET-Moment: heute gross und hell, die letzten Tage klein, Fragen mit Antworten dazwischen ---- */
+.mine-today,.mine-past{display:flex;flex-direction:column;gap:10px}
+.mine-today .ask--mine{border-color:rgba(212,246,90,.5);background:rgba(212,246,90,.07)}
+.mine-today .ask-text{font-size:17px;line-height:1.45}
+.asks--small .ask{padding:11px 14px 10px;gap:6px;animation:none}
+.asks--small .ask-text{font-size:14px;line-height:1.4}
+.asks--small .ask-answer{font-size:13.5px}
+.mine-day{margin-top:6px}
+.mine-day:first-child{margin-top:0}
+.mine-more{align-self:flex-start;margin-top:-6px;padding-left:0}
+/* Badge „n neu“ (neue Antworten) am Lime-Knopf: dunkel auf hell */
+.btn-badge{margin-left:10px;background:var(--night);color:var(--lime)}
+/* MEET2gether-Hinweis, Claim und Rechtliches liegen tiefer – erst sichtbar, wenn man unter der MEET WALL weiterscrollt */
+.deep{display:flex;flex-direction:column;gap:18px;margin-top:min(60vh,520px);margin-top:min(60dvh,520px)}

@@ -19,7 +19,7 @@
       send: "Festhalten",
       sentKicker: "Moment festgehalten",
       sentHeading: function (n) { return n ? "Festgehalten, " + n + "!" : "Festgehalten!"; },
-      sentBody: "Dein MEET-Moment bleibt auf diesem Handy. Unter „Meine MEET-Momente“ findest du ihn wieder."
+      sentBody: "Dein MEET-Moment bleibt auf diesem Handy. Du findest ihn auf der Startseite unter „Mein MEET-Moment“."
     },
     question: {
       label: "Frage zum Text",
@@ -46,7 +46,7 @@
     addName: $("addName"), name: $("name"), error: $("error"), send: $("send"),
     wallRow: $("wallRow"), wall: $("wall"),
     sentKicker: $("sentKicker"), sentHeading: $("sentHeading"), sentBody: $("sentBody"),
-    reset: $("reset"), goWall: $("goWall"), homeMine: $("homeMine"), homeMineText: $("homeMineText"), minePop: $("minePop"), minePopBack: $("minePopBack"), minePopClose: $("minePopClose"), minePopList: $("minePopList"), pushBox: $("pushBox"), pushAsk: $("pushAsk"), pushHint: $("pushHint"), homeAsks: $("homeAsks"), askPast: $("askPast"), askPastNew: $("askPastNew"), askPop: $("askPop"), askPopBack: $("askPopBack"), askPopClose: $("askPopClose"), askPopList: $("askPopList"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
+    reset: $("reset"), goWall: $("goWall"), homeMine: $("homeMine"), homeMineText: $("homeMineText"), minePop: $("minePop"), minePopBack: $("minePopBack"), minePopClose: $("minePopClose"), minePopTodayWrap: $("minePopTodayWrap"), minePopTodayLabel: $("minePopTodayLabel"), minePopToday: $("minePopToday"), minePopPastWrap: $("minePopPastWrap"), minePopPast: $("minePopPast"), mineMore: $("mineMore"), goMomentText: $("goMomentText"), goMomentBadge: $("goMomentBadge"), homeMineBadge: $("homeMineBadge"), pushBox: $("pushBox"), pushAsk: $("pushAsk"), pushHint: $("pushHint"), homeAsks: $("homeAsks"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
     wallBack: $("wallBack"), wallKicker: $("wallKicker"), wallHint: $("wallHint"), wallList: $("wallList"), wallNote: $("wallNote"),
     wallMore: $("wallMore"), wallPast: $("wallPast"), wallHome: $("wallHome")
   };
@@ -54,7 +54,7 @@
   var reduce = false;
   try { reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
 
-  var state = { screen: "home", mode: "moment", texts: { moment: "", question: "" }, busy: false };
+  var state = { screen: "home", mode: "moment", texts: { moment: "", question: "" }, busy: false, mineMode: "write" };
 
   // ---- Kopf: Datum & Bibelstelle ----
   // Angezeigter Tag = heute, ausser eine Vorschau ist aktiv (?vorschau=YYYY-MM-DD oder config.js preview bis „until“).
@@ -73,12 +73,11 @@
   el.dateLabel.textContent = now.getDate() + ". " + MONTHS[now.getMonth()];
   el.passage.textContent = cfg.passage;
   if (weekend) {
-    // Kein Text, den man liest – also auch kein Teilen und keine Frage; stattdessen der Claim und der Blick zurück auf die Woche
+    // Kein Text, den man liest – also auch kein Teilen und keine Frage; stattdessen nur der Blick zurück auf die Woche (der Claim steht immer oben)
     el.dayWord.textContent = now.getDay() === 6 ? "Samstag" : "Sonntag";
     el.passage.textContent = "Am Montag geht's weiter.";
     el.passage.parentNode.classList.add("day--weekend");
     el.screens.home.classList.add("screen--weekend");
-    $("homeTitle").textContent = "Mit Gott Leben leben.";
     el.homeWeek.hidden = false;
   }
   el.fPassage.value = cfg.passage;
@@ -185,7 +184,7 @@
     hideError();
   }
 
-  el.goMoment.addEventListener("click", function () { goWrite("moment"); });
+  el.goMoment.addEventListener("click", function () { if (state.mineMode === "mine") openMinePop(); else goWrite("moment"); });
   el.goQuestion.addEventListener("click", function () { goWrite("question"); });
   el.back.addEventListener("click", function () {
     if (history.state && history.state.screen === "write") history.back(); else goHome();
@@ -195,7 +194,7 @@
   });
   window.addEventListener("popstate", function () {
     if (playerOpen()) { closePlayer(true); return; }
-    if (!el.minePop.hidden) { closeMinePop(true); return; }
+    if (!el.minePop.hidden) { closeMinePop(true); if (mineThenWrite) { mineThenWrite = false; goWrite("moment"); } return; }
     if (state.screen !== "home") goHome();
   });
 
@@ -429,24 +428,22 @@
       })
       .catch(function () { return false; });
   }
-  // Heute-Screen zeigt nur die heute gestellten Fragen; alles davor liegt im Pop-up „Deine Fragen der letzten Tage“
-  var ASK_SEEN_KEY = "meet:asks-seen"; // Zeitpunkt des letzten Blicks ins Pop-up – für „n neu“
+  // Heute-Screen zeigt nur die heute gestellten Fragen; alles davor liegt in der Ansicht „Mein MEET-Moment“ (bei den Momenten des Tages)
+  var ASK_SEEN_KEY = "meet:asks-seen"; // Zeitpunkt des letzten Blicks in die Ansicht – für „n neu“ am Knopf
   function askIsToday(q) { var d = new Date(q.ts); return !isNaN(d) && dayKey(d) === dayKey(new Date()); }
   function asksSeen() { var v = 0; try { v = Date.parse(localStorage.getItem(ASK_SEEN_KEY) || "") || 0; } catch (e) {} return v; }
+  // Neue Antworten seit dem letzten Blick in „Mein MEET-Moment“ – als Badge am Knopf
+  function freshAnswers() {
+    var seen = asksSeen();
+    return readAsks().filter(function (q) { return q.status === "beantwortet" && Date.parse(q.answeredAt || "") > seen; }).length;
+  }
   function renderAsks() {
-    var all = readAsks();
-    var asks = all.filter(askIsToday).slice(0, 3);
-    var past = all.filter(function (q) { return !askIsToday(q); });
+    var asks = readAsks().filter(askIsToday).slice(0, 3);
     el.homeAsks.innerHTML = "";
     el.homeAsks.hidden = !asks.length;
     asks.forEach(function (q) { el.homeAsks.appendChild(askCard(q)); });
-    // Link zum Pop-up nur, wenn es frühere Fragen gibt; Badge zählt neue Antworten seit dem letzten Blick
-    el.askPast.hidden = !past.length;
-    var seen = asksSeen();
-    var fresh = past.filter(function (q) { return q.status === "beantwortet" && Date.parse(q.answeredAt || "") > seen; }).length;
-    el.askPastNew.hidden = !fresh;
-    el.askPastNew.textContent = fresh + " neu";
-    if (!el.askPop.hidden) renderAskPop(past);
+    updateHomeMine();
+    if (!el.minePop.hidden) renderMinePop();
   }
   function askCard(q) {
     var done = q.status === "beantwortet";
@@ -472,28 +469,7 @@
     c.appendChild(w);
     return c;
   }
-  function renderAskPop(past) {
-    el.askPopList.innerHTML = "";
-    past.forEach(function (q) { el.askPopList.appendChild(askCard(q)); });
-  }
-  function openAskPop() {
-    renderAskPop(readAsks().filter(function (q) { return !askIsToday(q); }));
-    el.askPop.hidden = false;
-    document.body.classList.add("pop-open");
-    try { localStorage.setItem(ASK_SEEN_KEY, new Date().toISOString()); } catch (e) {}
-    el.askPastNew.hidden = true;
-    el.askPopClose.focus();
-  }
-  function closeAskPop() {
-    if (el.askPop.hidden) return;
-    el.askPop.hidden = true;
-    document.body.classList.remove("pop-open");
-    el.askPast.focus();
-  }
-  el.askPast.addEventListener("click", openAskPop);
-  el.askPopClose.addEventListener("click", closeAskPop);
-  el.askPopBack.addEventListener("click", closeAskPop);
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeAskPop(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMinePop(false); });
   function askDay(ts) {
     var d = ts ? new Date(ts) : null;
     if (!d || isNaN(d)) return "";
@@ -802,15 +778,25 @@
     try { localStorage.setItem(MINE_KEY, JSON.stringify(list.slice(0, MINE_MAX))); } catch (e) {}
     updateHomeMine();
   }
+  // Knopf auf der Startseite: bis heute ein Moment festgehalten ist „Meinen MEET-Moment festhalten“ (schreiben), danach
+  // „Mein MEET-Moment“ (öffnet die eigene Ansicht). Frühere Momente/Fragen ohne einen von heute: dezenter Link darunter.
+  var mineThenWrite = false;
   function updateHomeMine() {
-    var n = readMine().length;
-    el.homeMine.hidden = !n;
-    el.homeMineText.textContent = "Meine MEET-Momente · " + n;
+    var all = readMine(), today = all.filter(askIsToday), fresh = freshAnswers();
+    var pastAsks = readAsks().some(function (q) { return !askIsToday(q); });
+    state.mineMode = today.length ? "mine" : "write";
+    el.goMomentText.textContent = today.length ? "Mein MEET-Moment" : "Meinen MEET-Moment festhalten";
+    el.goMomentBadge.hidden = !(today.length && fresh);
+    el.goMomentBadge.textContent = fresh + " neu";
+    el.homeMine.hidden = !!today.length || !(all.length || pastAsks);
+    el.homeMineText.textContent = all.length ? "Meine früheren MEET-Momente · " + all.length : "Deine Fragen der letzten Tage";
+    el.homeMineBadge.hidden = !(!today.length && fresh);
+    el.homeMineBadge.textContent = fresh + " neu";
   }
-  function mineCard(m) {
+  function mineCard(m, big) {
     var c = document.createElement("article"); c.className = "ask ask--mine";
     var head = document.createElement("div"); head.className = "ask-head";
-    var lab = document.createElement("span"); lab.className = "label"; lab.textContent = askDay(m.ts) || "MEET-Moment";
+    var lab = document.createElement("span"); lab.className = "label"; lab.textContent = big ? "Dein MEET-Moment" : "MEET-Moment";
     head.appendChild(lab);
     if (m.wall) { var st = document.createElement("span"); st.className = "ask-state"; st.textContent = "Auf der Wand geteilt"; head.appendChild(st); }
     var t = document.createElement("p"); t.className = "ask-text"; t.textContent = m.text;
@@ -818,13 +804,42 @@
     if (m.passage) { var w = document.createElement("p"); w.className = "ask-when"; w.textContent = m.passage; c.appendChild(w); }
     return c;
   }
+  // Alles Eigene in einer Zeitleiste: Momente und Fragen, heute gross, davor klein und nach Tag gruppiert
+  function mineEntries() {
+    var list = readMine().map(function (m) { return { ts: m.ts, m: m }; }).concat(readAsks().map(function (q) { return { ts: q.ts, q: q }; }));
+    list.sort(function (a, b) { return a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0; });
+    return list;
+  }
+  function renderMinePop() {
+    var entries = mineEntries(), tk = dayKey(new Date());
+    var today = entries.filter(function (e) { return dayKey(new Date(e.ts)) === tk; }), past = entries.filter(function (e) { return dayKey(new Date(e.ts)) !== tk; });
+    el.minePopToday.innerHTML = ""; el.minePopPast.innerHTML = "";
+    el.minePopTodayWrap.hidden = !today.length;
+    el.minePopTodayLabel.textContent = "Heute · " + el.passage.textContent;
+    today.forEach(function (e) { el.minePopToday.appendChild(e.m ? mineCard(e.m, true) : askCard(e.q)); });
+    el.minePopPastWrap.hidden = !past.length;
+    var lastDay = "";
+    past.forEach(function (e) {
+      var k = dayKey(new Date(e.ts));
+      if (k !== lastDay) { lastDay = k; var h = document.createElement("span"); h.className = "label mine-day"; h.textContent = askDay(e.ts) + (e.m && e.m.passage ? " · " + e.m.passage : e.q && e.q.passage ? " · " + e.q.passage : ""); el.minePopPast.appendChild(h); }
+      el.minePopPast.appendChild(e.m ? mineCard(e.m, false) : askCard(e.q));
+    });
+  }
   function openMinePop() {
-    el.minePopList.innerHTML = "";
-    readMine().forEach(function (m) { el.minePopList.appendChild(mineCard(m)); });
+    renderMinePop();
     el.minePop.hidden = false;
     document.body.style.overflow = "hidden";
     try { history.pushState({ pop: "mine" }, ""); } catch (e) {}
+    try { localStorage.setItem(ASK_SEEN_KEY, new Date().toISOString()); } catch (e) {}
+    el.goMomentBadge.hidden = true; el.homeMineBadge.hidden = true;
   }
+  // „Noch einen MEET-Moment festhalten“: Ansicht zu, dann schreiben (bei Verlauf erst nach dem popstate)
+  function mineWrite() {
+    var viaHistory = !!(history.state && history.state.pop === "mine");
+    closeMinePop(false);
+    if (viaHistory) mineThenWrite = true; else goWrite("moment");
+  }
+  el.mineMore.addEventListener("click", mineWrite);
   function closeMinePop(fromHistory) {
     if (el.minePop.hidden) return;
     if (!fromHistory && history.state && history.state.pop === "mine") { try { history.back(); return; } catch (e) {} }
