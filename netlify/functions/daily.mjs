@@ -18,8 +18,14 @@ const json = (obj, status = 200, extra = {}) =>
   new Response(JSON.stringify(obj), { status, headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...extra } });
 const msg = (e) => (e && e.message ? e.message : String(e));
 
-// Dieselben sechs wie die Schnellauswahl bei WhatsApp
-export const EMOJI = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+// Erlaubt ist jedes EINZELNE Emoji (ein Grapheme, z. B. auch 🙏🏽 oder ❤️‍🔥) – nicht nur die sechs schnellen aus der Leiste
+const EMOJI_RE = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
+function isEmoji(e) {
+  if (typeof e !== 'string' || !e || e.length > 20) return false;
+  try { let n = 0; for (const _ of new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(e)) if (++n > 1) return false; }
+  catch (err) { if (Array.from(e).length > 4) return false; }
+  return EMOJI_RE.test(e);
+}
 const MAX_SEC = 2 * 3600;
 
 const devHash = (id) => createHash('sha256').update('meet-device:' + String(id)).digest('hex').slice(0, 24);
@@ -41,7 +47,7 @@ function cleanRecord(b) {
       if (sec || max) w[n] = { sec: Math.round(sec), max: Math.round(max), dur: Math.round(dur) };
     }
     const e = b.x && b.x[n];
-    if (typeof e === 'string' && EMOJI.includes(e)) x[n] = e;
+    if (isEmoji(e)) x[n] = e;
   }
   return { at: new Date().toISOString(), app: !!b.app, hits: Math.round(num(b.hits, 1000)) || 1, w, x };
 }

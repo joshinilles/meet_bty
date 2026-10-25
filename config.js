@@ -35,6 +35,11 @@ window.MEET_CONFIG = {
     ]
   },
 
+  // Vorschau: die Startseite zeigt bis „until“ den Tag „day“ (Wochentag, Datum, Bibelstelle aus dem Jahresplan) –
+  // z. B. am Sonntag schon den Montag, um ein Erklärvideo zu drehen. Läuft von selbst ab; die Videos bleiben die von heute.
+  // Ohne Deploy geht dasselbe mit ?vorschau=2026-10-26 hinter der Adresse. Zum Abschalten: preview: null.
+  preview: { day: "2026-10-26", until: "2026-10-26T04:00:00+01:00" },
+
   // Push-Benachrichtigung („Sag mir Bescheid, wenn die Antwort da ist“): öffentlicher VAPID-Schlüssel.
   // Der private Schlüssel liegt NUR auf Netlify (Umgebungsvariable VAPID_PRIVATE_KEY, dazu VAPID_SUBJECT = mailto:…).
   pushKey: "BMFvrYJWGGKhSuFYq4USrEY9Tw4ZLJQhvNOssjrgCkATdZh4P-JnenHfSAsGv769FwDbw9EF7KIKDa1N24CKtQc"

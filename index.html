@@ -218,6 +218,14 @@
     <video id="playerVideo" controls playsinline preload="metadata"></video>
     <!-- Reaktionen wie bei WhatsApp – nur beim MEETmoment (Video 2), eine pro Gerät; Zahlen von allen -->
     <div class="react" id="playerReact" hidden role="group" aria-label="Auf das Video reagieren"></div>
+    <!-- Plus-Knopf: jedes andere Emoji – Raster zum Antippen oder eigenes über die Emoji-Tastatur -->
+    <div class="react-pick" id="playerPick" hidden>
+      <div class="react-grid" id="pickGrid"></div>
+      <div class="react-own">
+        <input type="text" id="pickInput" placeholder="Oder dein eigenes Emoji tippen …" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Eigenes Emoji">
+        <button type="button" class="btn btn--text" id="pickClose">Schliessen</button>
+      </div>
+    </div>
   </div>
 </div>
 <!-- Pop-up: die eigenen MEET-Momente (nur auf diesem Gerät) -->

@@ -57,7 +57,17 @@
   var state = { screen: "home", mode: "moment", texts: { moment: "", question: "" }, busy: false };
 
   // ---- Kopf: Datum & Bibelstelle ----
+  // Angezeigter Tag = heute, ausser eine Vorschau ist aktiv (?vorschau=YYYY-MM-DD oder config.js preview bis „until“).
+  // Die Vorschau betrifft nur Wochentag, Datum und Bibelstelle; Videos, Zahlen und Push laufen weiter über den echten Tag.
   var now = new Date();
+  (function () {
+    var DAY = /^\d{4}-\d{2}-\d{2}$/, want = "";
+    try { want = new URLSearchParams(location.search).get("vorschau") || ""; } catch (e) {}
+    var pv = cfg.preview;
+    if (!DAY.test(want) && pv && pv.day && DAY.test(pv.day) && Date.now() < new Date(pv.until || 0).getTime()) want = pv.day;
+    if (DAY.test(want)) { var d = new Date(want + "T12:00:00"); if (!isNaN(d)) now = d; }
+  })();
+  function showKey() { return now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0"); }
   // Wochenende: MEET DAILY pausiert – oben steht „Am Montag geht's weiter“, darunter der Blick zurück auf die Woche
   var weekend = now.getDay() === 0 || now.getDay() === 6;
   el.dateLabel.textContent = now.getDate() + ". " + MONTHS[now.getMonth()];
@@ -126,7 +136,7 @@
   }
   function loadPlan() {
     var url = (cfg.planUrl || "").trim(); if (!url || !window.fetch) return;
-    var day = todayKey();
+    var day = showKey();
     try { var c = JSON.parse(localStorage.getItem(PLAN_CACHE) || "null"); if (c && c.csv) setPassage(planLookup(c.csv, day)); } catch (e) {}
     fetchCsv(url).catch(function () {
       if (!/docs\.google\.com/.test(url)) throw new Error("nicht erreichbar");
@@ -832,7 +842,22 @@
   var daily = { day: "", items: [], react: {} };
   var DAILY_FN = "/.netlify/functions/daily", USE_KEY = "meet:use:", DEVICE_KEY = "meet:device", PUSH_DAILY_KEY = "meet:push-daily";
   var REACT = ["👍", "❤️", "😂", "😮", "😢", "🙏"]; // dieselben sechs wie die Schnellauswahl bei WhatsApp
-  var dEl = { box: $("homeDaily"), grid: $("dailyGrid"), player: $("player"), back: $("playerBack"), close: $("playerClose"), video: $("playerVideo"), title: $("playerTitle"), kicker: $("playerKicker"), react: $("playerReact") };
+  // Hinter dem Plus: häufige Emojis zum Antippen – und ein Feld für jedes andere (Emoji-Tastatur)
+  var MORE_EMOJI = ["🔥", "✨", "👏", "💪", "🙌", "🫶", "🤲", "✝️", "📖", "🕊️", "💛", "💚", "💙", "💜", "🧡", "🤍", "💯", "🥰", "😍", "🤗", "😇", "🤩", "😊", "😅", "🤔", "😌", "😭", "🥲", "😔", "🥱", "🤝", "👀", "🎉", "🌅", "☀️", "🌈", "⭐", "🌟", "💡", "🎶", "☕", "🍞", "🌱", "🏔️", "🫡", "✅", "🙏🏽", "👍🏽"];
+  var EMOJI_RE = null; try { EMOJI_RE = new RegExp("\\p{Extended_Pictographic}|\\p{Regional_Indicator}", "u"); } catch (e) {}
+  // Erstes Zeichen (Grapheme) eines Textes, wenn es ein Emoji ist – sonst ""
+  function firstEmoji(str) {
+    str = String(str || "").trim(); if (!str) return "";
+    var g = "";
+    try {
+      if (window.Intl && Intl.Segmenter) { var it = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(str)[Symbol.iterator]().next(); g = it.value ? it.value.segment : ""; }
+      else g = Array.from(str)[0] || "";
+    } catch (e) { g = str.slice(0, 2); }
+    if (!g || g.length > 20) return "";
+    if (EMOJI_RE) return EMOJI_RE.test(g) ? g : "";
+    return /^[^\w\s.,;:!?\-]+$/.test(g) ? g : "";
+  }
+  var dEl = { box: $("homeDaily"), grid: $("dailyGrid"), player: $("player"), back: $("playerBack"), close: $("playerClose"), video: $("playerVideo"), title: $("playerTitle"), kicker: $("playerKicker"), react: $("playerReact"), pick: $("playerPick"), pickGrid: $("pickGrid"), pickInput: $("pickInput"), pickClose: $("pickClose") };
   function fmtDur(s) { s = Math.round(s || 0); if (!s) return ""; return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + (s % 60) + " Min"; }
   var PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
   function stepTitle(v) { return v.n === 1 ? "Wir werden still" : "MEETmoment" + (v.name ? " mit " + v.name : ""); }
@@ -951,6 +976,7 @@
   }
   function setReaction(n, e) {
     var old = use.x[n] || "";
+    if (e && !firstEmoji(e)) return;
     if (old === e) e = "";
     var c = daily.react[n] = daily.react[n] || {};
     if (old && c[old]) c[old]--;
@@ -962,11 +988,15 @@
   function renderReact(pop) {
     var on = !!(playerItem && playerItem.n === 2);
     dEl.react.hidden = !on;
+    if (!on) hidePick();
     dEl.player.querySelector(".player-box").classList.toggle("has-react", on);
     if (!on) return;
     var c = reactCounts(2), mine = use.x[2] || "";
+    // Die sechs Schnellen, dazu andere Emojis mit Stimmen (höchstens vier) und die eigene – dann das Plus
+    var extra = Object.keys(c).filter(function (k) { return c[k] > 0 && REACT.indexOf(k) < 0; }).sort(function (a, b) { return c[b] - c[a]; }).slice(0, 4);
+    if (mine && REACT.indexOf(mine) < 0 && extra.indexOf(mine) < 0) extra.unshift(mine);
     dEl.react.textContent = "";
-    REACT.forEach(function (e) {
+    REACT.concat(extra).forEach(function (e) {
       var b = document.createElement("button"); b.type = "button";
       b.className = "react-btn" + (mine === e ? " is-on" : "") + (pop === e ? " pop" : "");
       b.setAttribute("aria-label", "Mit " + e + " reagieren"); b.setAttribute("aria-pressed", mine === e ? "true" : "false");
@@ -976,7 +1006,37 @@
       b.addEventListener("click", function () { setReaction(2, e); });
       dEl.react.appendChild(b);
     });
+    var more = document.createElement("button"); more.type = "button"; more.className = "react-btn react-btn--more";
+    more.setAttribute("aria-label", "Anderes Emoji wählen"); more.setAttribute("aria-expanded", dEl.pick.hidden ? "false" : "true");
+    var me = document.createElement("span"); me.className = "e"; me.textContent = "+"; more.appendChild(me);
+    var mc = document.createElement("span"); mc.className = "c"; more.appendChild(mc);
+    more.addEventListener("click", function () { if (dEl.pick.hidden) showPick(); else hidePick(); });
+    dEl.react.appendChild(more);
   }
+  // Auswahl für alle anderen Emojis: Raster zum Antippen und ein Feld für die Emoji-Tastatur
+  function showPick() {
+    if (!dEl.pickGrid.childNodes.length) {
+      MORE_EMOJI.forEach(function (e) {
+        var b = document.createElement("button"); b.type = "button"; b.textContent = e; b.setAttribute("aria-label", "Mit " + e + " reagieren");
+        b.addEventListener("click", function () { hidePick(); setReaction(2, e); });
+        dEl.pickGrid.appendChild(b);
+      });
+    }
+    dEl.pick.hidden = false; dEl.pickInput.value = "";
+    dEl.player.querySelector(".player-box").classList.add("has-pick");
+    var m = dEl.react.querySelector(".react-btn--more"); if (m) m.setAttribute("aria-expanded", "true");
+  }
+  function hidePick() {
+    dEl.pick.hidden = true;
+    dEl.player.querySelector(".player-box").classList.remove("has-pick");
+    var m = dEl.react.querySelector(".react-btn--more"); if (m) m.setAttribute("aria-expanded", "false");
+  }
+  dEl.pickClose.addEventListener("click", hidePick);
+  dEl.pickInput.addEventListener("input", function () {
+    var e = firstEmoji(dEl.pickInput.value);
+    if (e) { dEl.pickInput.value = ""; dEl.pickInput.blur(); hidePick(); setReaction(2, e); }
+    else if (dEl.pickInput.value.length > 4) dEl.pickInput.value = "";
+  });
   function fetchReact() {
     return fetch(DAILY_FN + "?day=" + todayKey(), { headers: { Accept: "application/json" } })
       .then(function (r) { return r.ok ? r.json() : null; })
