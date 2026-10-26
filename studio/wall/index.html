@@ -50,6 +50,17 @@
 .q-answer{margin:10px 0 0;padding:10px 12px;border-left:3px solid var(--lime);border-radius:0 10px 10px 0;background:rgba(255,255,255,.06);font-size:14px;line-height:1.5;white-space:pre-wrap;color:#fff}
 .q-answer b{display:block;font-family:var(--head);font-size:12px;color:var(--lime);margin-bottom:2px}
 .q-none{margin:10px 0 0;font-size:13px;color:var(--muted)}
+.q-add{padding:12px 14px;border-radius:14px;background:var(--field);border:1px solid rgba(255,255,255,.1)}
+.q-add[hidden]{display:none}
+.q-add summary{cursor:pointer;font-family:var(--head);font-weight:700;font-size:14px;color:var(--lime)}
+.q-add .hint{margin:8px 0;font-size:12.5px;line-height:1.4}
+.q-add textarea,.q-add input[type="text"]{width:100%;min-height:44px;padding:10px 12px;border-radius:12px;border:1.2px solid rgba(255,255,255,.18);background:rgba(47,16,65,.6);color:#fff;font:inherit;font-size:15px}
+.q-add textarea{min-height:84px;resize:vertical}
+.q-add-row{display:flex;gap:8px;margin:8px 0}
+.q-add-row input{flex:1;min-width:0}
+.q-log{display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:11.5px;color:var(--soft)}
+.q-log .ok{color:var(--lime)}
+.q-log .bad{color:var(--sunl)}
 </style>
 </head>
 <body>
@@ -63,7 +74,7 @@
   <div class="mod-head">
     <div class="kicker">Freigabe</div>
     <h1 class="wall-title">MEET WALL<span class="wall-bar" aria-hidden="true"></span></h1>
-    <p class="hint">Was hier freigegeben wird, steht anonym auf meet-bty.com. Namen von anderen, Adressen oder Verletzendes: nicht zeigen. Wer abgelehnt wird, sieht auf seinem Gerät die kurze Begründung. Unter „Fragen“ stehen die Fragen zum Text – nur für uns, nie auf der Wand. Was du dort als Antwort schreibst, sieht nur die Person, die gefragt hat, auf ihrem Gerät unter „Deine Frage“. Unter „Privat“ stehen die MEETmomente, die ohne Haken geschickt wurden – zum Mitlesen, nie auf der Wand.</p>
+    <p class="hint">Was hier freigegeben wird, steht anonym auf meet-bty.com. Namen von anderen, Adressen oder Verletzendes: nicht zeigen. Wer abgelehnt wird, sieht auf seinem Gerät die kurze Begründung. Unter „Fragen“ stehen die Fragen zum Text – nur für uns, nie auf der Wand. Was du dort als Antwort schreibst, sieht nur die Person, die gefragt hat, auf ihrem Gerät unter „Deine Frage“.</p>
   </div>
   <div class="pin">
     <label class="sr-only" for="pin">Studio-PIN</label>
@@ -76,6 +87,24 @@
     <button type="button" class="tab" role="tab" id="tabQuestions" data-tab="questions">Fragen<b id="nQuestions">–</b></button>
   </div>
   <p class="state" id="state">PIN eingeben und laden.</p>
+  <!-- Reiter „Fragen“: eine Frage aus der Mail von Hand nachtragen (Text GENAU wie in der Mail – das Gerät des Fragenden
+       erkennt die Antwort am Wortlaut) und das Protokoll der Einsendungen, die unsere Funktion erreicht haben -->
+  <details class="q-add" id="qAdd" hidden>
+    <summary>Frage aus der Mail nachtragen</summary>
+    <p class="hint">Kam eine Frage per Mail, fehlt aber hier: Text genau so einfügen wie in der Mail. Das Gerät des Fragenden erkennt die Antwort am Wortlaut (Gross/klein und Leerzeichen sind egal).</p>
+    <textarea id="qaText" rows="3" placeholder="„Dein Text“ aus der Mail"></textarea>
+    <div class="q-add-row">
+      <input type="text" id="qaPassage" placeholder="Bibelstelle, z. B. 1. Johannes 2,18–27">
+      <input type="text" id="qaName" placeholder="Name (falls angegeben)">
+    </div>
+    <button type="button" class="btn btn--primary btn--sm" id="qaSend">Nachtragen</button>
+    <p class="hint" id="qaState"></p>
+  </details>
+  <details class="q-add" id="qLog" hidden>
+    <summary>Eingänge der Funktion (Protokoll)</summary>
+    <p class="hint">Jede Formular-Einsendung, die unsere Speicher-Funktion erreicht hat, mit Ergebnis. Fehlt eine Mail-Frage hier ganz, ist die Funktion dafür nicht gelaufen.</p>
+    <div class="q-log" id="qLogList"></div>
+  </details>
   <div class="wall" id="list"></div>
 </section>
 </div>
@@ -86,7 +115,7 @@
   var API = "/.netlify/functions/wall";
   var SETTINGS_KEY = "meetstudio:settings:v2"; // dieselbe PIN wie im Studio
   var $ = function (id) { return document.getElementById(id); };
-  var el = { pin: $("pin"), load: $("load"), list: $("list"), state: $("state"), nP: $("nPending"), nA: $("nApproved"), nQ: $("nQuestions"), tabs: [$("tabPending"), $("tabApproved"), $("tabQuestions"), $("tabPrivate")] };
+  var el = { pin: $("pin"), load: $("load"), list: $("list"), state: $("state"), nP: $("nPending"), nA: $("nApproved"), nQ: $("nQuestions"), tabs: [$("tabPending"), $("tabApproved"), $("tabQuestions")] };
   var data = { pending: [], approved: [], questions: [], done: [], private: [] };
   var tab = "pending";
   try { var qt = new URLSearchParams(location.search).get("tab"); if (qt === "approved" || qt === "questions") tab = qt; } catch (e) {} // Reiter aus dem Portal-Link
@@ -110,6 +139,28 @@
   function savePin(pin) { try { var s = settings(); s.studioPin = pin; localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
   el.pin.value = settings().studioPin || "";
 
+  // Protokoll der Einsendungen (wall ?op=submission-log) und Nachtragen einer Frage (?op=question-add)
+  function loadLog() {
+    call("submission-log").then(function (r) {
+      var box = $("qLogList"); box.innerHTML = "";
+      var items = r.items || [];
+      if (!items.length) { box.textContent = "Noch keine Einträge (Protokoll gibt es seit dem 26.10.2026)."; return; }
+      items.forEach(function (e) {
+        var d = document.createElement("div"); d.className = e.ok ? "ok" : "bad";
+        var t = new Date(e.ts); var when = isNaN(t) ? e.ts : (t.getDate() + "." + (t.getMonth() + 1) + ". " + (t.getHours() < 10 ? "0" : "") + t.getHours() + ":" + (t.getMinutes() < 10 ? "0" : "") + t.getMinutes());
+        d.textContent = when + " · " + (e.art || "?") + " · " + (e.ok ? "gespeichert (" + (e.kind || "moment") + ")" : "nicht gespeichert: " + (e.why || "?"));
+        box.appendChild(d);
+      });
+    }).catch(function (e) { $("qLogList").textContent = "Protokoll nicht lesbar: " + e.message; });
+  }
+  $("qaSend").addEventListener("click", function () {
+    var text = $("qaText").value.trim(); if (!text) { $("qaState").textContent = "Bitte den Text aus der Mail einfügen."; return; }
+    $("qaSend").disabled = true; $("qaState").textContent = "Wird nachgetragen …";
+    call("question-add", { text: text, passage: $("qaPassage").value.trim(), name: $("qaName").value.trim(), date: new Date().toISOString().slice(0, 10) })
+      .then(function () { $("qaText").value = ""; $("qaName").value = ""; $("qaState").textContent = "Nachgetragen – die Frage steht jetzt unten und im Portal."; el.load.click(); })
+      .catch(function (e) { $("qaState").textContent = "Nicht geklappt: " + e.message; })
+      .then(function () { $("qaSend").disabled = false; });
+  });
   function call(op, body) {
     return fetch(API + "?op=" + op, {
       method: "POST",
@@ -161,6 +212,8 @@
     el.nQ.textContent = data.questions.length;
 
     el.tabs.forEach(function (t) { t.classList.toggle("is-on", t.dataset.tab === tab); });
+    $("qAdd").hidden = tab !== "questions"; $("qLog").hidden = tab !== "questions";
+    if (tab === "questions") loadLog();
     el.list.innerHTML = "";
     var items = data[tab];
     var todayKey = dayKey(new Date()), hasPast = false;

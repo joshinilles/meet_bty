@@ -4,7 +4,7 @@
 // Momente OHNE Haken werden NICHT gespeichert (seit 26.10.2026, Privatsphäre): die App schickt sie gar nicht erst ab; kommt
 // trotzdem einer an (alte App-Fassung), wird er hier übersprungen.
 // Nach dem Speichern bekommen die angemeldeten Moderator-Geräte (Portal → „Bescheid sagen“) eine Push-Benachrichtigung.
-import { writeJson, newId } from '../lib/wall-store.mjs';
+import { writeJson, newId, listKeys, remove } from '../lib/wall-store.mjs';
 import { notifyModerators, moderatorPayload } from '../lib/push.mjs';
 
 const clean = (v, max) => (typeof v === 'string' ? v.replace(/\r\n?/g, '\n').trim().slice(0, max) : '');
@@ -51,13 +51,28 @@ export async function storeSubmission(data) {
   return { stored: true, id: m.id, push };
 }
 
+// Protokoll unter slog/<zeit>: Art, Ergebnis, Grund – ohne Texte. Die Prüfseite zeigt es im Reiter „Fragen“, damit man sieht,
+// ob die Funktion für eine Mail überhaupt gelaufen ist. Bestes Bemühen; höchstens ~80 Einträge.
+async function logSubmission(entry) {
+  try {
+    const ts = new Date().toISOString();
+    await writeJson('slog/' + ts.replace(/[:.]/g, '-') + '-' + Math.random().toString(36).slice(2, 6), { ts, ...entry });
+    const keys = await listKeys('slog/');
+    if (keys.length > 80) for (const k of keys.sort().slice(0, keys.length - 60)) await remove(k).catch(() => { });
+  } catch (e) { console.warn('[wall] Protokoll nicht geschrieben:', e && e.message ? e.message : e); }
+}
+
 export default {
   async formSubmitted(event) {
+    const data = event && event.data;
+    const art = clean(data && data.art, 40);
     try {
-      const r = await storeSubmission(event && event.data);
+      const r = await storeSubmission(data);
       console.log('[wall] Einsendung', r.stored ? 'gespeichert ' + (r.kind || 'moment') + ' ' + r.id + (r.push ? ' · Push an ' + r.push.sent + '/' + r.push.total + ' Moderator-Geräte' : '') : 'übersprungen (' + r.why + ')');
+      await logSubmission({ art, ok: !!r.stored, kind: r.kind || (r.stored ? 'moment' : ''), id: r.id || '', why: r.why || '', hasData: !!data });
     } catch (e) {
       console.error('[wall] Speichern fehlgeschlagen:', e && e.message ? e.message : e);
+      await logSubmission({ art, ok: false, why: 'Fehler: ' + (e && e.message ? e.message : e), hasData: !!data });
     }
   }
 };

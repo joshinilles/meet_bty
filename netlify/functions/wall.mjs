@@ -21,7 +21,7 @@
 //        → { items: [{status: frei|nein|wartet, reason}], questions: [{status: offen|beantwortet, answer, by, answeredAt}] }
 //          Stand der eigenen Momente und Fragen (nur bei exakt bekanntem Text)
 // PIN: Header x-studio-pin = Umgebungsvariable STUDIO_PIN (dieselbe wie im MEET DAILY Studio).
-import { readJson, writeJson, remove, listKeys, readIndex, writeIndex, publicView, normText, textHash } from '../lib/wall-store.mjs';
+import { readJson, writeJson, remove, listKeys, readIndex, writeIndex, publicView, normText, textHash, newId } from '../lib/wall-store.mjs';
 import { sendPush, pushReady, cleanSubscription, endpointHash, listModerators, moderatorPayload } from '../lib/push.mjs';
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'content-type, x-studio-pin' };
@@ -127,6 +127,22 @@ export default async (req) => {
       return json({ items });
     }
     if (op === 'approved') return json({ items: await readIndex() });
+    // Frage von Hand nachtragen (Prüfseite): wenn die Mail da ist, die Einsendung aber nicht gespeichert wurde.
+    // Gleiche Form wie aus submission-created; die Antwort findet das Gerät später über den Wortlaut (qa/<hash>).
+    if (op === 'question-add') {
+      const txt = (v, max) => (typeof v === 'string' ? v.replace(/\r\n?/g, '\n').trim().slice(0, max) : '');
+      const text = txt(body.text, 2000);
+      if (!text) return json({ error: 'Text fehlt' }, 400);
+      const q = { id: newId(), text, name: txt(body.name, 40), passage: txt(body.passage, 80), date: txt(body.date, 10), ts: new Date().toISOString(), manual: true };
+      await writeJson('q/' + q.id, q);
+      return json({ ok: true, id: q.id });
+    }
+    // Protokoll der Einsendungen, die submission-created erreicht haben (neueste zuerst, ohne Texte)
+    if (op === 'submission-log') {
+      const keys = (await listKeys('slog/')).sort().reverse().slice(0, 30);
+      const items = (await Promise.all(keys.map((k) => readJson(k, null)))).filter(Boolean);
+      return json({ items });
+    }
     // Private Momente (ohne Haken) gibt es seit 26.10.2026 nicht mehr auf dem Server; alte Einträge unter n/ werden gelöscht
     if (op === 'private-purge') {
       const keys = await listKeys('n/');
