@@ -74,7 +74,6 @@
     <button type="button" class="tab is-on" role="tab" id="tabPending" data-tab="pending">Wartet<b id="nPending">–</b></button>
     <button type="button" class="tab" role="tab" id="tabApproved" data-tab="approved">Auf der Wand<b id="nApproved">–</b></button>
     <button type="button" class="tab" role="tab" id="tabQuestions" data-tab="questions">Fragen<b id="nQuestions">–</b></button>
-    <button type="button" class="tab" role="tab" id="tabPrivate" data-tab="private">Privat<b id="nPrivate">–</b></button>
   </div>
   <p class="state" id="state">PIN eingeben und laden.</p>
   <div class="wall" id="list"></div>
@@ -87,10 +86,10 @@
   var API = "/.netlify/functions/wall";
   var SETTINGS_KEY = "meetstudio:settings:v2"; // dieselbe PIN wie im Studio
   var $ = function (id) { return document.getElementById(id); };
-  var el = { pin: $("pin"), load: $("load"), list: $("list"), state: $("state"), nP: $("nPending"), nA: $("nApproved"), nQ: $("nQuestions"), nN: $("nPrivate"), tabs: [$("tabPending"), $("tabApproved"), $("tabQuestions"), $("tabPrivate")] };
+  var el = { pin: $("pin"), load: $("load"), list: $("list"), state: $("state"), nP: $("nPending"), nA: $("nApproved"), nQ: $("nQuestions"), tabs: [$("tabPending"), $("tabApproved"), $("tabQuestions"), $("tabPrivate")] };
   var data = { pending: [], approved: [], questions: [], done: [], private: [] };
   var tab = "pending";
-  try { var qt = new URLSearchParams(location.search).get("tab"); if (qt === "approved" || qt === "questions" || qt === "private") tab = qt; } catch (e) {} // Reiter aus dem Portal-Link
+  try { var qt = new URLSearchParams(location.search).get("tab"); if (qt === "approved" || qt === "questions") tab = qt; } catch (e) {} // Reiter aus dem Portal-Link
   var showPast = false; // „Auf der Wand“ und „Privat“ zeigen zuerst nur den heutigen Tag, wie die Wand selbst
   var showDone = false; // „Fragen“: erledigte (beantwortete) Fragen auf Wunsch darunter
   var pushNote = "";    // Rückmeldung nach dem Antworten (Push verschickt oder nicht), einmalig über der Liste
@@ -126,7 +125,7 @@
     savePin(el.pin.value.trim());
     state("Wird geladen …");
     el.list.innerHTML = "";
-    Promise.all([call("pending"), call("approved"), call("questions"), call("questions-done"), call("private")])
+    Promise.all([call("pending"), call("approved"), call("questions"), call("questions-done"), Promise.resolve({ items: [] })])
       .then(function (r) {
         data.pending = r[0].items || [];
         data.approved = r[1].items || [];
@@ -160,7 +159,7 @@
     // Zähler: nur heute, solange die letzten Tage eingeklappt sind – wie die Liste selbst
     el.nA.textContent = showPast ? data.approved.length : data.approved.filter(function (m) { return dayOfItem(m) === tk; }).length;
     el.nQ.textContent = data.questions.length;
-    el.nN.textContent = showPast ? data.private.length : data.private.filter(function (m) { return dayOfItem(m) === tk; }).length;
+
     el.tabs.forEach(function (t) { t.classList.toggle("is-on", t.dataset.tab === tab); });
     el.list.innerHTML = "";
     var items = data[tab];

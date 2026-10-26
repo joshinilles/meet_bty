@@ -12,9 +12,9 @@ window.MEET_CONFIG = {
   // Stille Obergrenze pro Nachricht (kein Zähler sichtbar, damit niemand Angst hat, zu viel zu schreiben)
   maxChars: 2000,
 
-  // MEET WALL: Wer einmal einen MEET-Moment geteilt hat, bekommt auf dem Heute-Screen den Zugang zur Wand.
-  // "always" = das Gerät bleibt freigeschaltet; "day" = nur am Tag des Teilens (jeden Tag erst teilen, dann sehen).
-  wallUnlock: "always",
+  // MEET WALL: seit 26.10.2026 für alle offen – die Wand ist auf dem Heute-Screen immer erreichbar, auch ohne eigenen Moment.
+  // (Frühere Einstellung "always"/"day" = Freischalten erst nach dem Teilen; wird nicht mehr ausgewertet.)
+  wallUnlock: "open",
 
   // Kanäle auf meet-bty.com/links – Reihenfolge hier = Reihenfolge auf der Seite.
   // Leere URL = der Eintrag wird nicht angezeigt (beim WhatsApp-Kanal steht dann „Link folgt“ auf dem Knopf).

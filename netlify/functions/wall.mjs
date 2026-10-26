@@ -127,11 +127,11 @@ export default async (req) => {
       return json({ items });
     }
     if (op === 'approved') return json({ items: await readIndex() });
-    if (op === 'private') {
+    // Private Momente (ohne Haken) gibt es seit 26.10.2026 nicht mehr auf dem Server; alte Einträge unter n/ werden gelöscht
+    if (op === 'private-purge') {
       const keys = await listKeys('n/');
-      const items = (await Promise.all(keys.map((k) => readJson(k, null)))).filter(Boolean);
-      items.sort((a, b) => (a.ts < b.ts ? 1 : -1));
-      return json({ items: items.slice(0, 200) });
+      for (const k of keys) await remove(k);
+      return json({ ok: true, removed: keys.length });
     }
     if (op === 'questions') {
       const keys = await listKeys('q/');

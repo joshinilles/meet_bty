@@ -48,8 +48,7 @@
     sentKicker: $("sentKicker"), sentHeading: $("sentHeading"), sentBody: $("sentBody"),
     reset: $("reset"), goWall: $("goWall"), homeMine: $("homeMine"), homeMineText: $("homeMineText"), minePop: $("minePop"), minePopBack: $("minePopBack"), minePopClose: $("minePopClose"), minePopTodayWrap: $("minePopTodayWrap"), minePopTodayLabel: $("minePopTodayLabel"), minePopToday: $("minePopToday"), minePopPastWrap: $("minePopPastWrap"), minePopPast: $("minePopPast"), mineMore: $("mineMore"), goMomentText: $("goMomentText"), goMomentBadge: $("goMomentBadge"), homeMineBadge: $("homeMineBadge"), pushBox: $("pushBox"), pushAsk: $("pushAsk"), pushHint: $("pushHint"), homeAsks: $("homeAsks"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
     wallBack: $("wallBack"), wallKicker: $("wallKicker"), wallHint: $("wallHint"), wallList: $("wallList"), wallNote: $("wallNote"),
-    wallMore: $("wallMore"), wallPast: $("wallPast"), wallHome: $("wallHome"),
-    wallPin: $("wallPin"), wallPinLabel: $("wallPinLabel"), wallPinMore: $("wallPinMore"), wallPinStrips: $("wallPinStrips")
+    wallMore: $("wallMore"), wallPast: $("wallPast"), wallHome: $("wallHome")
   };
 
   var reduce = false;
@@ -256,7 +255,9 @@
     if (state.mode !== "moment") data.delete("wall");
     var wantsWall = state.mode === "moment" && el.wall.checked;
 
-    var request = fetch("/", {
+    // Ein MEET-Moment ohne Haken „auf die Wand“ bleibt NUR auf diesem Gerät – nichts geht an den Server (Privatsphäre).
+    // Mit Haken (Wand) und bei Fragen zum Text wird wie bisher das Netlify-Formular geschickt.
+    var request = (state.mode === "moment" && !wantsWall) ? Promise.resolve({ ok: true }) : fetch("/", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: data.toString()
@@ -493,12 +494,8 @@
     updateHomeWall();
     if (!wallState.loaded) fetchWall().catch(function () {});
   }
-  function wallUnlocked() {
-    var v = null;
-    try { v = localStorage.getItem(UNLOCK_KEY); } catch (e) {}
-    if (!v) return false;
-    return cfg.wallUnlock === "day" ? v === today() : true;
-  }
+  // Seit 26.10.2026 ist die Wand für alle offen – auch ohne eigenen Moment (Vincent); UNLOCK_KEY bleibt nur als Merker
+  function wallUnlocked() { return true; }
   function lastSeen() { var v = 0; try { v = Date.parse(localStorage.getItem(SEEN_KEY) || "") || 0; } catch (e) {} return v; }
   function markSeen() { try { localStorage.setItem(SEEN_KEY, new Date().toISOString()); } catch (e) {} updateHomeWall(); }
 
@@ -661,8 +658,9 @@
 
   // Eine Liste, nach Tagen gegliedert („Heute · Bibelstelle“, „Gestern · …“, Datum). Innerhalb eines Tages
   // stehen die eigenen Momente zuerst, dann die der anderen, neueste oben. Ohne „letzte Tage“ nur der heutige Tag.
-  // ---- Angepinnt: die MEETmoments (Video 2) aller Tage, nach Staffel gebündelt – Archiv der laufenden Staffel oben auf der Wand ----
-  var ARCHIVE_CACHE = "meet:archive", archive = { seasons: [], more: false };
+  // ---- Archiv: die MEETmoments (Video 2) aller Tage (video.mjs ?op=archive). Auf der Wand hängt das Video des Morgens
+  //      als ERSTER Pin im Bereich des jeweiligen Tages – wie ein Moment, nur mit Standbild und dem Namen darunter ----
+  var ARCHIVE_CACHE = "meet:archive", archive = { seasons: [] };
   try { var ac = JSON.parse(localStorage.getItem(ARCHIVE_CACHE) || "null"); if (ac && ac.seasons) archive.seasons = ac.seasons; } catch (e) {}
   function fetchArchive() {
     if (!window.fetch) return;
@@ -672,61 +670,48 @@
         if (!j || !j.seasons) return;
         archive.seasons = j.seasons;
         try { localStorage.setItem(ARCHIVE_CACHE, JSON.stringify({ seasons: j.seasons })); } catch (e) {}
-        renderPinned();
+        if (state.screen === "wall") { wallState.shown = 0; renderWall(); }
       }).catch(function () {});
   }
   var WD_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
   function pinDate(day) { var d = new Date(day + "T12:00:00"); return isNaN(d) ? day : WD_SHORT[d.getDay()] + " " + d.getDate() + "." + (d.getMonth() + 1) + "."; }
-  function pinTile(v) {
-    var b = document.createElement("button"); b.type = "button"; b.className = "pin-tile";
+  // Videos als Wand-Einträge: ts = der Morgen des Tages, damit Gruppierung und Filter (heute / Woche) wie bei Momenten greifen
+  function archiveEntries() {
+    var out = [];
+    archive.seasons.forEach(function (se) { (se.items || []).forEach(function (v) { if (v && v.url && v.day) out.push({ video: v, ts: v.day + "T06:15:00", passage: v.passage || "", text: "" }); }); });
+    return out;
+  }
+  function videoCard(v) {
+    var c = document.createElement("article"); c.className = "moment moment--video";
+    var b = document.createElement("button"); b.type = "button"; b.className = "mv";
     b.setAttribute("aria-label", "MEETmoment" + (v.name ? " mit " + v.name : "") + " vom " + pinDate(v.day) + " abspielen");
-    var media = document.createElement("span"); media.className = "pin-media";
+    var media = document.createElement("span"); media.className = "mv-media";
     if (v.poster) { var img = document.createElement("img"); img.src = v.poster; img.alt = ""; img.loading = "lazy"; img.decoding = "async"; media.appendChild(img); }
-    var play = document.createElement("span"); play.className = "pin-play"; play.setAttribute("aria-hidden", "true"); play.innerHTML = PLAY_SVG; media.appendChild(play);
-    var dur = fmtDur(v.duration); if (dur) { var d = document.createElement("span"); d.className = "pin-dur"; d.textContent = dur.replace(" Min", ""); media.appendChild(d); }
-    var nm = document.createElement("span"); nm.className = "pin-name"; nm.textContent = v.name || "MEETmoment";
-    var dt = document.createElement("span"); dt.className = "pin-date"; dt.textContent = pinDate(v.day) + (v.passage ? " · " + v.passage.replace(/^(\d\.\s*)?[^\d,;:]+\s*/, "") : "");
-    b.appendChild(media); b.appendChild(nm); b.appendChild(dt);
+    var play = document.createElement("span"); play.className = "mv-play"; play.setAttribute("aria-hidden", "true"); play.innerHTML = PLAY_SVG; media.appendChild(play);
+    var dur = fmtDur(v.duration); if (dur) { var d = document.createElement("span"); d.className = "mv-dur"; d.textContent = dur.replace(" Min", ""); media.appendChild(d); }
+    b.appendChild(media);
     b.addEventListener("click", function () { openPlayer({ n: 2, title: "MEETmoment", name: v.name, passage: v.passage, url: v.url, poster: v.poster, duration: v.duration, day: v.day }); });
-    return b;
+    var m = document.createElement("div"); m.className = "moment-meta"; m.textContent = v.name || "MEETmoment";
+    c.appendChild(b); c.appendChild(m);
+    return c;
   }
-  function pinSeason(se, withTitle) {
-    var box = document.createElement("div"); box.className = "pin-season";
-    if (withTitle) { var t = document.createElement("span"); t.className = "pin-season-title"; t.textContent = "Staffel · " + se.title; box.appendChild(t); }
-    var strip = document.createElement("div"); strip.className = "pin-strip";
-    se.items.forEach(function (v) { if (v && v.url) strip.appendChild(pinTile(v)); });
-    box.appendChild(strip);
-    return box;
-  }
-  function renderPinned() {
-    var seasons = archive.seasons.filter(function (se) { return se && se.items && se.items.length; });
-    el.wallPin.hidden = !seasons.length;
-    if (!seasons.length) return;
-    var cur = seasons[0];
-    el.wallPinLabel.textContent = "Angepinnt · " + cur.title;
-    el.wallPinStrips.innerHTML = "";
-    el.wallPinStrips.appendChild(pinSeason(cur, false));
-    el.wallPinMore.hidden = seasons.length < 2;
-    el.wallPinMore.firstChild.textContent = archive.more ? "Weniger" : "Frühere Staffeln";
-    if (archive.more) seasons.slice(1).forEach(function (se) { el.wallPinStrips.appendChild(pinSeason(se, true)); });
-  }
-  el.wallPinMore.addEventListener("click", function () { archive.more = !archive.more; renderPinned(); });
   function renderWall() {
-    renderPinned();
     el.wallList.innerHTML = "";
     var all = wallState.items;
     var own = readOwn().map(function (o) { return ownEntry(o, all); });
     var ownTexts = own.map(function (e) { return e.text; });
     var others = all.filter(function (m) { return ownTexts.indexOf(m.text) < 0; });
     var byTs = function (a, b) { return (Date.parse(b.ts) || 0) - (Date.parse(a.ts) || 0); };
-    var items = own.sort(byTs).concat(others.sort(byTs)).sort(function (a, b) {
+    var videos = archiveEntries().sort(byTs);
+    var items = videos.concat(own.sort(byTs)).concat(others.sort(byTs)).sort(function (a, b) {
       var da = dayOf(a), db = dayOf(b);
-      return da === db ? 0 : da < db ? 1 : -1; // Tage absteigend, Reihenfolge innerhalb eines Tages bleibt (eigene zuerst)
+      return da === db ? 0 : da < db ? 1 : -1; // Tage absteigend; innerhalb eines Tages: Video, dann eigene, dann andere
     });
     if (!wallState.past) items = items.filter(isToday);
     if (wallState.week) items = items.filter(inLastWeek);
-    var hasPast = all.concat(own).some(function (m) { return !isToday(m); });
-    var ownShown = items.filter(function (m) { return m.own; }).length;
+    var hasPast = all.concat(own).concat(videos).some(function (m) { return !isToday(m); });
+    var texts = items.filter(function (m) { return !m.video; });
+    var ownShown = texts.filter(function (m) { return m.own; }).length;
     el.wallKicker.textContent = wallState.week ? "Die letzte Woche" : wallState.past ? "Heute und die letzten Tage" : "Heute · " + cfg.passage;
     el.wallHint.textContent = wallState.week ? "Was andere in der letzten Woche bei MEET erlebt haben. Anonym, ohne Namen." : "Was andere heute bei MEET erlebt haben. Anonym, ohne Namen.";
     el.wallPast.hidden = wallState.past || !hasPast;
@@ -737,19 +722,22 @@
       el.wallMore.hidden = true;
       return;
     }
-    if (ownShown && items.length === ownShown && !wallState.past) note("Von anderen ist heute noch nichts da. Schau später noch mal rein.");
+    if (ownShown && texts.length === ownShown && !wallState.past) note("Von anderen ist heute noch nichts da. Schau später noch mal rein.");
     else if (wallState.stale) note("Die Wand zeigt den zuletzt geladenen Stand – der Server antwortet gerade nicht.");
     else el.wallNote.hidden = true;
     var end = Math.min(items.length, wallState.shown + PAGE);
+    // Bibelstelle je Tag: aus dem Jahresplan, sonst von irgendeinem Eintrag des Tages – so landen Video und Momente in EINER Gruppe
+    var dayPassage = {};
+    items.forEach(function (m) { var k = dayOf(m); if (m.passage && !dayPassage[k]) dayPassage[k] = m.passage; });
     var lastGroup = null;
     for (var i = 0; i < end; i++) {
       var m = items[i];
-      var g = groupLabel(m);
+      var g = groupLabel(m, dayPassage[dayOf(m)]);
       if (g !== lastGroup) {
         el.wallList.appendChild(groupHead(g));
         lastGroup = g;
       }
-      el.wallList.appendChild(m.own ? ownCard(m) : card(m.text, timeLabel(m.ts), false));
+      el.wallList.appendChild(m.video ? videoCard(m.video) : m.own ? ownCard(m) : card(m.text, timeLabel(m.ts), false));
     }
     wallState.shown = end;
     el.wallMore.hidden = end >= items.length;
@@ -787,14 +775,14 @@
 
   function dayKey(d) { return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
   function dayOf(m) { var d = m.ts ? new Date(m.ts) : null; return d && !isNaN(d) ? d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate() : 0; }
-  function groupLabel(m) {
+  function groupLabel(m, fallback) {
     var d = m.ts ? new Date(m.ts) : null;
     var day = "Ohne Datum";
     if (d && !isNaN(d)) {
       var today = new Date(), yest = new Date(Date.now() - 864e5);
       day = dayKey(d) === dayKey(today) ? "Heute" : dayKey(d) === dayKey(yest) ? "Gestern" : d.getDate() + ". " + MONTHS[d.getMonth()];
     }
-    return [day, passageFor(d) || m.passage].filter(Boolean).join(" · ");
+    return [day, passageFor(d) || fallback || m.passage].filter(Boolean).join(" · ");
   }
   // Bibelstelle eines Tages aus dem Jahresplan (zuletzt geladene Fassung); heute notfalls die Stelle der Startseite
   function passageFor(d) {

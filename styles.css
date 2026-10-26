@@ -576,7 +576,7 @@ body.pop-open{overflow:hidden}
 .wall{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
-  grid-auto-flow:dense;
+  /* kein „dense“: sonst rutscht eine halbe Karte in die Lücke eines FRÜHEREN Tages hinauf */
   gap:14px 12px;
   padding:6px 2px 10px;
 }
@@ -785,24 +785,14 @@ html.links-in .links>*:nth-child(6){animation-delay:.38s}
 .screen--home .grow{display:none}
 .screen--home .daily{margin-top:4px}
 
-/* ---- MEET WALL · Angepinnt: die MEETmoments der Staffel als Streifen zum Seitwärtsblättern ---- */
-.wall-pin{display:flex;flex-direction:column;gap:10px;padding:12px 12px 12px;border-radius:18px;background:var(--field);border:1.2px solid rgba(212,246,90,.32);margin-top:4px}
-.wall-pin[hidden]{display:none}
-.wall-pin-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:24px}
-.wall-pin-head .label{margin:0}
-.wall-pin-more{min-height:32px;margin:0;padding:0 6px;font-size:12px}
-.pin-season{display:flex;flex-direction:column;gap:6px}
-.pin-season + .pin-season{margin-top:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)}
-.pin-season-title{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.pin-strip{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin:0 -12px;padding:2px 12px 4px;scroll-snap-type:x proximity}
-.pin-strip::-webkit-scrollbar{display:none}
-.pin-tile{flex:none;width:104px;display:flex;flex-direction:column;gap:6px;background:transparent;border:0;padding:0;color:#fff;font:inherit;text-align:left;cursor:pointer;scroll-snap-align:start;-webkit-tap-highlight-color:transparent;transition:transform .2s}
-.pin-tile:active{transform:scale(.97)}
-.pin-tile:focus-visible{outline:2px solid var(--lime);outline-offset:3px;border-radius:14px}
-.pin-media{position:relative;width:104px;aspect-ratio:9/13;border-radius:14px;overflow:hidden;background:var(--night3)}
-.pin-media img{width:100%;height:100%;object-fit:cover;object-position:center 30%;display:block}
-.pin-play{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.18);border:1.2px solid rgba(255,255,255,.7);color:#fff;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
-.pin-play svg{width:14px;height:14px;margin-left:2px}
-.pin-dur{position:absolute;right:6px;bottom:6px;font-family:var(--mono);font-size:10px;letter-spacing:.04em;padding:2px 6px;border-radius:999px;background:rgba(47,16,65,.75);color:#fff}
-.pin-name{font-family:var(--head);font-weight:700;font-size:13px;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pin-date{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--muted)}
+/* ---- MEET WALL · Video-Karte: der MEETmoment des Morgens hängt als erster Pin im Tagesbereich, Standbild + Name ---- */
+.moment--video{padding:18px 10px 10px}
+.mv{display:block;width:100%;padding:0;border:0;background:transparent;color:#fff;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .2s}
+.mv:active{transform:scale(.97)}
+.mv:focus-visible{outline:2px solid var(--lime);outline-offset:3px;border-radius:12px}
+.mv-media{position:relative;display:block;width:100%;aspect-ratio:3/4;border-radius:12px;overflow:hidden;background:var(--night3)}
+.mv-media img{width:100%;height:100%;object-fit:cover;object-position:center 30%;display:block}
+.mv-play{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.18);border:1.3px solid rgba(255,255,255,.7);color:#fff;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.mv-play svg{width:16px;height:16px;margin-left:2px}
+.mv-dur{position:absolute;right:7px;bottom:7px;font-family:var(--mono);font-size:10px;letter-spacing:.04em;padding:2px 6px;border-radius:999px;background:rgba(47,16,65,.75);color:#fff}
+.moment--video .moment-meta{color:#fff}
