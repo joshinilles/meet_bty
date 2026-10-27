@@ -17,21 +17,22 @@ window.MEET_CONFIG = {
   wallUnlock: "open",
 
   // Kanäle auf meet-bty.com/links – Reihenfolge hier = Reihenfolge auf der Seite.
-  // Leere URL = der Eintrag wird nicht angezeigt (beim WhatsApp-Kanal steht dann „Link folgt“ auf dem Knopf).
+  // Leere URL = der Eintrag wird nicht angezeigt. Symbol über "id": instagram, tiktok, youtube, spotify, podcast, sonst Kette.
+  // "handle" nur angeben, wenn der angezeigte Name vom Link abweichen soll – sonst wird „@name“ aus dem Link gelesen.
   links: {
-    // Einladungslink des öffentlichen WhatsApp-Kanals MEET DAILY:
-    // WhatsApp → Kanal öffnen → Kanalinfo → „Link kopieren“ (sieht so aus: https://whatsapp.com/channel/0029V…)
-    whatsapp: "https://whatsapp.com/channel/0029Vb9lrj9E50UouYa6c20h",
+    // Im Fokus: die MEET App (die Startseite). Hier läuft seit Oktober 2026 alles zusammen – der WhatsApp-Kanal wird nicht mehr genannt.
+    app: "/",
 
-    // Social Media: Handle überall @meet_bty (Anzeigename „MEET_“). "handle" nur angeben, wenn der
-    // angezeigte Name vom Link abweichen soll – sonst wird er aus dem Link gelesen.
+    // Social Media: Handle überall @meet_bty (Anzeigename „MEET_“).
     social: [
       { id: "instagram", name: "Instagram", url: "https://www.instagram.com/meet_bty" },
       { id: "tiktok",    name: "TikTok",    url: "https://www.tiktok.com/@meet_bty" },
       { id: "youtube",   name: "YouTube",   url: "https://www.youtube.com/@meet_bty" }
-      // Podcast MEET US – folgt, sobald eingerichtet (Komma oben ergänzen, Zeilen einkommentieren):
-      // { id: "podcast", name: "Spotify",        url: "", handle: "MEET US" },
-      // { id: "podcast", name: "Apple Podcasts", url: "", handle: "MEET US" }
+    ],
+
+    // Podcast MEET US – weitere Plattformen (z. B. Apple Podcasts, id "podcast") einfach als Zeile ergänzen.
+    podcast: [
+      { id: "spotify", name: "Spotify", url: "https://open.spotify.com/show/7BCfZlb4OuptV75n4Jxa1f", handle: "MEET US – der Podcast" }
     ]
   },
 

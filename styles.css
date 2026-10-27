@@ -711,6 +711,23 @@ body.pop-open{overflow:hidden}
   pointer-events:none;
 }
 .channel-logo{height:22px;width:auto;align-self:flex-start}
+/* MEET App: Hauptverlauf Nachtviolett → Violett als Schimmer, App-Icon wie auf dem Home-Bildschirm */
+.channel--app::before{
+  content:"";
+  position:absolute;
+  right:-30%;
+  top:-45%;
+  width:85%;
+  aspect-ratio:1;
+  border-radius:50%;
+  background:radial-gradient(closest-side,rgba(96,33,132,.75),rgba(96,33,132,0));
+  z-index:-1;
+  pointer-events:none;
+}
+.channel-app{display:flex;align-items:center;gap:14px}
+.channel-icon{width:56px;height:56px;border-radius:14px;flex:none;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.btn--app{gap:10px}
+.btn--app svg{width:20px;height:20px;flex:none}
 .channel-head{display:flex;flex-direction:column;gap:6px}
 .channel h2{font-size:24px}
 a.btn{display:inline-flex;align-items:center;justify-content:center;text-align:center;line-height:1.15}

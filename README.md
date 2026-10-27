@@ -34,7 +34,7 @@ Gestaltung nach dem Claude-Design-Entwurf „MEET Impuls“ und dem MEET-Brand-K
 | `netlify/functions/submission-created.mjs` | Läuft bei jeder Formular-Einsendung; legt MEET-Momente mit gesetztem Haken als „wartend“ im Speicher ab |
 | `netlify/lib/wall-store.mjs` | Speicher der Wand: Netlify Blobs (Store `meet-wall`), lokal ersatzweise Dateien |
 | `package.json` | Abhängigkeiten der Functions (`@netlify/blobs`, `web-push`, `@anthropic-ai/sdk`); `node_modules` wird nicht versioniert und auf der Website gesperrt |
-| `links/index.html` | Unterseite **meet-bty.com/links**: alle Kanäle auf einen Blick – WhatsApp-Kanal MEET DAILY im Fokus, darunter Instagram, TikTok, YouTube |
+| `links/index.html` | Unterseite **meet-bty.com/links**: alle Kanäle auf einen Blick – MEET App im Fokus, darunter Instagram, TikTok, YouTube und der Podcast |
 | `links/links.js` | Baut die Kanal-Liste aus `config.js` (`links`), Plattform-Symbole, Kopf beim Scrollen |
 | `manifest.webmanifest` | Web-App auf dem Home-Bildschirm (Icon = Signet; `assets/apple-touch-icon.png`, `icon-192.png`, `icon-maskable-512.png` sind vollflächig violett, weil iPhone und Android durchsichtige Ecken sonst schwarz oder weiss füllen) |
 | `netlify.toml` | Hosting-Header (Cache, Sicherheit) |
@@ -46,14 +46,14 @@ In `config.js` den Wert `passage` anpassen, committen, pushen. Netlify deployt a
 
 ## Kanäle auf meet-bty.com/links
 
-Die Seite `/links` ist der Link-Baum für die Bio auf Instagram, TikTok und YouTube.
+Die Seite `/links` ist der Link-Baum für die Bio auf Instagram, TikTok, YouTube und Spotify.
 Welche Kanäle dort stehen, steht in `config.js` unter `links`:
 
-- `whatsapp`: Einladungslink des öffentlichen WhatsApp-Kanals MEET DAILY (WhatsApp → Kanal → Kanalinfo → „Link kopieren“).
-  Solange er leer ist, zeigt der grosse Knopf „Link folgt“.
-- `social`: eine Zeile je Kanal mit `id` (Symbol: `instagram`, `tiktok`, `youtube`, `podcast`, sonst Pfeil), `name`, `url`,
+- `app`: Ziel des grossen Knopfs „MEET öffnen“ (die MEET App = Startseite, `/`). Seit Oktober 2026 steht die App im Fokus,
+  der WhatsApp-Kanal wird auf der Seite nicht mehr genannt.
+- `social`: eine Zeile je Kanal mit `id` (Symbol: `instagram`, `tiktok`, `youtube`, `spotify`, `podcast`, sonst Kette), `name`, `url`,
   optional `handle` (sonst wird „@name“ aus dem Link gelesen). Einträge mit leerer `url` werden nicht angezeigt.
-- Podcast-Kanäle (Spotify, Apple Podcasts) sind als Kommentar vorbereitet und werden ergänzt, sobald der Podcast eingerichtet ist.
+- `podcast`: gleiche Form, eigener Abschnitt „Podcast“ (Spotify; Apple Podcasts & Co. einfach als weitere Zeile ergänzen).
 
 ## Formular (Netlify Forms)
 
