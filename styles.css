@@ -243,7 +243,7 @@ h2{
 .clip-name{font-family:var(--head);font-weight:700;font-size:16px;letter-spacing:-.01em;line-height:1.15;color:#fff;text-align:center}
 .clip-media{position:relative;display:block;margin:8px 0 0;aspect-ratio:9/11;flex:1;border-radius:18px;background:var(--field);isolation:isolate}
 /* Kasten wie der Tagesblock, der das Standbild mit einem schmalen Rand in Feldfarbe umrahmt */
-.clip-img{position:absolute;inset:6px;width:calc(100% - 12px);height:calc(100% - 12px);border-radius:13px;object-fit:cover;object-position:center 30%}
+.clip-img{position:absolute;inset:6px;width:calc(100% - 12px);height:calc(100% - 12px);border-radius:13px;object-fit:cover;object-position:center 30%;pointer-events:none;background:#000}
 .clip-dur{
   position:absolute;right:14px;bottom:13px;
   font-family:var(--mono);font-size:11px;letter-spacing:.04em;
@@ -808,7 +808,7 @@ html.links-in .links>*:nth-child(6){animation-delay:.38s}
 .mv:active{transform:scale(.97)}
 .mv:focus-visible{outline:2px solid var(--lime);outline-offset:3px;border-radius:12px}
 .mv-media{position:relative;display:block;width:100%;aspect-ratio:3/4;border-radius:12px;overflow:hidden;background:var(--night3)}
-.mv-media img{width:100%;height:100%;object-fit:cover;object-position:center 30%;display:block}
+.mv-media .mv-img{width:100%;height:100%;object-fit:cover;object-position:center 30%;display:block;pointer-events:none}
 .mv-play{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.18);border:1.3px solid rgba(255,255,255,.7);color:#fff;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
 .mv-play svg{width:16px;height:16px;margin-left:2px}
 .mv-dur{position:absolute;right:7px;bottom:7px;font-family:var(--mono);font-size:10px;letter-spacing:.04em;padding:2px 6px;border-radius:999px;background:rgba(47,16,65,.75);color:#fff}

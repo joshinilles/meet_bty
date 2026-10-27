@@ -8,6 +8,7 @@
 //   POST ?op=mp-complete, Body {day, n, key, uploadId, size} (PIN) → { ok, size }  Stücke zusammensetzen (ETags holt die Function selbst – kein ExposeHeaders in CORS nötig)
 //   POST ?op=mp-abort, Body {day, n, key, uploadId}   (PIN) → { ok }
 //   POST ?op=publish, Body {day, n, key, posterKey, size, duration, passage, name, title} (PIN) → { ok, items, pushed:{sent,total} }
+//   POST ?op=poster,  Body {day, n, posterKey} (PIN)                    → { ok, items }   Vorschaubild eines veröffentlichten Videos ersetzen
 //        Beim ERSTEN Eintrag eines Videos am Tag bekommen die angemeldeten Jugendlichen eine Push (lib/push.mjs notifyDaily);
 //        „Nochmal hochladen (ersetzt)“ löst keine zweite aus.
 //   POST ?op=remove,  Body {day, n}                   (PIN) → { ok, items }  Video von der Startseite nehmen (und löschen; fliegt auch aus dem Archiv)
@@ -199,6 +200,23 @@ export default async (req) => {
         catch (e) { console.warn('[video] Push nicht verschickt:', msg(e)); }
       }
       return json({ ok: true, items: withUrls(items).map(publicView), pushed });
+    }
+
+    // Vorschaubild eines schon veröffentlichten Videos ersetzen (Studio „Neues Vorschaubild“ – etwa wenn iOS dem Studio ein schwarzes Bild lieferte)
+    if (op === 'poster') {
+      if (!n) return json({ error: 'n muss 1 oder 2 sein' }, 400);
+      const posterKey = clean(body.posterKey, 200), prefix = 'daily/' + day + '/' + n + '-';
+      if (!posterKey.startsWith(prefix) || /\.\./.test(posterKey)) return json({ error: 'Vorschaubild passt nicht zu Tag und Video' }, 400);
+      const d = await readDay(day);
+      const old = d.items.find((v) => v.n === n);
+      if (!old) return json({ error: 'Dieses Video ist heute nicht auf der Startseite' }, 404);
+      if (cfg) { const h = await headObject(cfg, posterKey); if (!h || !h.size) return json({ error: 'Das Vorschaubild ist im Speicher nicht angekommen' }, 409); }
+      const entry = { ...old, posterKey, poster: urlFor(posterKey) };
+      const items = d.items.filter((v) => v.n !== n).concat([entry]);
+      await writeDay(day, items);
+      if (n === 2) { try { await writeArchive(archivePut(await readArchive(), { day, ...entry })); } catch (e) { console.warn('[video] Archiv nicht aktualisiert:', msg(e)); } }
+      if (cfg && old.posterKey && old.posterKey !== posterKey) await deleteObject(cfg, old.posterKey);
+      return json({ ok: true, items: withUrls(items).map(publicView) });
     }
 
     if (op === 'remove') {

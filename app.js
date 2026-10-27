@@ -686,7 +686,7 @@
     var b = document.createElement("button"); b.type = "button"; b.className = "mv";
     b.setAttribute("aria-label", "MEETmoment" + (v.name ? " mit " + v.name : "") + " vom " + pinDate(v.day) + " abspielen");
     var media = document.createElement("span"); media.className = "mv-media";
-    if (v.poster) { var img = document.createElement("img"); img.src = v.poster; img.alt = ""; img.loading = "lazy"; img.decoding = "async"; media.appendChild(img); }
+    stillInto(media, "mv-img", v, true);
     var play = document.createElement("span"); play.className = "mv-play"; play.setAttribute("aria-hidden", "true"); play.innerHTML = PLAY_SVG; media.appendChild(play);
     var dur = fmtDur(v.duration); if (dur) { var d = document.createElement("span"); d.className = "mv-dur"; d.textContent = dur.replace(" Min", ""); media.appendChild(d); }
     b.appendChild(media);
@@ -917,6 +917,37 @@
   function fmtDur(s) { s = Math.round(s || 0); if (!s) return ""; return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + (s % 60) + " Min"; }
   var PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>';
   function stepTitle(v) { return v.n === 1 ? "Wir werden still" : "MEETmoment" + (v.name ? " mit " + v.name : ""); }
+  // Standbild einer Kachel: das Vorschaubild aus dem Studio – fehlt es, lädt es nicht oder ist es schwarz (iOS lieferte dem Studio
+  // am 27.10.2026 leere Bilder), zeigt die Kachel stattdessen ein Bild aus dem Video selbst (Sekunde 1,5; lädt nur den Anfang).
+  var badPoster = {};
+  function imgDark(img) {
+    try {
+      var c = document.createElement("canvas"); c.width = 18; c.height = 32; var x = c.getContext("2d"); x.drawImage(img, 0, 0, 18, 32);
+      var d = x.getImageData(0, 0, 18, 32).data, sum = 0;
+      for (var i = 0; i < d.length; i += 4) sum += (d[i] * 3 + d[i + 1] * 6 + d[i + 2]) / 10;
+      return sum / (d.length / 4) < 10;
+    } catch (e) { return false; } // fremde Herkunft ohne CORS: nicht messbar, Bild bleibt
+  }
+  function stillInto(media, cls, v, lazy) {
+    function useVideo() {
+      if (!v.url || media.querySelector("video")) return;
+      var old = media.querySelector("img"); if (old) old.remove();
+      var vid = document.createElement("video"); vid.className = cls; vid.muted = true; vid.setAttribute("muted", ""); vid.playsInline = true; vid.setAttribute("playsinline", "");
+      vid.preload = "metadata"; vid.setAttribute("aria-hidden", "true"); vid.tabIndex = -1; vid.disablePictureInPicture = true; vid.disableRemotePlayback = true;
+      vid.addEventListener("loadedmetadata", function () { try { if (vid.currentTime < 1) vid.currentTime = 1.5; } catch (e) {} });
+      vid.src = v.url + "#t=1.5";
+      media.insertBefore(vid, media.firstChild);
+    }
+    function useImg(cors) {
+      var img = document.createElement("img"); img.className = cls; img.alt = ""; img.decoding = "async"; if (lazy) img.loading = "lazy";
+      if (cors) img.crossOrigin = "anonymous";
+      img.addEventListener("load", function () { if (cors && imgDark(img)) { badPoster[v.poster] = true; useVideo(); } });
+      img.addEventListener("error", function () { img.remove(); if (cors) useImg(false); else useVideo(); }); // ohne CORS-Freigabe (z. B. andere Domain) schlicht anzeigen
+      img.src = v.poster;
+      media.insertBefore(img, media.firstChild);
+    }
+    if (!v.poster || badPoster[v.poster]) useVideo(); else useImg(true);
+  }
   // Ein Schritt des Ablaufs: Nummer, Titel, Uhrzeit und Länge, Play rechts – keine Titelkarte, die Bibelstelle steht schon oben
   function clipTile(v, soon) {
     var meta = DAILY_META[v.n];
@@ -931,7 +962,7 @@
     if (soon) { var tm = document.createElement("span"); tm.className = "clip-time"; tm.textContent = sub; head.appendChild(tm); }
     var media = document.createElement("span"); media.className = "clip-media";
     if (!soon) {
-      if (v.poster) { var img = document.createElement("img"); img.className = "clip-img"; img.src = v.poster; img.alt = ""; img.decoding = "async"; media.appendChild(img); }
+      stillInto(media, "clip-img", v, false);
       var play = document.createElement("span"); play.className = "clip-play"; play.setAttribute("aria-hidden", "true"); play.innerHTML = PLAY_SVG; media.appendChild(play);
       if (dur) { var d = document.createElement("span"); d.className = "clip-dur"; d.textContent = dur.replace(" Min", ""); media.appendChild(d); }
       if (v.n === 2) { var rp = reactPill(2); if (rp) media.appendChild(rp); }
@@ -969,7 +1000,7 @@
     dEl.kicker.textContent = "MEET DAILY · " + (old ? pinDate(v.day) : meta.time) + (v.passage ? " · " + v.passage : "");
     dEl.title.textContent = stepTitle(v);
     playerItem = v; watch.last = -1; renderReact("");
-    dEl.video.poster = v.poster || "";
+    dEl.video.poster = (v.poster && !badPoster[v.poster]) ? v.poster : "";
     dEl.video.src = v.url;
     dEl.player.hidden = false;
     document.body.style.overflow = "hidden";

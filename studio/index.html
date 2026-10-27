@@ -100,6 +100,8 @@ input.cap:focus{border-color:var(--lime)}
 .webrow strong{font-family:var(--f-display);font-size:15px;letter-spacing:-.01em}
 .webrow small{display:block;font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;color:var(--muted);margin-top:2px}
 .webrow .btn{padding:10px 14px;min-height:40px;font-size:14px;flex:none}
+.webrow .webacts{display:flex;flex-direction:column;gap:6px;flex:none;align-items:stretch}
+.webrow .btn.ghost.lime{background:rgba(212,246,90,.16);color:var(--lime)}
 
 /* Stage */
 .stage{gap:10px}
@@ -1624,10 +1626,15 @@ function renderWebHome() {
   for (const it of items) {
     const row = document.createElement('div'); row.className = 'webrow';
     const t = document.createElement('div'); const st = document.createElement('strong'); st.textContent = 'Video ' + it.n + ' · ' + (it.n === 1 ? 'Start' : 'MEETmoment' + (it.name ? ' · ' + it.name : ''));
-    const sm = document.createElement('small'); sm.textContent = 'seit ' + webTime(it.at) + (it.duration ? ' · ' + fmtTime(it.duration) : '');
+    const dark = webPosterDark[it.poster] === true, noPoster = !it.poster;
+    const sm = document.createElement('small'); sm.textContent = 'seit ' + webTime(it.at) + (it.duration ? ' · ' + fmtTime(it.duration) : '') + (dark ? ' · Vorschaubild ist schwarz' : noPoster ? ' · kein Vorschaubild' : '');
     t.appendChild(st); t.appendChild(sm);
+    const acts = document.createElement('div'); acts.className = 'webacts';
+    const pbtn = document.createElement('button'); pbtn.className = 'btn ghost' + (dark || noPoster ? ' lime' : ''); pbtn.textContent = 'Neues Vorschaubild'; pbtn.title = 'Standbild aus dem Video als Vorschaubild auf der Startseite'; pbtn.disabled = web.busy; pbtn.addEventListener('click', () => webPosterRenew(it.n));
     const b = document.createElement('button'); b.className = 'btn ghost'; b.textContent = 'Entfernen'; b.title = 'Von der Startseite nehmen'; b.disabled = web.busy; b.addEventListener('click', () => webRemove(it.n));
-    row.appendChild(t); row.appendChild(b); list.appendChild(row);
+    acts.appendChild(pbtn); acts.appendChild(b);
+    row.appendChild(t); row.appendChild(acts); list.appendChild(row);
+    webPosterCheck(it);
   }
   const all = $('#btnWebHomeAll'); all.hidden = items.length < 2; all.disabled = web.busy;
 }
@@ -1709,31 +1716,93 @@ async function uploadVideo(blob, type, n, onProgress, onState) {
   }
 }
 /* Vorschaubild für die Startseite: ein Standbild aus dem Video (kurz nachdem sich die Titelkarte aufgelöst hat),
-   damit man uns sieht – nur wenn das nicht klappt, die Titelkarte */
-function videoFrameBlob(url, atSec) {
-  return new Promise((res) => {
-    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto';
-    let finished = false;
-    const done = (b) => { if (finished) return; finished = true; clearTimeout(timer); try { v.removeAttribute('src'); v.load(); } catch (e) { } res(b); };
-    const timer = setTimeout(() => done(null), 8000);
-    v.addEventListener('error', () => done(null));
-    v.addEventListener('loadedmetadata', () => {
-      const d = isFinite(v.duration) ? v.duration : 0;
-      const want = atSec;
-      v.currentTime = d > 1 ? Math.min(want, Math.max(0.5, d - 0.5)) : 0.1;
-    });
-    v.addEventListener('seeked', () => {
-      try { const c = document.createElement('canvas'); c.width = 540; c.height = 960; c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); c.toBlob(b => done(b), 'image/jpeg', 0.82); }
-      catch (e) { done(null); }
-    }, { once: true });
-    v.src = url; try { v.load(); } catch (e) { }
+   damit man uns sieht – nur wenn das nicht klappt, die Titelkarte.
+   iOS malt ein Video, das nicht auf dem Schirm ist, gern als schwarzes Bild auf die Leinwand (so kamen am 27.10.2026 zwei
+   schwarze Vorschaubilder auf die Startseite). Darum: das Video hängt (unsichtbar klein) im Dokument, wir warten auf ein
+   gezeichnetes Bild, prüfen die Helligkeit und versuchen es sonst mit kurzem Abspielen und an späteren Stellen noch einmal. */
+function videoFrameBlob(url, atSec, opts) {
+  opts = opts || {};
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const once = (el, ev, ms) => new Promise((res, rej) => {
+    let t = null; const ok = () => { clearTimeout(t); el.removeEventListener('error', bad); res(); }, bad = () => { clearTimeout(t); el.removeEventListener(ev, ok); rej(new Error('Video liess sich nicht lesen')); };
+    el.addEventListener(ev, ok, { once: true }); el.addEventListener('error', bad, { once: true });
+    t = setTimeout(() => { el.removeEventListener(ev, ok); el.removeEventListener('error', bad); rej(new Error('Zeit abgelaufen (' + ev + ')')); }, ms);
   });
+  const painted = v => new Promise(res => { if (v.requestVideoFrameCallback) { let done = false; v.requestVideoFrameCallback(() => { done = true; res(); }); setTimeout(() => { if (!done) res(); }, 700); } else requestAnimationFrame(() => requestAnimationFrame(res)); });
+  // Bild zeichnen und messen: mittlere Helligkeit und Spannweite auf einem 27×48-Raster – schwarz oder einfarbig zählt nicht
+  const grab = v => {
+    const c = document.createElement('canvas'); c.width = 540; c.height = 960; c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    const m = document.createElement('canvas'); m.width = 27; m.height = 48; const mx = m.getContext('2d'); mx.drawImage(c, 0, 0, 27, 48);
+    const d = mx.getImageData(0, 0, 27, 48).data; let sum = 0, lo = 255, hi = 0;
+    for (let i = 0; i < d.length; i += 4) { const y = (d[i] * 3 + d[i + 1] * 6 + d[i + 2]) / 10; sum += y; if (y < lo) lo = y; if (y > hi) hi = y; }
+    const mean = sum / (d.length / 4);
+    return { canvas: c, dark: mean < 10 || hi - lo < 8, mean };
+  };
+  const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.setAttribute('muted', ''); v.setAttribute('playsinline', '');
+  if (opts.cors) v.crossOrigin = 'anonymous';
+  v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:-1';
+  document.body.appendChild(v);
+  const cleanup = () => { try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) { } try { v.remove(); } catch (e) { } };
+  return (async () => {
+    try {
+      v.src = url; try { v.load(); } catch (e) { }
+      await once(v, 'loadedmetadata', 10000);
+      const d = isFinite(v.duration) ? v.duration : 0;
+      const clamp = t => d > 1 ? Math.min(t, Math.max(0.3, d - 0.5)) : 0.1;
+      const times = [atSec, atSec + 1, atSec + 2.5, atSec + 5, 0.5].map(clamp).filter((t, i, a) => a.indexOf(t) === i);
+      for (const t of times) {
+        v.currentTime = t; await once(v, 'seeked', 6000); await painted(v);
+        let g = grab(v);
+        if (g.dark) { // kurz abspielen – dann liegt sicher ein Bild im Puffer
+          try { await v.play(); await sleep(400); v.pause(); await painted(v); } catch (e) { }
+          g = grab(v);
+        }
+        if (!g.dark) return await new Promise(res => g.canvas.toBlob(b => res(b), 'image/jpeg', 0.82));
+        console.warn('Standbild bei ' + t.toFixed(1) + ' s ist dunkel (' + g.mean.toFixed(1) + ')');
+      }
+      return null;
+    } finally { cleanup(); }
+  })();
 }
 async function posterBlob(url, atSec) {
-  try { const f = await videoFrameBlob(url, atSec); if (f && f.size > 4000) return f; } catch (e) { }
+  try { const f = await videoFrameBlob(url, atSec); if (f && f.size > 4000) return f; } catch (e) { console.warn('Standbild nicht möglich:', e); }
   const c = document.createElement('canvas'); c.width = 540; c.height = 960;
   drawCard(c.getContext('2d'), c.width, c.height, current, getRef());
   return new Promise(res => c.toBlob(b => res(b), 'image/jpeg', 0.82));
+}
+/* Vorschaubild eines schon veröffentlichten Videos erneuern: Standbild aus dem Video auf dem Speicher holen (CORS-Regel des Buckets
+   erlaubt meet-bty.com), hochladen und mit ?op=poster eintragen. Der Knopf steht bei „Heute auf meet-bty.com“. */
+async function webPosterRenew(n) {
+  const it = webItem(n); if (!it || web.busy) return;
+  if (!webPin()) { toast('Zuerst die Studio-PIN in den Einstellungen eintragen', 4000); return; }
+  web.busy = true; renderWeb();
+  try {
+    const pb = await videoFrameBlob(it.url, 1.5, { cors: true });
+    if (!pb) throw new Error('Im Video liess sich kein helles Standbild finden');
+    const ps = await webCall('sign', { n, kind: 'poster', type: 'image/jpeg', size: pb.size });
+    await putWithProgress(ps.uploadUrl, await pb.arrayBuffer(), 'image/jpeg', null);
+    const j = await webCall('poster', { n, posterKey: ps.key });
+    web.day = todayKey(); web.items = j.items || []; webPosterDark = {};
+    toast('Neues Vorschaubild ist auf meet-bty.com');
+  } catch (e) { toast('Vorschaubild nicht erneuert: ' + e.message, 7000); }
+  web.busy = false; renderWeb();
+}
+/* Prüft im Hintergrund, ob das Vorschaubild auf dem Speicher schwarz ist (dann zeigt die Zeile einen Hinweis) */
+let webPosterDark = {};
+function webPosterCheck(it) {
+  if (!it.poster || it.poster in webPosterDark) return;
+  webPosterDark[it.poster] = null;
+  const img = new Image(); img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    try {
+      const m = document.createElement('canvas'); m.width = 27; m.height = 48; const mx = m.getContext('2d'); mx.drawImage(img, 0, 0, 27, 48);
+      const d = mx.getImageData(0, 0, 27, 48).data; let sum = 0; for (let i = 0; i < d.length; i += 4) sum += (d[i] * 3 + d[i + 1] * 6 + d[i + 2]) / 10;
+      webPosterDark[it.poster] = sum / (d.length / 4) < 10;
+    } catch (e) { webPosterDark[it.poster] = false; }
+    renderWebHome();
+  };
+  img.onerror = () => { webPosterDark[it.poster] = false; };
+  img.src = it.poster;
 }
 /* Fassung für meet-bty.com ohne Titelkarte und Übergang – die Bibelstelle steht auf der Startseite schon; die Karte bleibt nur im WhatsApp-Video.
    Nichts wird neu kodiert: ab dem Schlüsselbild, das die Aufnahme nach dem Übergang setzt (WCSession.cutUs), werden Bild- und Tonpakete
