@@ -4,7 +4,7 @@
 // dahinter liegt die Netlify-Funktion mit Studio-PIN. Statt Live-Verbindung fragt die Seite alle 20 Sekunden
 // (und nach jeder eigenen Änderung, beim Zurückkehren in den Tab) mit ihrer rev nach, ob sich etwas geändert hat.
 // Vor dem ersten Laden fragt ein Schleier nach Studio-PIN (dieselbe wie im Studio, Schlüssel meetstudio:settings:v2)
-// und danach, wer am Gerät sitzt (Niklas, Vincent, Joel) – für Kommentare und „Wer“-Vorbelegung.
+// und danach, wer am Gerät sitzt (Niklas, Vincent, Joel) – für die „Wer“-Vorbelegung.
 (function () {
   "use strict";
   var API = "/.netlify/functions/kalender";
@@ -12,7 +12,7 @@
   var ICH_KEY = "meet_kal_ich";
   var POLL_MS = 20000;
   var DEFAULT_PERSONEN = [{ id: "niklas", name: "Niklas" }, { id: "vincent", name: "Vincent" }, { id: "joel", name: "Joel" }];
-  var COLLS = ["termine", "aufgaben", "beitraege", "abwesenheiten", "wochen", "monate", "links", "kommentare", "einstellungen"];
+  var COLLS = ["projekte", "termine", "abwesenheiten", "einstellungen", "aufgaben", "beitraege", "wochen", "monate", "links", "kommentare"];
 
   var pin = "", me = "", rev = "", data = {}, pullTimer = null, pollTimer = null, pulling = null;
   var collListeners = {}, docListeners = {};

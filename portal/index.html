@@ -167,7 +167,7 @@
       <div class="card-head"><span class="kicker">MEET_ Kalender</span><a href="/kalender/">Kalender öffnen →</a></div>
       <div class="sub" id="kalHead">Heute</div>
       <div class="list" id="kalToday"><p class="empty">…</p></div>
-      <div class="sub">Aufgaben · fällig oder diese Woche</div>
+      <div class="sub">Nächste Schritte · Release, Aufnahme, Schnitt</div>
       <div class="list" id="kalTasks"><p class="empty">…</p></div>
     </article>
 
@@ -484,20 +484,32 @@
     }
     var abw = docs("abwesenheiten").filter(function (a) { return typeof a.von === "string" && a.von <= tk && (!a.bis || a.bis >= tk); });
     if (abw.length) { var ab = document.createElement("p"); ab.className = "empty"; ab.textContent = "Abwesend: " + abw.map(function (a) { return personName(a.wer) + (a.bis ? " bis " + fmtDM(a.bis) : ""); }).join(", "); el.kalToday.appendChild(ab); }
-    var tasks = docs("aufgaben").filter(function (t) { return !t.erledigt && typeof t.titel === "string" && ((t.datum && t.datum <= tk) || t.woche === wk); });
-    tasks.sort(function (a, b) { return ((a.prio === "hoch" ? 0 : 1) - (b.prio === "hoch" ? 0 : 1)) || (a.datum || "9").localeCompare(b.datum || "9"); });
+    // Projekte (Podcast-Folgen, Reels): die nächsten Schritte der kommenden zehn Tage, überfällige Releases zuerst
+    var bis = dayKey(addDays(now, 10)), steps = [];
+    docs("projekte").forEach(function (p) {
+      if (typeof p.titel !== "string") return;
+      var farbe = p.art === "reel" ? "lime" : "violet", name = (p.art === "reel" ? "Reel: " : "") + p.titel;
+      var add = function (day, label, wer, late) { if (typeof day === "string" && day >= (late ? "0" : tk) && day <= bis) steps.push({ day: day, label: label, titel: name, wer: wer, farbe: farbe, late: late && day < tk }); };
+      add(p.release, "Release", p.wer, !p.veroeffentlicht); add(p.aufnahme, "Aufnahme" + (p.aufnahmeVon ? " " + p.aufnahmeVon : ""), p.wer, false); add(p.schnitt, "Schnitt", "joel", false);
+      (Array.isArray(p.reels) ? p.reels : []).forEach(function (r) {
+        var rn = (r.titel || "Reel") + (r.abschnitt ? " · " + r.abschnitt : "") + " (" + p.titel + ")";
+        if (typeof r.schnitt === "string" && r.schnitt >= tk && r.schnitt <= bis) steps.push({ day: r.schnitt, label: "Reel-Schnitt", titel: rn, wer: "joel", farbe: farbe });
+        if (typeof r.release === "string" && r.release >= tk && r.release <= bis) steps.push({ day: r.release, label: "Reel-Release", titel: rn, wer: p.wer, farbe: farbe });
+      });
+    });
+    steps.sort(function (a, b) { return a.day.localeCompare(b.day) || a.label.localeCompare(b.label); });
     el.kalTasks.innerHTML = "";
-    if (!tasks.length) el.kalTasks.appendChild(empty("Keine offenen Aufgaben für diese Woche."));
-    tasks.slice(0, 6).forEach(function (t) {
-      var r = document.createElement("div"); r.className = "task" + (t.datum && t.datum < tk ? " is-late" : "");
-      var tm = document.createElement("span"); tm.className = "t-time"; tm.textContent = t.datum ? (t.datum < tk ? "überfällig" : t.datum === tk ? "heute" : fmtDM(t.datum)) : "diese Woche";
+    if (!steps.length) el.kalTasks.appendChild(empty("In den nächsten zehn Tagen steht kein Release, keine Aufnahme und kein Schnitt an."));
+    steps.slice(0, 6).forEach(function (t) {
+      var r = document.createElement("div"); r.className = "task" + (t.late ? " is-late" : "");
+      var tm = document.createElement("span"); tm.className = "t-time"; tm.textContent = t.late ? "noch nicht online" : t.day === tk ? "heute" : fmtDM(t.day);
       var ti = document.createElement("span"); ti.className = "t-title";
-      var d = document.createElement("span"); d.className = "dot dot--" + (bereich(t.bereich).farbe || "grau"); ti.appendChild(d);
-      ti.appendChild(document.createTextNode((t.prio === "hoch" ? "! " : "") + t.titel));
+      var d = document.createElement("span"); d.className = "dot dot--" + t.farbe; ti.appendChild(d);
+      ti.appendChild(document.createTextNode(t.label + ": " + t.titel));
       var w = document.createElement("span"); w.className = "t-who"; w.textContent = personName(t.wer);
       r.appendChild(tm); r.appendChild(ti); r.appendChild(w); el.kalTasks.appendChild(r);
     });
-    if (tasks.length > 6) el.kalTasks.appendChild(more("/kalender/", "Alle " + tasks.length + " im Kalender"));
+    if (steps.length > 6) el.kalTasks.appendChild(more("/kalender/", "Alle " + steps.length + " im Kalender"));
   }
   function fmtDM(k) { var d = parseDay(k); return d.getDate() + ". " + MONTHS[d.getMonth()]; }
   function terminRow(t) {

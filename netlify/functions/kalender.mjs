@@ -1,5 +1,5 @@
-// MEET_ Kalender (meet-bty.com/kalender): gemeinsamer Speicher für Termine, Aufgaben, Beiträge, Abwesenheiten,
-// Wochen-/Monatsfokus, Ablage-Links, Kommentare und Einstellungen von Niklas, Vincent und Joel.
+// MEET_ Kalender (meet-bty.com/kalender): gemeinsamer Speicher für Projekte (Podcast-Folgen, Reels), Termine,
+// Abwesenheiten und Einstellungen von Niklas, Vincent und Joel.
 // Alle Aufrufe sind POST mit Studio-PIN (Header x-studio-pin = Umgebungsvariable STUDIO_PIN, wie bei der MEET WALL).
 //   POST ?op=all     Body {rev}                      → { rev, data:{<sammlung>:{<id>:doc}} }  oder { rev, unchanged:true }
 //   POST ?op=add     Body {coll, doc}                → { ok, rev, id, doc }
@@ -15,7 +15,8 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const COLLS = ['termine', 'aufgaben', 'beitraege', 'abwesenheiten', 'wochen', 'monate', 'links', 'kommentare', 'einstellungen'];
+// projekte (Podcast-Folgen und Reels mit Release/Aufnahme/Schnitt) seit 28.10.2026; aufgaben/beitraege/wochen/monate/links/kommentare sind Altbestand des früheren Kalenders.
+const COLLS = ['projekte', 'termine', 'abwesenheiten', 'einstellungen', 'aufgaben', 'beitraege', 'wochen', 'monate', 'links', 'kommentare'];
 const KEY = 'data.json';
 const MAX_DOC_BYTES = 24 * 1024;      // ein Eintrag (Einstellungen mit Vorlagen sind die grössten)
 const MAX_DOCS_PER_COLL = 20000;
