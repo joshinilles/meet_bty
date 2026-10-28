@@ -129,6 +129,7 @@
   }
   var db = {
     collection: collection,
+    rpc: function (op, body) { return call(op, body); }, // weitere Aufrufe der Funktion mit PIN (z. B. op=drive → Push an Joel)
     doc: function (p) { var parts = String(p).split("/"); return docRef(parts[0], parts.slice(1).join("/")); }
   };
   var user = {

@@ -490,7 +490,7 @@
       if (typeof p.titel !== "string") return;
       var farbe = p.art === "reel" ? "lime" : "violet", name = (p.art === "reel" ? "Reel: " : "") + p.titel;
       var add = function (day, label, wer, late) { if (typeof day === "string" && day >= (late ? "0" : tk) && day <= bis) steps.push({ day: day, label: label, titel: name, wer: wer, farbe: farbe, late: late && day < tk }); };
-      add(p.release, "Release", p.wer, !p.veroeffentlicht); add(p.aufnahme, "Aufnahme" + (p.aufnahmeVon ? " " + p.aufnahmeVon : ""), p.wer, false); add(p.schnitt, "Schnitt", "joel", false);
+      add(p.release, "Release", p.wer, false); add(p.aufnahme, "Aufnahme" + (p.aufnahmeVon ? " " + p.aufnahmeVon : ""), p.wer, false); add(p.schnitt, "Schnitt", "joel", false);
       (Array.isArray(p.reels) ? p.reels : []).forEach(function (r) {
         var rn = (r.titel || "Reel") + (r.abschnitt ? " · " + r.abschnitt : "") + " (" + p.titel + ")";
         if (typeof r.schnitt === "string" && r.schnitt >= tk && r.schnitt <= bis) steps.push({ day: r.schnitt, label: "Reel-Schnitt", titel: rn, wer: "joel", farbe: farbe });

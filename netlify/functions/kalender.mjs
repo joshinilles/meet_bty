@@ -6,11 +6,13 @@
 //   POST ?op=set     Body {coll, id, doc}            → { ok, rev, id, doc }   (ersetzt oder legt an)
 //   POST ?op=update  Body {coll, id, patch}          → { ok, rev, id, doc }   (Felder zusammenführen; legt an, wenn es den Eintrag nicht gibt)
 //   POST ?op=delete  Body {coll, id}                 → { ok, rev, id }
+//   POST ?op=drive   Body {id, titel, art, von}     → { ok, sent, total, joel } Push an Joels Gerät(e): Rohmaterial liegt im Drive (Haken „Ist im Drive“ im Projekt)
 // Speicher: Netlify Blobs, Store "meet-kalender", ein einziger Eintrag data.json mit allen Sammlungen.
 // Geschrieben wird nur, wenn sich der Eintrag seit dem Lesen nicht geändert hat (ETag, onlyIfMatch) – sonst nochmals lesen und wiederholen.
 // rev = ETag des Eintrags; die Seite fragt alle paar Sekunden mit ihrer rev nach und bekommt nur bei Änderung die Daten.
 // Lokal (Entwicklungs-Server) ersetzt MEET_WALL_LOCAL_DIR die Blobs durch die Datei kalender/data.json in diesem Ordner.
 import { getStore } from '@netlify/blobs';
+import { listModerators, sendPush, pushReady } from '../lib/push.mjs';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -94,6 +96,20 @@ export default async (req) => {
       const { data, etag } = await readAll();
       if (etag && typeof body.rev === 'string' && body.rev === etag) return json({ rev: etag, unchanged: true });
       return json({ rev: etag, data });
+    }
+    // Haken „Ist im Drive“: Joel (Cutter) bekommt eine Push auf jedes Gerät, das er im Portal unter „Sag mir Bescheid“ angemeldet hat.
+    if (op === 'drive') {
+      const titel = typeof body.titel === 'string' ? body.titel.replace(/\s+/g, ' ').trim().slice(0, 100) : '';
+      const von = typeof body.von === 'string' ? body.von.trim().slice(0, 40) : '';
+      const art = body.art === 'reel' ? 'reel' : 'podcast';
+      if (!titel) return json({ error: 'titel fehlt' }, 400);
+      let mods = []; try { mods = await listModerators(); } catch (e) { }
+      const joel = mods.filter((m) => /joel/i.test(m.name || ''));
+      if (!joel.length) return json({ ok: true, sent: 0, total: 0, joel: false });
+      if (!(await pushReady())) return json({ ok: true, sent: 0, total: joel.length, joel: true, why: 'keine Schlüssel' });
+      const payload = { title: 'Rohmaterial im Drive: ' + titel, body: (von ? von + ' hat' : 'Das Team hat') + ' das Material abgelegt – du kannst schneiden.', url: '/kalender/#' + (art === 'reel' ? 'social' : 'podcast'), tag: 'meet-drive-' + (validId(body.id) ? body.id : titel) };
+      const results = await Promise.all(joel.map(async (m) => { const r = await sendPush(m.sub, payload, { ttl: 3 * 86400, urgency: 'high' }); return r.ok; }));
+      return json({ ok: true, sent: results.filter(Boolean).length, total: joel.length, joel: true });
     }
     const coll = typeof body.coll === 'string' && COLLS.includes(body.coll) ? body.coll : '';
     if (!coll) return json({ error: 'Unbekannte Sammlung' }, 400);
