@@ -56,6 +56,25 @@
 .q-name{font-family:var(--head);font-weight:700;font-size:13px;color:var(--lime)}
 .empty{margin:0;font-size:13.5px;color:var(--muted)}
 .sub{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+/* Verlauf der Zahlen: 7 Tage / Monat / Jahr als Kurven (Besucher, Video 2 ganz gesehen, App-Geräte) – SVG ohne Bibliothek */
+.chart{display:flex;flex-direction:column;gap:8px}
+.chart-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.chart-head .sub{margin-top:0}
+.seg{display:flex;gap:3px;padding:3px;border-radius:999px;background:rgba(47,16,65,.55)}
+.seg button{border:0;background:transparent;color:var(--muted);font-family:var(--head);font-weight:700;font-size:12.5px;padding:0 12px;min-height:30px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--lime);color:var(--night)}
+.legend{display:flex;gap:6px}
+.lg{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;padding:8px 8px 7px;border-radius:12px;background:rgba(47,16,65,.55)}
+.lg i{display:block;width:14px;height:3px;border-radius:2px;background:var(--c)}
+.lg b{font-family:var(--head);font-size:20px;line-height:1;color:#fff}
+.lg span{font-family:var(--mono);font-size:9.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plot svg{display:block;width:100%;height:170px;touch-action:pan-y;overflow:visible;cursor:crosshair}
+.plot text{font-family:var(--mono);font-size:10px;fill:var(--muted)}
+.plot .grid{stroke:rgba(255,255,255,.1)}
+.plot .hair{stroke:rgba(255,255,255,.4);stroke-dasharray:2 3}
+.plot .ln{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.plot .pt{stroke:var(--night2);stroke-width:2}
+.chart .meta{min-height:1.2em}
 .zrow{display:flex;align-items:baseline;gap:10px;padding:7px 10px;border-radius:10px;background:rgba(47,16,65,.55);font-size:13px}
 .zrow b{font-family:var(--head);font-size:13px;width:78px;flex:none;color:#fff}
 .zrow .zn{font-family:var(--mono);font-size:12px;color:var(--lime);flex:none;width:34px;text-align:right}
@@ -137,6 +156,19 @@
         <div class="stat"><b id="zR">–</b><span>Reagiert</span></div>
       </div>
       <div class="meta" id="zMeta"></div>
+      <div class="chart" id="zChart">
+        <div class="chart-head">
+          <span class="sub">Verlauf</span>
+          <div class="seg" role="group" aria-label="Zeitraum" id="zRange">
+            <button type="button" data-range="7" aria-pressed="true">7 Tage</button>
+            <button type="button" data-range="31" aria-pressed="false">Monat</button>
+            <button type="button" data-range="365" aria-pressed="false">Jahr</button>
+          </div>
+        </div>
+        <div class="legend" id="zLegend"></div>
+        <div class="plot"><svg id="zSvg" role="img" aria-label="Verlauf: Besucher, Video 2 ganz gesehen, App-Geräte"></svg></div>
+        <div class="meta" id="zRead">…</div>
+      </div>
       <div class="sub">Letzte Tage</div>
       <div class="list" id="zList"><p class="empty">…</p></div>
     </article>
@@ -213,7 +245,7 @@
   var el = { gate: $("gate"), who: $("who"), pin: $("pin"), gateMsg: $("gateMsg"), grid: $("grid"), state: $("state"), foot: $("foot"), stand: $("stand"), hello: $("hello"), pDate: $("pDate"),
     hRef: $("hRef"), hMeta: $("hMeta"), nP: $("nP"), nQ: $("nQ"), nA: $("nA"), stP: $("stP"), stQ: $("stQ"), pendList: $("pendList"), qList: $("qList"), kalHead: $("kalHead"), kalToday: $("kalToday"), kalTasks: $("kalTasks"), tools: $("tools"),
     notify: $("notify"), ntfSub: $("ntfSub"), ntfBtn: $("ntfBtn"), ntfHint: $("ntfHint"),
-    zPush: $("zPush"), zV: $("zV"), zW1: $("zW1"), zW2: $("zW2"), zR: $("zR"), zMeta: $("zMeta"), zList: $("zList") };
+    zPush: $("zPush"), zV: $("zV"), zW1: $("zW1"), zW2: $("zW2"), zR: $("zR"), zMeta: $("zMeta"), zList: $("zList"), zRange: $("zRange"), zLegend: $("zLegend"), zSvg: $("zSvg"), zRead: $("zRead") };
   var pin = "", me = "", whoSel = "", kalRev = "", kal = null, timer = null, loading = false;
   var data = { pending: [], questions: [], approved: [], private: [] };
   var mods = { items: [], pushReady: true }; // wer bekommt Bescheid (Abos der Moderator-Geräte, von ?op=mod-subs)
@@ -315,7 +347,7 @@
       var v1 = t.videos[1] || {}, v2 = t.videos[2] || {};
       el.zV.textContent = t.visitors; el.zW1.textContent = v1.views || 0; el.zW2.textContent = v2.views || 0; el.zR.textContent = reactSum(t.reactions[2]) + reactSum(t.reactions[1]);
       var bits = [t.hits + " Aufruf" + (t.hits === 1 ? "" : "e"), t.app + " als App"];
-      if (v1.views) bits.push("Video 1 Ø " + (v1.avg || 0) + " % gesehen"); if (v2.views) bits.push("Video 2 Ø " + (v2.avg || 0) + " %");
+      if (v1.views) bits.push("Video 1 Ø " + (v1.avg || 0) + " % gesehen"); if (v2.views) bits.push("Video 2 Ø " + (v2.avg || 0) + " %" + (v2.full ? " · " + v2.full + " ganz gesehen" : ""));
       var mins = (v1.minutes || 0) + (v2.minutes || 0); if (mins) bits.push(mins + " Min. insgesamt");
       var top = reactTop(t.reactions[2]); if (top) bits.push(top);
       el.zMeta.textContent = bits.join(" · ");
@@ -327,12 +359,97 @@
         var n = document.createElement("span"); n.className = "zn"; n.textContent = d.visitors;
         var w1 = d.videos[1] || {}, w2 = d.videos[2] || {};
         var v = document.createElement("span"); v.className = "zv";
-        v.textContent = [w1.views || w2.views ? (w1.views || 0) + " / " + (w2.views || 0) + " gesehen" : "keine Videos", w2.views && w2.avg ? "Ø " + w2.avg + " %" : "", reactTop(d.reactions[2])].filter(Boolean).join(" · ");
+        v.textContent = [w1.views || w2.views ? (w1.views || 0) + " / " + (w2.views || 0) + " gesehen" : "keine Videos", w2.views && w2.avg ? "Ø " + w2.avg + " %" : "", w2.full ? w2.full + " ganz" : "", reactTop(d.reactions[2])].filter(Boolean).join(" · ");
         row.appendChild(b); row.appendChild(n); row.appendChild(v); el.zList.appendChild(row);
       });
       if (!days.slice(1).length) el.zList.appendChild(empty("Noch keine Tage."));
     }).catch(function (e) { el.zMeta.textContent = "Zahlen gerade nicht erreichbar: " + e.message; });
   }
+
+  // ---------- Verlauf (functions/daily.mjs ?op=history): Kurven für 7 Tage, Monat, Jahr ----------
+  // Drei Reihen in einer Achse (alles Personen bzw. Geräte): Besucher des Tages, Video 2 bis ≥ 90 % gesehen,
+  // Geräte, die die Seite bis dahin je als Home-Bildschirm-App geöffnet haben (Näherung für „gespeichert“).
+  var SERIES = [
+    { key: "visitors", name: "Besucher", color: "#D4F65A" },
+    { key: "f2", name: "Video 2 ganz", color: "#FF8A3D" },
+    { key: "appTotal", name: "App-Geräte", color: "#6CC5FF" }
+  ];
+  var hist = { range: 7, data: {}, sel: -1 };
+  var NS = "http://www.w3.org/2000/svg";
+  function svgEl(tag, attrs, text) { var n = document.createElementNS(NS, tag); Object.keys(attrs || {}).forEach(function (k) { n.setAttribute(k, attrs[k]); }); if (text != null) n.textContent = text; return n; }
+  function niceCeil(v) { if (v <= 4) return 4; var p = Math.pow(10, Math.floor(Math.log10(v))), f = v / p; var m = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10; return m * p; }
+  function histLabel(day, today, long) {
+    if (day === today) return "Heute";
+    var d = new Date(day + "T12:00:00");
+    return WD[d.getDay()].slice(0, 2) + " " + d.getDate() + ". " + MONTHS[d.getMonth()] + (long ? " " + d.getFullYear() : "");
+  }
+  function renderLegend(days, i) {
+    el.zLegend.innerHTML = "";
+    var d = days[i] || {};
+    SERIES.forEach(function (s) {
+      var box = document.createElement("div"); box.className = "lg"; box.style.setProperty("--c", s.color);
+      var key = document.createElement("i");
+      var b = document.createElement("b"); b.textContent = d[s.key] != null ? d[s.key] : "–";
+      var sp = document.createElement("span"); sp.textContent = s.name;
+      box.appendChild(key); box.appendChild(b); box.appendChild(sp); el.zLegend.appendChild(box);
+    });
+  }
+  function renderChart() {
+    var r = hist.data[hist.range]; if (!r) return;
+    var days = r.days || [], n = days.length, svg = el.zSvg;
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    if (!n) { el.zRead.textContent = "Noch keine Tage."; return; }
+    var W = Math.max(240, Math.round(svg.getBoundingClientRect().width || 300)), H = 170, L = 30, R = 10, T = 10, B = 22;
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    var pw = W - L - R, ph = H - T - B;
+    var max = 0; days.forEach(function (d) { SERIES.forEach(function (s) { max = Math.max(max, d[s.key] || 0); }); });
+    var top = niceCeil(max);
+    var x = function (i) { return L + (n === 1 ? pw / 2 : pw * i / (n - 1)); }, y = function (v) { return T + ph - ph * (v / top); };
+    // Raster: 0, Mitte, oben – zurückhaltend, mit Werten links
+    [0, top / 2, top].forEach(function (v) {
+      svg.appendChild(svgEl("line", { "class": "grid", x1: L, x2: W - R, y1: y(v), y2: y(v) }));
+      svg.appendChild(svgEl("text", { x: L - 6, y: y(v) + 3.5, "text-anchor": "end" }, String(v % 1 ? v.toFixed(1) : v)));
+    });
+    // Zeitachse: Woche = Wochentage, Monat = jeder 5. Tag, Jahr = Monatsanfänge
+    var labels = [];
+    if (n <= 7) days.forEach(function (d, i) { labels.push([i, WD[new Date(d.day + "T12:00:00").getDay()].slice(0, 2)]); });
+    else if (n <= 31) days.forEach(function (d, i) { if ((n - 1 - i) % 5 === 0) labels.push([i, new Date(d.day + "T12:00:00").getDate() + "."]); });
+    else { var every = pw < 420 ? 2 : 1; days.forEach(function (d, i) { var mo = Number(d.day.slice(5, 7)); if (d.day.slice(8) === "01" && (mo - 1) % every === 0) labels.push([i, MONTHS[mo - 1].replace(".", "").slice(0, 3)]); }); }
+    labels.forEach(function (lb) { svg.appendChild(svgEl("text", { x: x(lb[0]), y: H - 6, "text-anchor": lb[0] === 0 && n > 7 ? "start" : lb[0] === n - 1 && n > 7 ? "end" : "middle" }, lb[1])); });
+    // Kurven
+    SERIES.forEach(function (s) {
+      var d = days.map(function (dd, i) { return (i ? "L" : "M") + x(i).toFixed(1) + " " + y(dd[s.key] || 0).toFixed(1); }).join(" ");
+      svg.appendChild(svgEl("path", { "class": "ln", d: d, stroke: s.color }));
+      if (n <= 7) days.forEach(function (dd, i) { svg.appendChild(svgEl("circle", { "class": "pt", cx: x(i), cy: y(dd[s.key] || 0), r: 3.5, fill: s.color })); });
+    });
+    // Fadenkreuz und Punkte des gewählten Tags (Standard: heute)
+    var hair = svgEl("line", { "class": "hair", y1: T, y2: T + ph }); svg.appendChild(hair);
+    var dots = SERIES.map(function (s) { var c = svgEl("circle", { "class": "pt", r: 4.5, fill: s.color }); svg.appendChild(c); return c; });
+    function select(i) {
+      i = Math.max(0, Math.min(n - 1, i)); hist.sel = i;
+      hair.setAttribute("x1", x(i)); hair.setAttribute("x2", x(i));
+      SERIES.forEach(function (s, k) { dots[k].setAttribute("cx", x(i)); dots[k].setAttribute("cy", y(days[i][s.key] || 0)); });
+      renderLegend(days, i);
+      el.zRead.textContent = histLabel(days[i].day, r.today, n > 31) + (days[i].day === r.today ? " · tippe auf die Kurve für andere Tage" : " · " + (days[i].app || 0) + " als App geöffnet · " + (days[i].v2 || 0) + " haben Video 2 gestartet");
+    }
+    var pick = function (ev) { var rect = svg.getBoundingClientRect(); var px = (ev.clientX - rect.left) / rect.width * W; select(Math.round((px - L) / pw * (n - 1))); };
+    svg.onpointermove = pick; svg.onpointerdown = pick;
+    svg.onpointerleave = function () { select(n - 1); };
+    select(hist.sel >= 0 && hist.sel < n ? hist.sel : n - 1);
+  }
+  function loadHistory(range) {
+    range = range || hist.range;
+    return call(DAILY, "history", { days: range }).then(function (r) { hist.data[range] = r; if (range === hist.range) renderChart(); })
+      .catch(function (e) { if (range === hist.range && !hist.data[range]) el.zRead.textContent = "Verlauf gerade nicht erreichbar: " + e.message; });
+  }
+  el.zRange.addEventListener("click", function (ev) {
+    var b = ev.target.closest("[data-range]"); if (!b) return;
+    hist.range = Number(b.dataset.range); hist.sel = -1;
+    el.zRange.querySelectorAll("[data-range]").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+    if (hist.data[hist.range]) renderChart(); else { el.zRead.textContent = "…"; loadHistory(); }
+  });
+  window.addEventListener("resize", function () { if (hist.data[hist.range]) renderChart(); });
+  renderLegend([], 0);
 
   // ---------- WALL ----------
   function loadWall() {
@@ -536,7 +653,7 @@
   // ---------- Laden ----------
   function loadAll() {
     if (loading) return; loading = true; state("");
-    Promise.all([loadWall(), loadKal(), loadStats()]).then(function () {
+    Promise.all([loadWall(), loadKal(), loadStats(), loadHistory()]).then(function () {
       var d = new Date(); el.stand.textContent = "Stand " + pad(d.getHours()) + ":" + pad(d.getMinutes()); el.foot.hidden = false;
     }).catch(function (e) {
       if (e && e.status === 401) { showGate("Die Studio-PIN stimmt nicht mehr."); return; }
