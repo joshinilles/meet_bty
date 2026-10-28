@@ -871,19 +871,33 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 
     // Einmalige Übernahme (28.10.2026): Beiträge des alten Produktions-Boards mit Datum werden Projekte.
     // Die Aufnahme (Termin mit beitragId) und der Schnitt (Aufgabe mit rolle "schnitt") wandern mit; der Aufnahme-Termin
-    // wird danach gelöscht, weil das Projekt ihn trägt. Läuft nur einmal je Beitrag (Feld ausBeitrag am Projekt).
+    // wird danach gelöscht, weil das Projekt ihn trägt. Jeder übernommene Beitrag bekommt das Feld uebernommen – so entsteht
+    // nichts Neues, wenn jemand das Projekt später löscht (das hatte am 28.10. bei jedem Öffnen Doppel angelegt).
+    // Ausserdem räumt die Seite Doppel auf, die die alte Übernahme hinterlassen hat (mehrere Projekte zum selben Beitrag).
     let altB=null, altA=null, migriert=false;
     async function migrate(){
       if(migriert||!canWrite||!altB||!altA||!termLoaded||!projLoaded) return; migriert=true;
-      const offen=altB.filter(b=>isDay(b.datum)&&typeof b.titel==="string"&&!projekte.some(p=>p.ausBeitrag===b.id)); if(!offen.length) return;
+      // Doppel: mehrere Projekte zum selben Beitrag → das älteste bleibt
+      const byB={}; projekte.forEach(p=>{ if(p.ausBeitrag) (byB[p.ausBeitrag]=byB[p.ausBeitrag]||[]).push(p); });
+      let weg=0;
+      for(const id in byB){ const l=byB[id].sort((a,b)=>(a.erstelltAm||0)-(b.erstelltAm||0)||a.id.localeCompare(b.id)); for(const p of l.slice(1)){ try{ await db.collection("projekte").doc(p.id).delete(); weg++; }catch(e){} } }
+      if(weg) showToast(weg+(weg===1?" doppeltes Projekt":" doppelte Projekte")+" aus der alten Übernahme entfernt.",false);
+      const schonMal=projekte.some(p=>p.ausBeitrag);
+      const offen=altB.filter(b=>isDay(b.datum)&&typeof b.titel==="string"&&!b.uebernommen);
+      if(!offen.length) return;
       let n=0;
       for(const b of offen){
-        const auf=termine.find(t=>t.beitragId===b.id&&/^aufnahme/i.test(t.titel||""))||termine.find(t=>t.beitragId===b.id);
-        const sch=altA.find(t=>t.beitragId===b.id&&t.rolle==="schnitt"&&isDay(t.datum));
-        const doc={art:b.bereich==="us"?"podcast":"reel",titel:b.titel||"(ohne Titel)",wer:personen.some(p=>p.id===b.wer)?b.wer:"beide",release:b.datum,
-          aufnahme:auf?auf.datum:"",aufnahmeVon:auf?(auf.von||""):"",aufnahmeBis:auf?(auf.bis||""):"",schnitt:sch?sch.datum:"",
-          link:b.link||"",notiz:b.notiz||"",reels:[],imDrive:false,ausBeitrag:b.id,erstelltAm:b.erstelltAm||Date.now(),erstelltVon:b.erstelltVon||null};
-        try{ await db.collection("projekte").add(doc); if(auf) await db.collection("termine").doc(auf.id).delete().catch(()=>{}); n++; }catch(e){}
+        try{
+          if(!schonMal&&!projekte.some(p=>p.ausBeitrag===b.id)){
+            const auf=termine.find(t=>t.beitragId===b.id&&/^aufnahme/i.test(t.titel||""))||termine.find(t=>t.beitragId===b.id);
+            const sch=altA.find(t=>t.beitragId===b.id&&t.rolle==="schnitt"&&isDay(t.datum));
+            const doc={art:b.bereich==="us"?"podcast":"reel",titel:b.titel||"(ohne Titel)",wer:personen.some(p=>p.id===b.wer)?b.wer:"beide",release:b.datum,
+              aufnahme:auf?auf.datum:"",aufnahmeVon:auf?(auf.von||""):"",aufnahmeBis:auf?(auf.bis||""):"",schnitt:sch?sch.datum:"",
+              link:b.link||"",notiz:b.notiz||"",reels:[],imDrive:false,ausBeitrag:b.id,erstelltAm:b.erstelltAm||Date.now(),erstelltVon:b.erstelltVon||null};
+            await db.collection("projekte").add(doc); if(auf) await db.collection("termine").doc(auf.id).delete().catch(()=>{}); n++;
+          }
+          await db.collection("beitraege").doc(b.id).update({uebernommen:Date.now()});
+        }catch(e){}
       }
       if(n) showToast(n+(n===1?" Beitrag":" Beiträge")+" aus dem alten Board als Projekt übernommen.",false);
     }
