@@ -426,10 +426,11 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     if(isDay(p.release)) out.push({kind:k,mode:"rel",day:p.release,label:"Release",titel:name,wer:p.wer,proj:p,sort:1});
     if(isDay(p.aufnahme)) out.push({kind:k,mode:"step",day:p.aufnahme,label:"Aufnahme"+(p.aufnahmeVon?" "+p.aufnahmeVon:""),titel:name,meta:p.aufnahmeVon&&p.aufnahmeBis?["bis "+p.aufnahmeBis]:[],wer:p.wer,proj:p,sort:2});
     if(isDay(p.schnitt)) out.push({kind:k,mode:"step",day:p.schnitt,label:"Schnitt",titel:name,wer:"joel",proj:p,sort:3});
+    // Reels der Folge tragen den Folgentitel im Namen, damit man im Kalender sofort sieht, wozu sie gehören
     (Array.isArray(p.reels)?p.reels:[]).forEach(r=>{
-      const rn=(r.titel||"Reel")+(r.abschnitt?" · "+r.abschnitt:"");
-      if(isDay(r.schnitt)) out.push({kind:k,mode:"sub",day:r.schnitt,label:"Reel-Schnitt",titel:rn,meta:["aus „"+name+"“"],wer:"joel",proj:p,sort:4});
-      if(isDay(r.release)) out.push({kind:k,mode:"sub",day:r.release,label:"Reel-Release",titel:rn,meta:["aus „"+name+"“"],wer:p.wer,proj:p,sort:4});
+      const rn=(r.titel||"Reel")+" · "+name, meta=r.abschnitt?["Minute "+r.abschnitt]:[];
+      if(isDay(r.schnitt)) out.push({kind:k,mode:"sub",day:r.schnitt,label:"Reel-Schnitt",titel:rn,meta,wer:"joel",proj:p,sort:4});
+      if(isDay(r.release)) out.push({kind:k,mode:"sub",day:r.release,label:"Reel-Release",titel:rn,meta,wer:p.wer,proj:p,sort:4});
     });
     return out;
   }
@@ -617,7 +618,7 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
       const list=other?[]:(by[k]||[]), MAX=5;
       list.slice(0,MAX).forEach(it=>{
         const dl=it.mode==="daily";
-        const m=el("div","ml "+it.kind+" "+it.mode,dl?(it.titel||"DAILY")+(it.meta&&it.meta[0]?" · "+it.meta[0]:""):(it.mode==="termin"?(isAllDay(it.termin)?"":it.termin.von+" "):it.label+": ")+it.titel);
+        const m=el("div","ml "+it.kind+" "+it.mode,dl?(it.titel||"DAILY")+(it.meta&&it.meta[0]?" · "+it.meta[0]:""):(it.mode==="termin"?(isAllDay(it.termin)?"":it.termin.von+" "):it.mode==="sub"?(it.label==="Reel-Schnitt"?"Schnitt: ":""):it.label+": ")+it.titel);
         m.title=it.label+" · "+it.titel+(it.wer&&it.wer!=="beide"?" · "+werName(it.wer):"")+((it.meta||[]).length?" · "+it.meta.join(" · "):"");
         m.onclick=ev=>{ ev.stopPropagation(); openItem(it); }; c.appendChild(m);
       });
