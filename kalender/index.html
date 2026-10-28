@@ -273,7 +273,7 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
       <div class="f span6" data-p><label for="fNotiz">Notizen</label><textarea id="fNotiz" maxlength="2000" placeholder="Gast, Thema, Bibelstellen, was beim Schnitt wichtig ist …"></textarea></div>
       <div class="f span6" data-p="podcast">
         <div class="phead"><label>Reels aus dieser Folge</label><button type="button" class="btn small" id="reelAdd">+ Reel</button></div>
-        <p class="hint">Intro-Reel und Push-Reel sind bei jeder Folge dabei (Release zwei Tage vor und zwei Tage nach der Folge – anpassbar). Weitere Reels: Minute und Thema eintragen oder die Zeit leer lassen, dann sucht Joel den Clip aus. Schnitt ist optional.</p>
+        <p class="hint">Bei jeder Folge dabei: Intro-Reel (2 Tage vor dem Release), Release-Reel (am Release-Tag), Push-Reel 1 (2 Tage danach) und Push-Reel 2 (5 Tage danach) – die Daten folgen dem Release, bis du sie änderst. Weitere Reels: Minute und Thema eintragen oder die Zeit leer lassen, dann sucht Joel den Clip aus. Schnitt ist optional.</p>
         <div class="reels" id="reels"></div>
       </div>
 
@@ -703,8 +703,9 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     renderReels(); updWdh(); updGanztag(); $("abwWarn").textContent="";
   }
   // Reels aus der Folge: Zeilen im Formular, werden mit dem Projekt gespeichert.
-  // Zu jeder neuen Folge gehören Intro-Reel (vor dem Release) und Push-Reel (danach); ihr Release folgt dem Folgen-Release, bis man es von Hand ändert.
-  const REEL_PLAN=[{titel:"Intro-Reel",offset:-2},{titel:"Push-Reel",offset:2}];
+  // Zu jeder neuen Folge gehören vier Reels (Vincents Vorgabe 28.10.2026): Intro-Reel 2 Tage vor dem Release, Release-Reel am Release-Tag,
+  // Push-Reel 1 zwei Tage und Push-Reel 2 fünf Tage danach. Ihr Release folgt dem Folgen-Release, bis man es von Hand ändert.
+  const REEL_PLAN=[{titel:"Intro-Reel",offset:-2},{titel:"Release-Reel",offset:0},{titel:"Push-Reel 1",offset:2},{titel:"Push-Reel 2",offset:5}];
   const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   function autoReels(){
     const rel=$("fRelease").value; if(!isDay(rel)) return;
