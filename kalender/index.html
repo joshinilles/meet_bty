@@ -128,6 +128,10 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 .ev a.route:hover{border-color:var(--accent);color:var(--accent)}
 .ev a.route::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
 .ev .ort{overflow-wrap:anywhere}
+.ev.pub{background:color-mix(in srgb,var(--c,var(--b-grau)) 16%,var(--surface-2))}
+.ev.pub .t{color:var(--c,var(--muted));font-weight:600}
+.ev.pub .t::before{content:"◆ "}
+.ev.pub .late{color:var(--bad)}
 /* Aufgaben */
 .tasks{display:flex;flex-direction:column}
 .task{display:flex;align-items:flex-start;gap:12px;padding:9px 4px;border-top:1px solid var(--line)}
@@ -187,6 +191,10 @@ details.done[open] summary::before{transform:rotate(90deg)}
 .cell .mtk.prod{color:inherit}
 .cell .mtk.prod::before{content:"▸ "}
 .cell .mtk.late{color:var(--warn)}
+.cell .mpub{font-size:.76rem;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px 0 6px;border-left:2px solid var(--c,var(--b-grau));border-radius:0 4px 4px 0;background:color-mix(in srgb,var(--c,var(--b-grau)) 22%,transparent)}
+.cell .mpub::before{content:"◆ ";color:var(--c,var(--b-grau))}
+.cell .mpub.late{color:var(--warn)}
+.cell .dots i.pub{border-radius:1px;transform:rotate(45deg) scale(.9)}
 .daygroup{display:flex;flex-direction:column;gap:6px}
 .daygroup h3{font-family:var(--font-num);font-weight:400;font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;color:var(--kicker);padding-top:6px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom, 0px));background:var(--toast-bg);color:var(--toast-fg);border-radius:var(--r-lg);padding:10px 12px 10px 16px;display:flex;align-items:center;gap:14px;box-shadow:0 6px 24px rgba(0,0,0,.3);max-width:calc(100% - 32px);z-index:10;font-weight:500}
@@ -199,7 +207,7 @@ details.done[open] summary::before{transform:rotate(90deg)}
   .week{grid-template-columns:minmax(0,1fr)}
   .day{min-height:0}
   .cell{min-height:58px;padding:4px}
-  .cell .mev,.cell .more,.cell .abwdot,.cell .mtk{display:none}
+  .cell .mev,.cell .more,.cell .abwdot,.cell .mtk,.cell .mpub{display:none}
   .cell .dots{display:flex}
   .cell .tk{display:block;font-size:.62rem}
 }
@@ -298,6 +306,10 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
 .mini .md.today{background:var(--today);color:var(--on-today);font-weight:650}
 .mini .md.today::after{background:var(--on-today)}
 .mini .md.pad{visibility:hidden}
+.mini .md.pub{position:relative}
+.mini .md.pub::before{content:"";position:absolute;top:3px;right:3px;width:5px;height:5px;background:var(--b-pink);transform:rotate(45deg)}
+.mini .md.today.pub::before{background:var(--on-today)}
+.mini .mh .pubcnt{color:var(--b-pink)}
 @media (max-width:1000px){.year{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:680px){.year{grid-template-columns:repeat(2,minmax(0,1fr))}.mini{padding:8px}.mini .md{font-size:.7rem}}
 @media (max-width:400px){.year{gap:8px}}
@@ -511,7 +523,7 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
   <div id="viewJahr" hidden>
     <div style="display:flex;flex-direction:column;gap:16px">
       <div class="year" id="yearGrid"></div>
-      <p class="hint">Punkt = Termin an diesem Tag, Strich = drei oder mehr, Rahmen = offene Aufgabe. Ein Tag antippen öffnet den Tag, der Monatsname den Monat.</p>
+      <p class="hint">Punkt = Termin an diesem Tag, Strich = drei oder mehr, Rahmen = offene Aufgabe, rosa Raute = Veröffentlichung. Ein Tag antippen öffnet den Tag, der Monatsname den Monat.</p>
     </div>
   </div>
 </div>
@@ -633,6 +645,10 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
   const tasksMonth=mk=>aufgaben.filter(t=>t.monat===mk&&passWer(t));
   const backlogTasks=()=>aufgaben.filter(t=>!t.datum&&!t.woche&&!t.monat&&passWer(t));
   const sortTasks=list=>list.slice().sort((a,b)=>(a.erledigt?1:0)-(b.erledigt?1:0)||((a.prio==="hoch"?0:1)-(b.prio==="hoch"?0:1))||(a.datum||"9").localeCompare(b.datum||"9")||(a.erstelltAm||0)-(b.erstelltAm||0));
+  // Veröffentlichungen = Beiträge aus der Produktion mit Datum; erscheinen in Tag, Woche, Monat und Jahr
+  const pubsBetween=(a,b)=>beitraege.filter(x=>x.datum&&x.datum>=a&&x.datum<=b&&passWer(x)).sort((x,y)=>x.datum.localeCompare(y.datum)||(x.titel||"").localeCompare(y.titel||"","de"));
+  const pubLate=x=>x.status!=="veroeffentlicht"&&x.datum<todayKey();
+  const nPl=(n,eins,mehr)=>n+" "+(n===1?eins:mehr);
 
   // ---------- Bausteine ----------
   function evRow(t,opts){
@@ -660,6 +676,35 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
     r.append(tm,body);
     if(canWrite){ r.onclick=()=>startEdit("termin",t); r.onkeydown=ev=>{ if(ev.key==="Enter"||ev.key===" "){ ev.preventDefault(); startEdit("termin",t); } }; }
     return r;
+  }
+  function pubRow(x,opts){
+    opts=opts||{};
+    const b=bById(x.bereich), st=x.status||"idee", done=st==="veroeffentlicht";
+    const r=el("div","ev pub "+cls(b)); r.tabIndex=0; r.setAttribute("role","button");
+    if(opts.past&&done) r.classList.add("past");
+    r.title="Veröffentlichung · Beitrag aus der Produktion";
+    const tm=el("div","t all","Release");
+    const body=el("div");
+    body.appendChild(el("div","n",x.titel||"(ohne Titel)"));
+    const s=el("div","s"); s.appendChild(chip(b));
+    const wt=whoTag(x); if(wt) s.appendChild(wt);
+    s.appendChild(el("span",pubLate(x)?"late":null,done?"✓ veröffentlicht":pubLate(x)?"noch nicht online · "+stName(st):stName(st)));
+    const lb=linkBtn(x); if(lb) s.appendChild(lb);
+    const kc=kommCount("beitraege/"+x.id); if(kc) s.appendChild(kc);
+    body.appendChild(s);
+    r.append(tm,body);
+    if(canWrite){ r.onclick=()=>startEdit("beitrag",x); r.onkeydown=ev=>{ if(ev.key==="Enter"||ev.key===" "){ ev.preventDefault(); startEdit("beitrag",x); } }; }
+    return r;
+  }
+  // Tagesgruppen (Liste im Monat, „Als Nächstes“ im Tag): Veröffentlichungen vor den Terminen
+  function fillDayGroups(box,evs,pubs,head){
+    const tk=todayKey(), days=[...new Set(evs.map(t=>t.inst).concat(pubs.map(x=>x.datum)))].sort();
+    days.forEach(k=>{
+      const grp=el("div","daygroup"); grp.appendChild(el("h3",null,head(k)));
+      pubs.filter(x=>x.datum===k).forEach(x=>grp.appendChild(pubRow(x,{past:k<tk})));
+      evs.filter(t=>t.inst===k).forEach(t=>grp.appendChild(evRow(t,{past:k<tk})));
+      box.appendChild(grp);
+    });
   }
   function taskRow(t,opts){
     opts=opts||{};
@@ -1024,8 +1069,8 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
       eb.textContent=n?n+(n===1?" Beitrag":" Beiträge")+(sc?" · "+sc+" im Schnitt":"")+(fr?" · "+fr+" zur Freigabe":""):"Beiträge von der Idee bis zur Veröffentlichung";
     } else {
       h.append(el("span","ul",String(cur.getFullYear())));
-      const y=cur.getFullYear(), n=eventsBetween(y+"-01-01",y+"-12-31").length;
-      eb.textContent="Jahresübersicht"+(n?" · "+n+(n===1?" Termin":" Termine"):"");
+      const y=cur.getFullYear(), n=eventsBetween(y+"-01-01",y+"-12-31").length, np=pubsBetween(y+"-01-01",y+"-12-31").length;
+      eb.textContent="Jahresübersicht"+(n?" · "+nPl(n,"Termin","Termine"):"")+(np?" · "+nPl(np,"Veröffentlichung","Veröffentlichungen"):"");
     }
     const P=view==="produktion"; $("prev").hidden=P; $("next").hidden=P; $("todayBtn").hidden=P;
     h.appendChild(el("span","cur")); h.lastChild.setAttribute("aria-hidden","true");
@@ -1038,20 +1083,22 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
     const evs=eventsBetween(y+"-01-01",y+"-12-31");
     const cnt={}; evs.forEach(t=>{cnt[t.inst]=(cnt[t.inst]||0)+1;});
     const tsk=new Set(aufgaben.filter(t=>open(t)&&t.datum&&t.datum.startsWith(y+"-")).map(t=>t.datum));
+    const pubs={}; pubsBetween(y+"-01-01",y+"-12-31").forEach(x=>{(pubs[x.datum]=pubs[x.datum]||[]).push(x.titel||"(ohne Titel)");});
     const g=$("yearGrid"); g.innerHTML="";
     for(let mo=0;mo<12;mo++){
       const mk=y+"-"+pad(mo+1);
       const box=el("div","mini"+(mk===curM?" cur":""));
       const mh=el("div","mh"); const nb=el("button",null,MONTHS[mo]); nb.type="button"; nb.onclick=()=>{cur=new Date(y,mo,1);setView("monat");};
-      const n=evs.filter(t=>t.inst.slice(0,7)===mk).length;
-      mh.append(nb, el("span","cnt",n?n+(n===1?" Termin":" Termine"):"")); box.appendChild(mh);
+      const n=evs.filter(t=>t.inst.slice(0,7)===mk).length, np=Object.keys(pubs).filter(k=>k.slice(0,7)===mk).reduce((s,k)=>s+pubs[k].length,0);
+      const cn=el("span","cnt",n?nPl(n,"Termin","Termine"):""); if(np){ const pp=el("span","pubcnt",(n?" · ":"")+"◆ "+np); pp.title=nPl(np,"Veröffentlichung","Veröffentlichungen"); cn.appendChild(pp); }
+      mh.append(nb, cn); box.appendChild(mh);
       const mg=el("div","mg"); DOWS.forEach(d=>mg.appendChild(el("span",null,d[0])));
       const first=new Date(y,mo,1), days=new Date(y,mo+1,0).getDate();
       for(let i=0;i<dowIdx(first);i++){ const p=el("button","md pad"); p.type="button"; p.tabIndex=-1; mg.appendChild(p); }
       for(let d=1;d<=days;d++){
         const dt=new Date(y,mo,d), k=key(dt), c=cnt[k]||0;
-        const b=el("button","md"+(dowIdx(dt)>=5?" wk":"")+(c?" has":"")+(c>=3?" many":"")+(tsk.has(k)?" tsk":"")+(k===tk?" today":""),String(d)); b.type="button";
-        b.title=fmtDMfull(dt)+(c?" · "+c+(c===1?" Termin":" Termine"):"")+(tsk.has(k)?" · offene Aufgabe":"");
+        const b=el("button","md"+(dowIdx(dt)>=5?" wk":"")+(c?" has":"")+(c>=3?" many":"")+(tsk.has(k)?" tsk":"")+(pubs[k]?" pub":"")+(k===tk?" today":""),String(d)); b.type="button";
+        b.title=fmtDMfull(dt)+(c?" · "+c+(c===1?" Termin":" Termine"):"")+(tsk.has(k)?" · offene Aufgabe":"")+(pubs[k]?" · Veröffentlichung: "+pubs[k].join(", "):"");
         b.onclick=()=>{cur=dt;setView("tag");};
         mg.appendChild(b);
       }
@@ -1063,10 +1110,12 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
   function renderTag(){
     const k=key(cur), tk=todayKey(), wk=weekKey(cur);
     const evs=eventsBetween(k,k);
+    const pubs=pubsBetween(k,k);
     const box=$("tagEvents"); box.innerHTML="";
     const atT=absTags(k); if(atT) box.appendChild(atT);
-    $("tagStatus").textContent=evs.length?evs.length+(evs.length===1?" Termin":" Termine"):"";
-    if(!evs.length) box.appendChild(el("div","empty",k===tk?"Heute steht nichts im MEET-Kalender. Freier Tag oder noch nichts eingetragen.":"Keine Termine an diesem Tag."));
+    $("tagStatus").textContent=[evs.length?nPl(evs.length,"Termin","Termine"):"",pubs.length?nPl(pubs.length,"Veröffentlichung","Veröffentlichungen"):""].filter(Boolean).join(" · ");
+    if(!evs.length&&!pubs.length) box.appendChild(el("div","empty",k===tk?"Heute steht nichts im MEET-Kalender. Freier Tag oder noch nichts eingetragen.":"Keine Termine an diesem Tag."));
+    pubs.forEach(x=>box.appendChild(pubRow(x,{past:k<tk})));
     const now=new Date(), nowT=pad(now.getHours())+":"+pad(now.getMinutes());
     evs.forEach(t=>box.appendChild(evRow(t,{past:k<tk||(k===tk&&!isAllDay(t)&&(t.bis||t.von)<nowT)})));
     $("tagTaskTitle").textContent=k===tk?"Heute zu tun":"An diesem Tag zu tun";
@@ -1076,25 +1125,17 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
     $("tagFokus").value=fokusW[wk]||"";
     const weekOpen=sortTasks(tasksWeek(wk).filter(t=>open(t)&&t.datum!==k));
     fillTasks($("tagWeekTasks"),weekOpen,{ctx:"tagw",empty:"Für diese Woche ist nichts mehr offen."});
-    const up=eventsBetween(key(addDays(cur,1)),key(addDays(cur,10))).slice(0,10);
+    const up=eventsBetween(key(addDays(cur,1)),key(addDays(cur,10))).slice(0,10), upP=pubsBetween(key(addDays(cur,1)),key(addDays(cur,10)));
     const ub=$("tagUpcoming"); ub.innerHTML="";
-    if(!up.length) ub.appendChild(el("div","empty","In den nächsten zehn Tagen steht nichts an."));
-    let lastK=null, grp=null;
-    up.forEach(t=>{
-      if(t.inst!==lastK){
-        lastK=t.inst; grp=el("div","daygroup"); const d=parse(t.inst);
-        const rel = t.inst===key(addDays(new Date(),1)) ? " · morgen" : "";
-        grp.appendChild(el("h3",null,DOWL[dowIdx(d)]+", "+fmtDMfull(d)+rel)); ub.appendChild(grp);
-      }
-      grp.appendChild(evRow(t));
-    });
+    if(!up.length&&!upP.length) ub.appendChild(el("div","empty","In den nächsten zehn Tagen steht nichts an."));
+    fillDayGroups(ub,up,upP,k2=>{ const d=parse(k2); return DOWL[dowIdx(d)]+", "+fmtDMfull(d)+(k2===key(addDays(new Date(),1))?" · morgen":""); });
   }
 
   // ---------- Woche ----------
   function renderWoche(){
     const m=monday(cur), wk=weekKey(cur), tk=todayKey(), thisWk=weekKey(new Date());
     const a=key(m), b=key(addDays(m,6));
-    const evs=eventsBetween(a,b);
+    const evs=eventsBetween(a,b), pubs=pubsBetween(a,b);
     const g=$("weekGrid"); g.innerHTML="";
     for(let i=0;i<7;i++){
       const d=addDays(m,i), k=key(d);
@@ -1102,11 +1143,11 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
       const dh=el("div","dh"); const nb=el("button",null,DOWL[i]); nb.type="button"; nb.onclick=()=>{cur=d;setView("tag");};
       dh.append(nb, el("span","dn",k===tk?"Heute":fmtDM(d))); card.appendChild(dh);
       const at=absTags(k); if(at) card.appendChild(at);
-      const dayEvs=evs.filter(t=>t.inst===k);
-      if(dayEvs.length){ const l=el("div","evlist"); dayEvs.forEach(t=>l.appendChild(evRow(t,{past:k<tk}))); card.appendChild(l); }
+      const dayEvs=evs.filter(t=>t.inst===k), dayPubs=pubs.filter(x=>x.datum===k);
+      if(dayEvs.length||dayPubs.length){ const l=el("div","evlist"); dayPubs.forEach(x=>l.appendChild(pubRow(x,{past:k<tk}))); dayEvs.forEach(t=>l.appendChild(evRow(t,{past:k<tk}))); card.appendChild(l); }
       const dt=sortTasks(tasksDay(k));
       if(dt.length){ const l=el("div","tasks"); dt.forEach(t=>l.appendChild(taskRow(t,{ctx:"w"+i,hideDate:true}))); card.appendChild(l); }
-      if(!dayEvs.length&&!dt.length&&!at) card.appendChild(el("div","empty","–"));
+      if(!dayEvs.length&&!dayPubs.length&&!dt.length&&!at) card.appendChild(el("div","empty","–"));
       if(canWrite){ const add=el("button","add","+ eintragen"); add.type="button"; add.onclick=()=>openForm("termin",{datum:k}); card.appendChild(add); }
       g.appendChild(card);
     }
@@ -1137,6 +1178,7 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
     const a=key(start), b=key(addDays(start,cells-1));
     const evs=eventsBetween(a,b);
     const byDay={}; evs.forEach(t=>{(byDay[t.inst]=byDay[t.inst]||[]).push(t);});
+    const pubs=pubsBetween(a,b), pByDay={}; pubs.forEach(x=>{(pByDay[x.datum]=pByDay[x.datum]||[]).push(x);});
     const tByDay={}; aufgaben.forEach(t=>{ if(t.datum&&open(t)&&passWer(t)) (tByDay[t.datum]=tByDay[t.datum]||[]).push(t); });
     const g=$("monthGrid"); g.innerHTML="";
     for(let i=0;i<cells;i++){
@@ -1146,13 +1188,16 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
       absOn(k).slice(0,2).forEach(a=>c.appendChild(el("div","abwdot",absName(a)+" weg")));
       const list=byDay[k]||[];
       const dots=el("div","dots");
-      const tl=sortTasks(tByDay[k]||[]), MAX=5;
-      const nEv=Math.min(list.length,Math.max(1,MAX-tl.length)), nTk=Math.min(tl.length,MAX-nEv);
+      const tl=sortTasks(tByDay[k]||[]), pl=pByDay[k]||[], MAX=5;
+      const nPub=Math.min(pl.length,3), R=MAX-nPub;
+      const nEv=Math.min(list.length,Math.max(1,R-tl.length)), nTk=Math.max(0,Math.min(tl.length,R-nEv));
+      pl.slice(0,nPub).forEach(x=>{ const m=el("div","mpub "+cls(bById(x.bereich))+(pubLate(x)?" late":""),x.titel||"(ohne Titel)"); m.title="Veröffentlichung · "+(x.titel||"")+" · "+stName(x.status||"idee"); c.appendChild(m); });
       list.slice(0,nEv).forEach(t=>{ const b=bById(t.bereich); const m=el("div","mev "+cls(b),(isAllDay(t)?"":(t.von||"")+" ")+(t.titel||"")); m.title=t.titel||""; c.appendChild(m); });
       tl.slice(0,nTk).forEach(t=>{ const b=bById(t.bereich), prod=!!t.beitragId||!!t.rolle, bt=prod&&t.beitragId?beitraege.find(x=>x.id===t.beitragId):null;
         const m=el("div","mtk "+cls(b)+(prod?" prod":"")+(k<tk?" late":""),t.titel||"(ohne Titel)"); m.title=(prod?"Produktionsschritt"+(bt?" zu „"+(bt.titel||"")+"“":""):"Aufgabe")+(t.wer&&t.wer!=="beide"?" · "+werName(t.wer):"")+(t.notiz?" · "+t.notiz:""); c.appendChild(m); });
-      const rest=(list.length-nEv)+(tl.length-nTk);
+      const rest=(pl.length-nPub)+(list.length-nEv)+(tl.length-nTk);
       if(rest>0) c.appendChild(el("div","more","+ "+rest+" weitere"));
+      pl.slice(0,3).forEach(x=>dots.appendChild(el("i","pub "+cls(bById(x.bereich)))));
       list.slice(0,6).forEach(t=>{ const i2=el("i",cls(bById(t.bereich))); dots.appendChild(i2); });
       c.appendChild(dots);
       if(tl.length) c.appendChild(el("span","tk",tl.length+(tl.length===1?" Aufgabe":" Aufgaben")+(tl.some(t=>t.beitragId||t.rolle)?" · Produktion":"")));
@@ -1165,15 +1210,11 @@ a.route.lnk::after{content:"↗";font-size:.85em;opacity:.8}
     const mt=tasksMonth(mk), mDone=mt.filter(t=>t.erledigt).length;
     $("monatZieleStatus").textContent=mt.length?mDone+" von "+mt.length+" erreicht":"";
     fillTasks($("monatTasks"),sortTasks(mt),{ctx:"mo",empty:"Noch keine Ziele für diesen Monat. Drei bis fünf reichen."});
-    const mEvs=evs.filter(t=>t.inst.slice(0,7)===mk);
-    $("monatStatus").textContent=mEvs.length?mEvs.length+(mEvs.length===1?" Termin":" Termine"):"";
+    const mEvs=evs.filter(t=>t.inst.slice(0,7)===mk), mPubs=pubs.filter(x=>x.datum.slice(0,7)===mk);
+    $("monatStatus").textContent=[mEvs.length?nPl(mEvs.length,"Termin","Termine"):"",mPubs.length?nPl(mPubs.length,"Veröffentlichung","Veröffentlichungen"):""].filter(Boolean).join(" · ");
     const ml=$("monatList"); ml.innerHTML="";
-    if(!mEvs.length) ml.appendChild(el("div","empty","Noch keine Termine in diesem Monat."));
-    let lastK=null, grp=null;
-    mEvs.forEach(t=>{
-      if(t.inst!==lastK){ lastK=t.inst; grp=el("div","daygroup"); const d=parse(t.inst); grp.appendChild(el("h3",null,DOWL[dowIdx(d)]+", "+fmtDMfull(d)+(t.inst===tk?" · heute":""))); ml.appendChild(grp); }
-      grp.appendChild(evRow(t,{past:t.inst<tk}));
-    });
+    if(!mEvs.length&&!mPubs.length) ml.appendChild(el("div","empty","Noch keine Termine in diesem Monat."));
+    fillDayGroups(ml,mEvs,mPubs,k2=>{ const d=parse(k2); return DOWL[dowIdx(d)]+", "+fmtDMfull(d)+(k2===tk?" · heute":""); });
   }
 
   function render(){
