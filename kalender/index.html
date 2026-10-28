@@ -160,6 +160,11 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 .day .add{margin-top:auto;align-self:flex-start;background:none;border:0;color:var(--label);cursor:pointer;padding:2px 0;font-size:.85rem}
 .day .add:hover{color:var(--accent)}
 /* Monat */
+.months{display:flex;flex-direction:column;gap:26px}
+.mon{display:flex;flex-direction:column;gap:8px;scroll-margin-top:70px}
+.mon h2{font-size:1.5rem;letter-spacing:-.02em}
+.mon.cur h2 .ul{text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:.1em;text-underline-offset:.1em}
+.mext{align-self:center}
 .dow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
 .dow span{font-family:var(--font-num);font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;color:var(--label);padding:0 6px 4px}
 .month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
@@ -169,7 +174,9 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 .cell.today{border-color:var(--accent)}
 .cell .dn{font-family:var(--font-num);font-size:.8rem;color:var(--label);align-self:flex-start}
 .cell.today .dn{background:var(--today);color:var(--on-today);border-radius:var(--r-pill);padding:0 7px;font-weight:500}
-.cell .ml{font-size:.74rem;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 5px 0 6px;border-left:2px solid var(--c);border-radius:0 4px 4px 0}
+.cell .ml{font-size:.74rem;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 5px 0 6px;border-left:2px solid var(--c);border-radius:0 4px 4px 0;cursor:pointer}
+.cell .ml:hover{filter:brightness(1.12)}
+.cell .ml.daily{cursor:default}
 .cell .ml.rel{background:var(--c);color:var(--on-c);font-weight:600;border-left-color:transparent}
 .cell .ml.step{background:color-mix(in srgb,var(--c) 28%,transparent)}
 .cell .ml.sub{background:color-mix(in srgb,var(--c) 12%,transparent);border-left-style:dashed}
@@ -213,8 +220,11 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
   <div class="tabbar-in">
     <span class="logo" aria-label="MEET Kalender">MEET<span class="cur" aria-hidden="true"></span></span>
     <div class="tabs" role="tablist">
-      <button type="button" role="tab" id="tabWoche" aria-selected="true">Woche</button>
-      <button type="button" role="tab" id="tabMonat" aria-selected="false">Monat</button>
+      <button type="button" role="tab" data-view="woche" aria-selected="true">Woche</button>
+      <button type="button" role="tab" data-view="monat" aria-selected="false">Monat</button>
+      <button type="button" role="tab" data-view="podcast" aria-selected="false">Podcast</button>
+      <button type="button" role="tab" data-view="daily" aria-selected="false">MEET DAILY</button>
+      <button type="button" role="tab" data-view="social" aria-selected="false">Social Media</button>
     </div>
     <div class="tabright">
       <button class="btn ghost small" id="ichBtn" hidden title="Wer am Gerät sitzt – antippen zum Wechseln">Wer?</button>
@@ -257,13 +267,13 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
       <div class="f span2" data-p><label for="fAufnahme">Aufnahme am</label><input type="date" id="fAufnahme"></div>
       <div class="f span1" data-p><label for="fAufVon">Von</label><input type="time" id="fAufVon"></div>
       <div class="f span1" data-p><label for="fAufBis">Bis</label><input type="time" id="fAufBis"></div>
-      <div class="f span2" data-p><label for="fSchnitt">Schnitt am <span class="sub">· Joel trägt ein</span></label><input type="date" id="fSchnitt"></div>
+      <div class="f span2" data-p><label for="fSchnitt">Schnitt am <span class="sub">· optional, Joel plant selbst</span></label><input type="date" id="fSchnitt"></div>
       <div class="f span1" data-p><label class="chk"><input type="checkbox" id="fVer"> Ist online</label></div>
       <div class="f span3" data-p><label for="fLink">Link (Drive-Ordner, Rohmaterial)</label><input type="text" id="fLink" maxlength="500" inputmode="url" placeholder="https://drive.google.com/…" autocomplete="off"></div>
       <div class="f span6" data-p><label for="fNotiz">Notizen</label><textarea id="fNotiz" maxlength="2000" placeholder="Gast, Thema, Bibelstellen, was beim Schnitt wichtig ist …"></textarea></div>
       <div class="f span6" data-p="podcast">
         <div class="phead"><label>Reels aus dieser Folge</label><button type="button" class="btn small" id="reelAdd">+ Reel</button></div>
-        <p class="hint">Niklas und Vincent tragen Minute und Thema ein – oder lassen die Zeit leer, dann sucht Joel den Clip aus. Schnitt und Release sind optional und erscheinen im Kalender.</p>
+        <p class="hint">Intro-Reel und Push-Reel sind bei jeder Folge dabei (Release zwei Tage vor und zwei Tage nach der Folge – anpassbar). Weitere Reels: Minute und Thema eintragen oder die Zeit leer lassen, dann sucht Joel den Clip aus. Schnitt ist optional.</p>
         <div class="reels" id="reels"></div>
       </div>
 
@@ -299,31 +309,26 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     <div class="week" id="weekGrid"></div>
   </div>
 
-  <!-- Monat -->
+  <!-- Monat: mehrere Monate untereinander, zum Durchscrollen -->
   <div id="viewMonat" hidden>
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div class="dow" aria-hidden="true"><span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span></div>
-      <div class="month" id="monthGrid"></div>
-      <div class="legend"><span class="chip k-podcast">Podcast</span><span class="chip k-reel">Reel</span><span class="chip k-daily">MEET DAILY</span><span class="chip k-termin">Termin</span></div>
-    </div>
+    <div class="months" id="months"></div>
+    <div class="legend"><span class="chip k-podcast">Podcast</span><span class="chip k-reel">Reel</span><span class="chip k-daily">MEET DAILY</span><span class="chip k-termin">Termin</span></div>
   </div>
 
-  <div class="grid">
-    <div class="col">
-      <section class="panel">
-        <div class="phead"><h2>Projekte</h2><span class="status" id="projStatus"></span></div>
-        <p class="hint">Vom Release her gedacht: jede Folge und jedes Reel mit Release, Aufnahme und Schnitt. Antippen zum Bearbeiten.</p>
-        <div class="itlist" id="projList"></div>
-      </section>
-    </div>
+  <!-- Podcast · MEET DAILY · Social Media: chronologische Listen -->
+  <div id="viewListe" hidden>
+    <section class="panel">
+      <div class="phead"><h2 id="listTitle"></h2><div class="pright"><span class="status" id="listStatus"></span><button type="button" class="btn small primary" id="listAdd" hidden></button></div></div>
+      <p class="hint" id="listHint"></p>
+      <div class="itlist" id="list"></div>
+    </section>
+  </div>
+
+  <div class="grid" id="belowCal">
     <div class="col">
       <section class="panel">
         <div class="phead"><h2>Abwesenheiten</h2><div class="pright"><span class="status" id="abwStatus"></span><button type="button" class="btn small" id="abwAdd">+ Abwesenheit</button></div></div>
         <div class="itlist" id="abwList"></div>
-      </section>
-      <section class="panel">
-        <div class="phead"><h2>MEET DAILY</h2><span class="status" id="dailyStatus"></span></div>
-        <p class="hint" id="dailyHint">Buch und Sprecher kommen aus dem Jahresplan-Sheet. Änderungen dort eintragen – der Kalender holt sie innert Minuten.</p>
       </section>
     </div>
   </div>
@@ -403,13 +408,14 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     });
     return out;
   }
+  let dailyInfo="";
   function loadDaily(){
-    const cfg=window.MEET_CONFIG||{}, u=cfg.planUrl; if(!u){ $("dailyStatus").textContent="kein Jahresplan hinterlegt"; return; }
+    const cfg=window.MEET_CONFIG||{}, u=cfg.planUrl; if(!u){ dailyInfo="kein Jahresplan hinterlegt"; return; }
     try{ const c=JSON.parse(localStorage.getItem("meet_kal_plan")||"null"); if(c&&c.daily&&Date.now()-c.at<6*3600e3){ daily=c.daily; render(); } }catch(e){}
     fetch("/.netlify/functions/plan?u="+encodeURIComponent(u)).then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); }).then(t=>{
       daily=planToDaily(t); try{ localStorage.setItem("meet_kal_plan",JSON.stringify({at:Date.now(),daily})); }catch(e){}
-      $("dailyStatus").textContent=Object.keys(daily).length+" Morgen im Plan"; render();
-    }).catch(e=>{ $("dailyStatus").textContent=Object.keys(daily).length?"Plan aus dem Zwischenspeicher":"Jahresplan nicht erreichbar"; });
+      dailyInfo=Object.keys(daily).length+" Morgen im Plan"; render();
+    }).catch(e=>{ dailyInfo=Object.keys(daily).length?"Plan aus dem Zwischenspeicher":"Jahresplan nicht erreichbar"; render(); });
   }
   const dailyWer=s=>{ const n=(s||"").trim().toLowerCase(); const p=personen.find(p=>p.id!=="beide"&&p.name.toLowerCase()===n); return p?p.id:""; };
 
@@ -499,25 +505,48 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     if(list.length) w.textContent="Achtung: "+list.map(a=>absName(a)+(a.titel?" ("+a.titel+")":"")).join(", ")+" an diesem Tag abwesend.";
   }
 
-  // ---------- Projektliste ----------
-  function renderProjekte(){
-    const tk=todayKey(), box=$("projList"); box.innerHTML="";
-    const list=projekte.filter(passWer).filter(p=>!isDay(p.release)||p.release>=key(addDays(new Date(),-14))).sort((a,b)=>(a.release||"9").localeCompare(b.release||"9")||(a.titel||"").localeCompare(b.titel||"","de"));
-    $("projStatus").textContent=projekte.length?projekte.length+(projekte.length===1?" Projekt":" Projekte"):"";
-    if(!list.length){ box.appendChild(el("div","empty",canWrite?"Noch kein Projekt. Mit „+ Neu“ die nächste Folge oder ein Reel anlegen – zuerst das Release-Datum.":"Noch keine Projekte.")); return; }
-    list.forEach(p=>{
-      const row=el("button","prow "+kindOf(p)); row.type="button";
-      const d=isDay(p.release)?parse(p.release):null;
-      row.appendChild(el("span","d",d?DOWS[dowIdx(d)]+" "+fmtDM(d):"ohne Datum"));
-      const b=el("div"); b.appendChild(el("div","n",(p.art==="reel"?"Reel: ":"")+(p.titel||"(ohne Titel)")));
-      const m=el("div","m"); if(isDay(p.aufnahme)) m.appendChild(el("span",null,"Aufnahme "+fmtDM(parse(p.aufnahme)))); if(isDay(p.schnitt)) m.appendChild(el("span",null,"Schnitt "+fmtDM(parse(p.schnitt))));
-      const nr=(Array.isArray(p.reels)?p.reels:[]).length; if(nr) m.appendChild(el("span",null,nr+(nr===1?" Reel":" Reels")));
-      if(isDay(p.release)&&p.release<tk&&!p.veroeffentlicht) m.appendChild(el("span","late","noch nicht online"));
-      b.appendChild(m); row.appendChild(b);
-      const wt=whoTag(p); row.appendChild(wt||el("span",null,""));
-      if(canWrite) row.onclick=()=>startEdit(p.art==="reel"?"reel":"podcast",p); else row.disabled=true;
-      box.appendChild(row);
-    });
+  // ---------- Bereiche: Podcast · MEET DAILY · Social Media (chronologische Listen) ----------
+  const fmtD=k=>{ const d=parse(k); return DOWS[dowIdx(d)]+" "+fmtDM(d); };
+  function listRow(kind,day,titel,meta,wer,open){
+    const row=el("button","prow "+kind); row.type="button";
+    row.appendChild(el("span","d",day?fmtD(day)+(day===todayKey()?" · heute":""):"ohne Datum"));
+    const b=el("div"); b.appendChild(el("div","n",titel)); const m=el("div","m"); (meta||[]).forEach(x=>{ if(x) m.appendChild(typeof x==="string"?el("span",null,x):x); }); b.appendChild(m); row.appendChild(b);
+    row.appendChild(whoTag({wer})||el("span",null,""));
+    if(canWrite&&open) row.onclick=open; else row.disabled=!open;
+    return row;
+  }
+  function renderListe(){
+    const tk=todayKey(), seit=key(addDays(new Date(),-7)), box=$("list"); box.innerHTML="";
+    const add=$("listAdd"); add.hidden=!canWrite;
+    const openP=p=>()=>startEdit(p.art==="reel"?"reel":"podcast",p);
+    const lateTag=p=>isDay(p.release)&&p.release<tk&&!p.veroeffentlicht?el("span","late","noch nicht online"):(p.veroeffentlicht?"✓ online":"");
+    let rows=[], title="", hint="", status="";
+    if(view==="podcast"){
+      title="Podcast"; hint="Alle Folgen nach Release-Datum. Antippen öffnet die Folge mit Aufnahme, Schnitt, Notizen und Reels."; add.textContent="+ Neue Folge"; add.onclick=()=>openForm("podcast",{});
+      const list=projekte.filter(p=>p.art!=="reel"&&passWer(p)&&(!isDay(p.release)||p.release>=seit)).sort((a,b)=>(a.release||"9").localeCompare(b.release||"9"));
+      status=list.length?list.length+(list.length===1?" Folge":" Folgen"):"";
+      rows=list.map(p=>{ const reels=(Array.isArray(p.reels)?p.reels:[]); return listRow("k-podcast",p.release,p.titel||"(ohne Titel)",[isDay(p.aufnahme)?"Aufnahme "+fmtD(p.aufnahme):"",isDay(p.schnitt)?"Schnitt "+fmtD(p.schnitt):"",reels.length?reels.length+(reels.length===1?" Reel":" Reels"):"",lateTag(p)],p.wer,openP(p)); });
+      if(!rows.length) rows.push(el("div","empty","Noch keine Folge geplant. Mit „+ Neue Folge“ anlegen – zuerst das Release-Datum."));
+    } else if(view==="social"){
+      title="Social Media"; hint="Alle Reels nach Release: Intro- und Push-Reels der Folgen sowie ausserplanmässige Reels. Antippen öffnet das Projekt dazu."; add.textContent="+ Neues Reel"; add.onclick=()=>openForm("reel",{});
+      const list=[];
+      projekte.filter(passWer).forEach(p=>{
+        if(p.art==="reel"){ if(!isDay(p.release)||p.release>=seit) list.push({day:p.release,kind:"k-reel",titel:p.titel||"(ohne Titel)",meta:[isDay(p.aufnahme)?"Aufnahme "+fmtD(p.aufnahme):"",isDay(p.schnitt)?"Schnitt "+fmtD(p.schnitt):"",lateTag(p)],wer:p.wer,p}); return; }
+        (Array.isArray(p.reels)?p.reels:[]).forEach(r=>{ if(isDay(r.release)&&r.release<seit) return; list.push({day:r.release||"",kind:"k-podcast",titel:(r.titel||"Reel")+(r.abschnitt?" · "+r.abschnitt:""),meta:["aus „"+(p.titel||"")+"“",isDay(r.schnitt)?"Schnitt "+fmtD(r.schnitt):""],wer:p.wer,p}); });
+      });
+      list.sort((a,b)=>(a.day||"9").localeCompare(b.day||"9")||a.titel.localeCompare(b.titel,"de"));
+      status=list.length?list.length+(list.length===1?" Reel":" Reels"):"";
+      rows=list.map(x=>listRow(x.kind,x.day,x.titel,x.meta,x.wer,openP(x.p)));
+      if(!rows.length) rows.push(el("div","empty","Noch kein Reel geplant. Reels zu einer Folge legst du in der Folge an, andere mit „+ Neues Reel“."));
+    } else {
+      title="MEET DAILY"; hint="Wer liest welches Buch – aus dem Jahresplan-Sheet. Ändern dort, der Kalender holt es innert Minuten."; add.hidden=true;
+      const days=Object.keys(daily).filter(k=>k>=seit&&k<=key(addDays(new Date(),60))).sort();
+      status=dailyInfo;
+      rows=days.map(k=>{ const dl=daily[k]; return listRow("k-daily",k,(dl.buch||"")+(dl.stelle?" · "+dl.stelle:""),[dl.thema||""],dailyWer(dl.sprecher)||"",null); });
+      if(!rows.length) rows.push(el("div","empty",Object.keys(daily).length?"Für die nächsten Wochen steht nichts im Jahresplan.":"Der Jahresplan ist noch nicht geladen."));
+    }
+    $("listTitle").textContent=title; $("listHint").textContent=hint; $("listStatus").textContent=status;
+    rows.forEach(r=>box.appendChild(r));
   }
 
   // ---------- Wer-Filter und Kopf ----------
@@ -532,16 +561,22 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
   function renderHeader(){
     renderWerFilter();
     const h=$("title"), eb=$("eyebrow"); h.innerHTML="";
-    if(view==="woche"){
+    const W=view==="woche", M=view==="monat";
+    if(W){
       const m=monday(cur), s=addDays(m,6);
       h.append(el("span","ul","Woche "+isoWeek(cur).w));
       eb.textContent=fmtDMfull(m)+" – "+fmtDMfull(s)+" "+s.getFullYear()+(weekKey(cur)===weekKey(new Date())?" · diese Woche":"");
+    } else if(M){
+      h.append(el("span","ul","Monate"));
+      eb.textContent="Durchscrollen · "+MONTHS[monFrom.getMonth()]+" "+monFrom.getFullYear()+" bis "+MONTHS[monTo.getMonth()]+" "+monTo.getFullYear();
     } else {
-      h.append(el("span","ul",MONTHS[cur.getMonth()]), document.createTextNode(" "+cur.getFullYear()));
-      eb.textContent="MEET_ · Kalender · Niklas, Vincent und Joel";
+      h.append(el("span","ul",view==="podcast"?"Podcast":view==="social"?"Social Media":"MEET DAILY"));
+      eb.textContent="Was ansteht · chronologisch";
     }
     h.appendChild(el("span","cur")); h.lastChild.setAttribute("aria-hidden","true");
-    $("todayBtn").disabled = view==="woche"?weekKey(cur)===weekKey(new Date()):monthKey(cur)===monthKey(new Date());
+    $("prev").hidden=!W; $("next").hidden=!W; $("todayBtn").hidden=!(W||M);
+    $("todayBtn").disabled = W&&weekKey(cur)===weekKey(new Date());
+    $("belowCal").hidden=!(W||M);
   }
 
   // ---------- Woche ----------
@@ -551,7 +586,7 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     const g=$("weekGrid"); g.innerHTML="";
     for(let i=0;i<7;i++){
       const d=addDays(m,i), k=key(d);
-      const card=el("div","day"+(k===tk?" today":"")+(i>=5?" wknd":""));
+      const card=el("div","day"+(k===tk?" today":"")+(i>=5?" wknd":"")); card.dataset.day=k;
       const dh=el("div","dh"); dh.append(el("b",null,DOWL[i]), el("span","dn",k===tk?"Heute":fmtDM(d))); card.appendChild(dh);
       const at=absTags(k); if(at) card.appendChild(at);
       const list=by[k]||[];
@@ -562,54 +597,74 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     }
   }
 
-  // ---------- Monat ----------
-  function renderMonat(){
-    const y=cur.getFullYear(), mo=cur.getMonth(), tk=todayKey();
-    const first=new Date(y,mo,1), start=monday(first), last=new Date(y,mo+1,0);
+  // ---------- Monat: alle Monate von monFrom bis monTo untereinander ----------
+  const firstOf=d=>new Date(d.getFullYear(),d.getMonth(),1);
+  let monFrom=firstOf(new Date()), monTo=new Date(new Date().getFullYear(),new Date().getMonth()+5,1);
+  const monKeys=()=>{ const out=[]; for(let d=new Date(monFrom);d<=monTo;d=new Date(d.getFullYear(),d.getMonth()+1,1)) out.push(d); return out; };
+  function openItem(it){ if(!canWrite||it.mode==="daily") return; if(it.proj) startEdit(it.proj.art==="reel"?"reel":"podcast",it.proj); else startEdit("termin",it.termin); }
+  function monthBlock(first,by){
+    const y=first.getFullYear(), mo=first.getMonth(), tk=todayKey(), start=monday(first), last=new Date(y,mo+1,0);
     const cells=Math.ceil((dowIdx(first)+last.getDate())/7)*7;
-    const by=itemsBetween(key(start),key(addDays(start,cells-1)));
-    const g=$("monthGrid"); g.innerHTML="";
+    const sec=el("section","mon"+(monthKey(first)===monthKey(new Date())?" cur":"")); sec.id="mon-"+monthKey(first);
+    const h=el("h2"); h.append(el("span","ul",MONTHS[mo]), document.createTextNode(" "+y)); sec.appendChild(h);
+    const dow=el("div","dow"); dow.setAttribute("aria-hidden","true"); DOWS.forEach(s=>dow.appendChild(el("span",null,s))); sec.appendChild(dow);
+    const g=el("div","month");
     for(let i=0;i<cells;i++){
       const d=addDays(start,i), k=key(d), other=d.getMonth()!==mo;
-      const c=el("button","cell"+(other?" other":"")+(k===tk?" today":"")); c.type="button";
+      const c=el("div","cell"+(other?" other":"")+(k===tk?" today":"")); c.dataset.day=k;
       c.appendChild(el("span","dn",String(d.getDate())));
       absOn(k).slice(0,2).forEach(a=>c.appendChild(el("div","abwdot",absName(a)+" weg")));
-      const list=by[k]||[], MAX=5;
+      const list=other?[]:(by[k]||[]), MAX=5;
       list.slice(0,MAX).forEach(it=>{
         const dl=it.mode==="daily";
         const m=el("div","ml "+it.kind+" "+it.mode,dl?(it.titel||"DAILY")+(it.meta&&it.meta[0]?" · "+it.meta[0]:""):(it.mode==="termin"?(isAllDay(it.termin)?"":it.termin.von+" "):it.label+": ")+it.titel);
-        m.title=it.label+" · "+it.titel+(it.wer&&it.wer!=="beide"?" · "+werName(it.wer):"")+((it.meta||[]).length?" · "+it.meta.join(" · "):""); c.appendChild(m);
+        m.title=it.label+" · "+it.titel+(it.wer&&it.wer!=="beide"?" · "+werName(it.wer):"")+((it.meta||[]).length?" · "+it.meta.join(" · "):"");
+        m.onclick=ev=>{ ev.stopPropagation(); openItem(it); }; c.appendChild(m);
       });
-      if(list.length>MAX) c.appendChild(el("div","more","+ "+(list.length-MAX)+" weitere"));
+      if(list.length>MAX){ const mo2=el("div","more","+ "+(list.length-MAX)+" weitere"); mo2.onclick=ev=>{ ev.stopPropagation(); cur=d; setView("woche"); }; c.appendChild(mo2); }
       const dots=el("div","dots"); list.slice(0,8).forEach(it=>dots.appendChild(el("i",it.kind+" "+it.mode))); c.appendChild(dots);
-      c.onclick=()=>{cur=d;setView("woche");};
+      if(!other){ c.title=canWrite?"Antippen: neuer Eintrag am "+fmtDMfull(d):""; c.onclick=()=>{ if(window.matchMedia("(max-width:680px)").matches){ cur=d; setView("woche"); } else if(canWrite) openForm("podcast",{datum:k}); }; }
       g.appendChild(c);
     }
+    sec.appendChild(g); return sec;
+  }
+  function renderMonat(){
+    const box=$("months"); box.innerHTML="";
+    const months=monKeys(), a=key(monday(months[0])), lastM=months[months.length-1], b=key(addDays(monday(new Date(lastM.getFullYear(),lastM.getMonth()+1,0)),6));
+    const by=itemsBetween(a,b);
+    const up=el("button","btn small ghost mext","‹ Frühere Monate"); up.type="button"; up.onclick=()=>{ monFrom=new Date(monFrom.getFullYear(),monFrom.getMonth()-3,1); const id="mon-"+monthKey(months[0]); render(); const e=document.getElementById(id); if(e) e.scrollIntoView({block:"start"}); }; box.appendChild(up);
+    months.forEach(m=>box.appendChild(monthBlock(m,by)));
+    const more=el("button","btn small ghost mext","Weitere Monate ›"); more.type="button"; more.onclick=()=>{ monTo=new Date(monTo.getFullYear(),monTo.getMonth()+6,1); render(); }; box.appendChild(more);
+  }
+  function scrollToDay(k){
+    const e=document.querySelector('[data-day="'+k+'"]')||document.getElementById("mon-"+k.slice(0,7));
+    if(e) e.scrollIntoView({block:"center",behavior:"smooth"});
   }
 
   function render(){
     renderHeader();
-    if(view==="woche") renderWoche(); else renderMonat();
-    renderProjekte(); renderAbw();
+    if(view==="woche") renderWoche(); else if(view==="monat") renderMonat(); else renderListe();
+    renderAbw();
   }
+  const VIEWS=["woche","monat","podcast","daily","social"];
   function setView(v){
     view=v;
-    $("viewWoche").hidden=v!=="woche"; $("viewMonat").hidden=v!=="monat";
-    $("tabWoche").setAttribute("aria-selected",v==="woche"); $("tabMonat").setAttribute("aria-selected",v==="monat");
+    $("viewWoche").hidden=v!=="woche"; $("viewMonat").hidden=v!=="monat"; $("viewListe").hidden=!(v==="podcast"||v==="daily"||v==="social");
+    document.querySelectorAll(".tabs [data-view]").forEach(b=>b.setAttribute("aria-selected",b.dataset.view===v));
     try{ localStorage.setItem("meet_kal_view",v); }catch(e){}
     render(); window.scrollTo(0,0);
   }
-  $("tabWoche").onclick=()=>setView("woche"); $("tabMonat").onclick=()=>setView("monat");
-  function step(n){ if(view==="woche") cur=addDays(cur,7*n); else cur=new Date(cur.getFullYear(),cur.getMonth()+n,1); render(); }
+  document.querySelectorAll(".tabs [data-view]").forEach(b=>{ b.onclick=()=>setView(b.dataset.view); });
+  function step(n){ if(view!=="woche") return; cur=addDays(cur,7*n); render(); }
   $("prev").onclick=()=>step(-1); $("next").onclick=()=>step(1);
-  $("todayBtn").onclick=()=>{cur=new Date();cur.setHours(0,0,0,0);render();};
+  $("todayBtn").onclick=()=>{ cur=new Date(); cur.setHours(0,0,0,0); if(view==="monat"){ const tm=firstOf(cur); if(tm<monFrom) monFrom=tm; if(tm>monTo) monTo=tm; } render(); if(view==="monat") scrollToDay(todayKey()); };
   document.addEventListener("keydown",ev=>{
     const tag=(ev.target.tagName||"").toLowerCase();
     if(["input","select","textarea"].includes(tag)) return;
     if((ev.metaKey||ev.ctrlKey)&&!ev.shiftKey&&ev.key.toLowerCase()==="z"){ev.preventDefault();doUndo();return;}
     if(ev.key==="ArrowLeft") step(-1); else if(ev.key==="ArrowRight") step(1);
     else if(ev.key==="t") $("todayBtn").click();
-    else if(ev.key==="1") setView("woche"); else if(ev.key==="2") setView("monat");
+    else if(/^[1-5]$/.test(ev.key)) setView(VIEWS[+ev.key-1]);
     else if(ev.key==="n"&&canWrite){ev.preventDefault();openForm(art,{});}
     else if(ev.key==="Escape"&&!$("formPanel").hidden){ $("formPanel").hidden=true; resetForm(); }
   });
@@ -647,14 +702,22 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     $("fWer").value=werFilter!=="alle"&&personen.some(p=>p.id===werFilter)?werFilter:"beide";
     renderReels(); updWdh(); updGanztag(); $("abwWarn").textContent="";
   }
-  // Reels aus der Folge: Zeilen im Formular, werden mit dem Projekt gespeichert
+  // Reels aus der Folge: Zeilen im Formular, werden mit dem Projekt gespeichert.
+  // Zu jeder neuen Folge gehören Intro-Reel (vor dem Release) und Push-Reel (danach); ihr Release folgt dem Folgen-Release, bis man es von Hand ändert.
+  const REEL_PLAN=[{titel:"Intro-Reel",offset:-2},{titel:"Push-Reel",offset:2}];
   const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  function autoReels(){
+    const rel=$("fRelease").value; if(!isDay(rel)) return;
+    let changed=false; fReels.forEach(r=>{ if(r.auto!=null){ r.release=key(addDays(parse(rel),r.auto)); changed=true; } });
+    if(changed) renderReels();
+  }
+  $("fRelease").addEventListener("change",autoReels);
   function renderReels(){
     const box=$("reels"); box.innerHTML="";
     if(!fReels.length){ box.appendChild(el("div","empty","Noch keine Reels zu dieser Folge.")); return; }
     fReels.forEach((r,i)=>{
       const row=el("div","reel");
-      const mk=(label,keyName,type,ph)=>{ const f=el("div","f"); const l=el("label",null,label); const inp=document.createElement("input"); inp.type=type; inp.value=r[keyName]||""; if(ph) inp.placeholder=ph; inp.maxLength=120; inp.autocomplete="off"; inp.oninput=()=>{ r[keyName]=inp.value; }; f.append(l,inp); return f; };
+      const mk=(label,keyName,type,ph)=>{ const f=el("div","f"); const l=el("label",null,label); const inp=document.createElement("input"); inp.type=type; inp.value=r[keyName]||""; if(ph) inp.placeholder=ph; inp.maxLength=120; inp.autocomplete="off"; inp.oninput=()=>{ r[keyName]=inp.value; if(keyName==="release") delete r.auto; }; f.append(l,inp); return f; };
       row.append(mk("Thema / Titel","titel","text","z. B. Warum Mut?"), mk("Minute","abschnitt","text","z. B. 12:30–14:10"), mk("Schnitt am","schnitt","date"), mk("Release am","release","date"));
       const x=el("button","x","×"); x.type="button"; x.title="Reel entfernen"; x.onclick=()=>{ fReels.splice(i,1); renderReels(); }; row.appendChild(x);
       box.appendChild(row);
@@ -666,6 +729,7 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     if(!canWrite) return;
     resetForm(); setArt(a);
     if(pre&&pre.datum){ $("fRelease").value=pre.datum; $("fDatum").value=pre.datum; $("fAbwVon").value=pre.datum; }
+    if(a==="podcast"){ fReels=REEL_PLAN.map(x=>({id:newId(),titel:x.titel,abschnitt:"",schnitt:"",release:"",auto:x.offset})); renderReels(); autoReels(); }
     updAbwWarn();
     $("formPanel").hidden=false; $("formPanel").scrollIntoView({behavior:"smooth",block:"start"}); $("fTitel").focus();
   }
@@ -731,9 +795,11 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
         const ref=await db.collection(coll).add({...body,erstelltAm:Date.now(),erstelltVon:myId||null});
         pushUndo(titel+(art==="abwesenheit"?" eingetragen":" angelegt"),()=>ref.delete());
       }
+      // Danach zurück in die Ansicht, aus der man kam; Woche und Monat zeigen den Tag des Eintrags
       const jump=art==="termin"?body.datum:art==="abwesenheit"?body.von:body.release;
-      if(jump){ const d=parse(jump); if(view==="woche"&&weekKey(d)!==weekKey(cur)) cur=d; else if(view==="monat"&&monthKey(d)!==monthKey(cur)) cur=d; }
+      if(jump){ const d=parse(jump); if(view==="woche") cur=d; else if(view==="monat"){ const fm=firstOf(d); if(fm<monFrom) monFrom=fm; if(fm>monTo) monTo=fm; } }
       $("formPanel").hidden=true; resetForm(); render();
+      if(jump&&(view==="woche"||view==="monat")) scrollToDay(jump);
     }catch(err){
       $("formMsg").textContent=err&&err.code==="quota_exceeded"?"Der Speicher ist voll. Bitte alte Einträge löschen.":"Speichern fehlgeschlagen. Bitte nochmals versuchen.";
     }finally{ $("saveBtn").disabled=false; }
@@ -764,8 +830,8 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     let v="woche";
     try{ v=localStorage.getItem("meet_kal_view")||v; }catch(e){}
     const h=(location.hash||"").replace("#","").toLowerCase();
-    if(["woche","monat"].includes(h)) v=h;
-    if(!["woche","monat"].includes(v)) v="woche";
+    if(VIEWS.includes(h)) v=h;
+    if(!VIEWS.includes(v)) v="woche";
     setView(v);
   })();
   loadDaily();
