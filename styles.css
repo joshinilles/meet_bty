@@ -222,8 +222,10 @@ h2{
    im selben Kasten wie der Tagesblock (18px Rundung, Feldfarbe); der Play-Knopf ist durchsichtig, das Gesicht bleibt sichtbar ---- */
 .daily{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
 .daily-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+/* Kachel als Block, nicht als Flex-Button: ältere Safari (iOS 15/16) legen Kinder eines <button> nicht als Flex-Elemente
+   aus und rechnen aspect-ratio mit flex:1 auf 0 – dann fiel das Standbild auf 0×0 zusammen (iPhone 13 mini, 28.10.2026) */
 .clip{
-  display:flex;flex-direction:column;
+  display:block;width:100%;
   min-height:0;
   padding:0;
   border-radius:18px;
@@ -238,10 +240,12 @@ h2{
 }
 .clip:focus-visible{outline:2px solid var(--lime);outline-offset:4px}
 .clip:active{transform:scale(.985)}
-.clip-head{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:38px;padding:0 4px}
+.clip-head{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;width:100%;min-height:38px;padding:0 4px}
 .clip-who{display:block}
 .clip-name{font-family:var(--head);font-weight:700;font-size:16px;letter-spacing:-.01em;line-height:1.15;color:#fff;text-align:center}
-.clip-media{position:relative;display:block;margin:8px 0 0;aspect-ratio:9/11;flex:1;border-radius:18px;background:var(--field);isolation:isolate}
+.clip-media{position:relative;display:block;width:100%;margin:8px 0 0;border-radius:18px;background:var(--field);isolation:isolate}
+/* Höhe 9:11 über padding-top statt aspect-ratio – trägt in jedem Safari */
+.clip-media::before{content:"";display:block;padding-top:122.2222%}
 /* Kasten wie der Tagesblock, der das Standbild mit einem schmalen Rand in Feldfarbe umrahmt */
 .clip-img{position:absolute;inset:6px;width:calc(100% - 12px);height:calc(100% - 12px);border-radius:13px;object-fit:cover;object-position:center 30%;pointer-events:none;background:#000}
 .clip-dur{
@@ -265,11 +269,12 @@ h2{
 }
 .clip-play svg{width:20px;height:20px;margin-left:3px}
 .clip:hover .clip-play{transform:scale(1.08);background:rgba(255,255,255,.28)}
-.clip--soon{cursor:default}
+.clip--soon{display:flex;flex-direction:column;cursor:default}
 .clip--soon .clip-media{border:1.2px dashed rgba(255,255,255,.14);background:transparent}
 .clip--soon .clip-name{color:var(--soft)}
 .clip--soon .clip-time{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--muted);margin-top:3px}
-.clip--soon .clip-media{aspect-ratio:auto;flex:1;min-height:60px}
+.clip--soon .clip-media{flex:1;min-height:60px}
+.clip--soon .clip-media::before{display:none}
 
 /* Wochenende: oben „Am Montag geht's weiter“, als Überschrift der Claim, dann nur der Blick zurück auf die Woche.
    Teilen, Frage, Wand-Zugang und der Claim im Fuss bleiben weg – es gibt keinen Text, den man liest. */
