@@ -781,9 +781,31 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
         if(Array.isArray(d.personen)&&d.personen.length){ personen=[{id:"beide",name:"Alle"},...d.personen.filter(p=>p&&p.id&&p.name&&p.id!=="beide").map(p=>({id:String(p.id),name:String(p.name)}))]; if(!personen.some(p=>p.id===werFilter)) werFilter="alle"; } }
       fillWer(); render();
     },()=>{});
-    db.collection("termine").onSnapshot(snap=>{ termine=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>isDay(x.datum)); render(); },()=>{ $("eyebrow").textContent="Verbindung unterbrochen – bitte Seite neu laden."; });
-    db.collection("projekte").onSnapshot(snap=>{ projekte=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>typeof x.titel==="string"); render(); },()=>{});
+    let termLoaded=false, projLoaded=false;
+    db.collection("termine").onSnapshot(snap=>{ termine=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>isDay(x.datum)); termLoaded=true; render(); },()=>{ $("eyebrow").textContent="Verbindung unterbrochen – bitte Seite neu laden."; });
+    db.collection("projekte").onSnapshot(snap=>{ projekte=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>typeof x.titel==="string"); projLoaded=true; render(); },()=>{});
     db.collection("abwesenheiten").onSnapshot(snap=>{ abwesenheiten=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>isDay(x.von)); render(); updAbwWarn(); },()=>{});
+
+    // Einmalige Übernahme (28.10.2026): Beiträge des alten Produktions-Boards mit Datum werden Projekte.
+    // Die Aufnahme (Termin mit beitragId) und der Schnitt (Aufgabe mit rolle "schnitt") wandern mit; der Aufnahme-Termin
+    // wird danach gelöscht, weil das Projekt ihn trägt. Läuft nur einmal je Beitrag (Feld ausBeitrag am Projekt).
+    let altB=null, altA=null, migriert=false;
+    async function migrate(){
+      if(migriert||!canWrite||!altB||!altA||!termLoaded||!projLoaded) return; migriert=true;
+      const offen=altB.filter(b=>isDay(b.datum)&&typeof b.titel==="string"&&!projekte.some(p=>p.ausBeitrag===b.id)); if(!offen.length) return;
+      let n=0;
+      for(const b of offen){
+        const auf=termine.find(t=>t.beitragId===b.id&&/^aufnahme/i.test(t.titel||""))||termine.find(t=>t.beitragId===b.id);
+        const sch=altA.find(t=>t.beitragId===b.id&&t.rolle==="schnitt"&&isDay(t.datum));
+        const doc={art:b.bereich==="us"?"podcast":"reel",titel:b.titel||"(ohne Titel)",wer:personen.some(p=>p.id===b.wer)?b.wer:"beide",release:b.datum,
+          aufnahme:auf?auf.datum:"",aufnahmeVon:auf?(auf.von||""):"",aufnahmeBis:auf?(auf.bis||""):"",schnitt:sch?sch.datum:"",
+          link:b.link||"",notiz:b.notiz||"",reels:[],veroeffentlicht:b.status==="veroeffentlicht",ausBeitrag:b.id,erstelltAm:b.erstelltAm||Date.now(),erstelltVon:b.erstelltVon||null};
+        try{ await db.collection("projekte").add(doc); if(auf) await db.collection("termine").doc(auf.id).delete().catch(()=>{}); n++; }catch(e){}
+      }
+      if(n) showToast(n+(n===1?" Beitrag":" Beiträge")+" aus dem alten Board als Projekt übernommen.",false);
+    }
+    db.collection("beitraege").onSnapshot(snap=>{ if(altB) return; altB=snap.docs.map(d=>({id:d.id,...d.data()})); migrate(); },()=>{});
+    db.collection("aufgaben").onSnapshot(snap=>{ if(altA) return; altA=snap.docs.map(d=>({id:d.id,...d.data()})); migrate(); },()=>{});
   })();
 })();
 </script>
