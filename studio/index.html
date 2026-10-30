@@ -1957,26 +1957,17 @@ function drawHighlight(ctx, W, H, text, o) {
   const ref = o.ref != null ? o.ref : getRef(), name = o.name || speakerName();
   drawCarouselBg(ctx, W, H, s, 0);
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
-  const topM = (story ? 240 : 96) * s, botM = (story ? 220 : 96) * s, logoH = (story ? 72 : 64) * s;
-  if (IMG.daily) ctx.drawImage(IMG.daily, x, topM, logoH * 4924 / 909, logoH);
-  let top = topM + logoH + 28 * s;
-  ctx.fillStyle = '#FF8A3D'; ctx.font = `400 ${32 * s}px ${FONT_MONO}`;
-  spacedText(ctx, dateLine(o.date).toUpperCase(), x, cssBaseline(ctx, top, 38 * s, 32 * s), 0.14 * 32 * s);
-  top += 38 * s;
-  const yh = 48 * s, yw = yh * 3094.54 / 1000, boxBottom = H - botM;
-  ctx.font = `400 ${42 * s}px ${FONT_MONO}`;
-  const rtxt = ref || 'Bibelstelle', tw = ctx.measureText(rtxt).width, bh = 50 * s + 48 * s, bw = Math.min(tw + 80 * s, W - 2 * x - yw - 32 * s), bo = 2 * s, bt = boxBottom - bh;
-  ctx.setLineDash([12 * s, 12 * s]); ctx.lineWidth = 4 * s; ctx.strokeStyle = '#D4F65A';
-  roundRect(ctx, x + bo, bt + bo, bw - 2 * bo, bh - 2 * bo, 22 * s - bo); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = ref ? '#FFFFFF' : 'rgba(255,255,255,.5)';
-  ctx.save(); ctx.beginPath(); ctx.rect(x, bt, bw, bh); ctx.clip(); ctx.fillText(rtxt, x + 40 * s, cssBaseline(ctx, bt + 24 * s, 50 * s, 42 * s)); ctx.restore();
-  const labTop = bt - 18 * s - 34 * s;
+  /* Seit 30.10.2026 vereinfacht (Vincent): kein MEET-DAILY-Logo und keine Datumszeile oben, keine Bibelstellen-Box –
+     unten nur „MEETMOMENT MIT <NAME>“ links und YOUTH b+ rechts auf gleicher Höhe; das Zitat steht mittig dazwischen. */
+  const topM = (story ? 240 : 96) * s, botM = (story ? 220 : 96) * s;
+  const top = topM;
+  const yh = 48 * s, yw = yh * 3094.54 / 1000, boxBottom = H - botM, labH = 34 * s, labTop = boxBottom - yh + (yh - labH) / 2;
   ctx.fillStyle = '#FF8A3D'; ctx.font = `400 ${28 * s}px ${FONT_MONO}`;
-  spacedText(ctx, ('MEETmoment mit ' + name).toUpperCase(), x, cssBaseline(ctx, labTop, 34 * s, 28 * s), 0.14 * 28 * s);
+  spacedText(ctx, ('MEETmoment mit ' + name).toUpperCase(), x, cssBaseline(ctx, labTop, labH, 28 * s), 0.14 * 28 * s);
   if (IMG.youth) ctx.drawImage(IMG.youth, W - 64 * s - yw, boxBottom - yh, yw, yh);
   const q = cleanQuote(text) || 'Dein Satz aus dem MEETmoment';
   const open = '“', close = '”', full = open + q + close;
-  const areaTop = top + 48 * s, areaBot = labTop - 48 * s, maxW = W - 2 * x, availH = areaBot - areaTop, minSize = 48 * s;
+  const areaTop = top + 24 * s, areaBot = labTop - 64 * s, maxW = W - 2 * x, availH = areaBot - areaTop, minSize = 48 * s;
   let size = (story ? 128 : 120) * s, lines = [], lh = 0;
   const hasLS = 'letterSpacing' in ctx;
   for (;;) {
