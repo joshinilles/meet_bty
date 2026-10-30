@@ -15,7 +15,7 @@ Gestaltung nach dem Claude-Design-Entwurf „MEET Impuls“ und dem MEET-Brand-K
 
 | Datei | Zweck |
 | --- | --- |
-| `index.html` | Die Seite: Kopf (MEET_ links, YOUTH b+ rechts) und die drei Screens Heute, Schreiben, Danke |
+| `index.html` | Die Seite: Kopf (MEET_ links, YOUTH b+ rechts) und die fünf Screens Heute, Schreiben, Danke, MEET WALL, Meine MEET-Momente |
 | `styles.css` | Design-Tokens und Styles |
 | `app.js` | Screen-Wechsel, MEET-Moment oder Frage, Versand |
 | `motion.js` | Logo-Intro, Sticky-Kopf mit Morph M_ ↔ MEET_, Leerstellen-Logik |
@@ -78,9 +78,13 @@ aus dem Kasten tritt, mit durchsichtigem Play-Knopf; Antippen öffnet den Player
 zweite Kachel gestrichelt als „MEETmoment · kommt um 06:15“. Ohne Video des Tages ist der Block unsichtbar.
 
 **Meinen MEET-Moment festhalten** (seit 25. Oktober 2026): Die App begleitet die Stille Zeit – man hält den eigenen Moment fest,
-er bleibt auf dem Gerät (`localStorage` `meet:moments`, kein Ablauf, höchstens 300) und ist auf der Startseite unter
-„Meine MEET-Momente · n“ als Pop-up wieder abrufbar. Der Haken „darf anonym auf der MEET WALL erscheinen“ entscheidet
-weiterhin, ob er auf die Wand kommt; gesendet wird er wie bisher ans Team (Netlify Forms).
+er bleibt auf dem Gerät (`localStorage` `meet:moments`, kein Ablauf, höchstens 300). Der Haken „darf anonym auf der MEET WALL
+erscheinen“ entscheidet weiterhin, ob er auf die Wand kommt; gesendet wird er wie bisher ans Team (Netlify Forms).
+**Meine MEET-Momente** (seit 30. Oktober 2026): fünfter Screen, die eigene Pinnwand im Look der MEET WALL (Titel mit blinkendem
+Balken, Pins, Tagesgruppen „Heute · Bibelstelle“, „Gestern · …“). Der Knopf „Mein MEET-Moment“ auf der Startseite führt immer
+dorthin – auch ohne einen Moment von heute; dort steht der Knopf „Meinen MEET-Moment festhalten“ (nach dem ersten Moment des
+Tages ein Link „Noch einen …“), darunter hängen alle Momente und Fragen samt Antwort dieses Geräts, heutige Karten mit Lime-Rand.
+Zurück vom Schreiben führt auf die Pinnwand, wenn man von dort kam. Das frühere Pop-up „Mein MEET-Moment“ gibt es nicht mehr.
 Am **Wochenende** steht oben statt der Bibelstelle „Am Montag geht's weiter.“ und darunter der Zugang
 „Wie ist Gott uns in der letzten Woche begegnet?“ – die MEET WALL der letzten sieben Tage, für alle offen.
 

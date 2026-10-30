@@ -1,7 +1,7 @@
-/* MEET · meet-bty.com – vier Screens: Heute, Schreiben, Danke, MEET WALL
+/* MEET · meet-bty.com – fünf Screens: Heute, Schreiben, Danke, MEET WALL, Meine MEET-Momente
    Die App begleitet die Stille Zeit: Videos von heute Morgen, den eigenen MEET-Moment festhalten (bleibt auf dem Gerät,
-   „Meine MEET-Momente“), auf Wunsch anonym auf die Wand. Versand als Netlify Form (POST auf "/", form-name "meet-impuls").
-   Die MEET WALL (freigegebene Momente der anderen) ist nur vom Danke-Screen aus erreichbar: erst teilen, dann sehen. */
+   eigene Pinnwand „Meine MEET-Momente“ – von dort aus wird geschrieben), auf Wunsch anonym auf die Wand.
+   Versand als Netlify Form (POST auf "/", form-name "meet-impuls"). Die MEET WALL zeigt die freigegebenen Momente der anderen. */
 (function () {
   "use strict";
 
@@ -38,7 +38,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var el = {
     topbar: $("topbar"), logoLink: $("logoLink"),
-    screens: { home: $("screen-home"), write: $("screen-write"), done: $("screen-done"), wall: $("screen-wall") },
+    screens: { home: $("screen-home"), write: $("screen-write"), done: $("screen-done"), wall: $("screen-wall"), mine: $("screen-mine") },
     dateLabel: $("dateLabel"), dayWord: $("dayWord"), passage: $("passage"), homeWeek: $("homeWeek"),
     goMoment: $("goMoment"), goQuestion: $("goQuestion"), back: $("back"),
     form: $("panel"), fArt: $("fArt"), fPassage: $("fPassage"), fDate: $("fDate"),
@@ -46,7 +46,8 @@
     addName: $("addName"), name: $("name"), error: $("error"), send: $("send"),
     wallRow: $("wallRow"), wall: $("wall"),
     sentKicker: $("sentKicker"), sentHeading: $("sentHeading"), sentBody: $("sentBody"),
-    reset: $("reset"), goWall: $("goWall"), homeMine: $("homeMine"), homeMineText: $("homeMineText"), minePop: $("minePop"), minePopBack: $("minePopBack"), minePopClose: $("minePopClose"), minePopTodayWrap: $("minePopTodayWrap"), minePopTodayLabel: $("minePopTodayLabel"), minePopToday: $("minePopToday"), minePopPastWrap: $("minePopPastWrap"), minePopPast: $("minePopPast"), mineMore: $("mineMore"), goMomentText: $("goMomentText"), goMomentBadge: $("goMomentBadge"), homeMineBadge: $("homeMineBadge"), pushBox: $("pushBox"), pushAsk: $("pushAsk"), pushHint: $("pushHint"), homeAsks: $("homeAsks"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
+    reset: $("reset"), goWall: $("goWall"), goMomentText: $("goMomentText"), goMomentBadge: $("goMomentBadge"), pushBox: $("pushBox"), pushAsk: $("pushAsk"), pushHint: $("pushHint"), homeAsks: $("homeAsks"), homeWall: $("homeWall"), homeWallSub: $("homeWallSub"), homeWallNew: $("homeWallNew"),
+    mineBack: $("mineBack"), mineWrite: $("mineWrite"), mineAgain: $("mineAgain"), mineList: $("mineList"), mineNote: $("mineNote"), mineHome: $("mineHome"),
     wallBack: $("wallBack"), wallKicker: $("wallKicker"), wallHint: $("wallHint"), wallList: $("wallList"), wallNote: $("wallNote"),
     wallMore: $("wallMore"), wallPast: $("wallPast"), wallHome: $("wallHome")
   };
@@ -54,7 +55,7 @@
   var reduce = false;
   try { reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
 
-  var state = { screen: "home", mode: "moment", texts: { moment: "", question: "" }, busy: false, mineMode: "write" };
+  var state = { screen: "home", mode: "moment", texts: { moment: "", question: "" }, busy: false };
 
   // ---- Kopf: Datum & Bibelstelle ----
   // Angezeigter Tag = heute, ausser eine Vorschau ist aktiv (?vorschau=YYYY-MM-DD oder config.js preview bis „until“).
@@ -174,6 +175,8 @@
 
   function goWrite(mode) {
     setMode(mode);
+    // Zurück führt dorthin, wo man herkam: auf die eigene Pinnwand oder auf den Heute-Screen
+    el.back.textContent = state.screen === "mine" ? "Meine MEET-Momente" : "Heute";
     show("write", "fwd");
     try { history.pushState({ screen: "write" }, ""); } catch (e) {}
     setTimeout(function () { el.text.focus({ preventScroll: true }); }, reduce ? 0 : 380);
@@ -184,7 +187,7 @@
     hideError();
   }
 
-  el.goMoment.addEventListener("click", function () { if (state.mineMode === "mine") openMinePop(); else goWrite("moment"); });
+  el.goMoment.addEventListener("click", function () { goMine(false); });
   el.goQuestion.addEventListener("click", function () { goWrite("question"); });
   el.back.addEventListener("click", function () {
     if (history.state && history.state.screen === "write") history.back(); else goHome();
@@ -194,7 +197,9 @@
   });
   window.addEventListener("popstate", function () {
     if (playerOpen()) { closePlayer(true); return; }
-    if (!el.minePop.hidden) { closeMinePop(true); if (mineThenWrite) { mineThenWrite = false; goWrite("moment"); } return; }
+    // Zurück vom Schreiben (oder vom Danke-Screen) auf die eigene Pinnwand, wenn man von dort kam
+    var s = history.state && history.state.screen;
+    if (s === "mine" && state.screen !== "home") { goMine(true); return; }
     if (state.screen !== "home") goHome();
   });
 
@@ -445,7 +450,7 @@
     el.homeAsks.hidden = !asks.length;
     asks.forEach(function (q) { el.homeAsks.appendChild(askCard(q)); });
     updateHomeMine();
-    if (!el.minePop.hidden) renderMinePop();
+    if (state.screen === "mine") renderMine();
   }
   function askCard(q) {
     var done = q.status === "beantwortet";
@@ -471,7 +476,6 @@
     c.appendChild(w);
     return c;
   }
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMinePop(false); });
   function askDay(ts) {
     var d = ts ? new Date(ts) : null;
     if (!d || isNaN(d)) return "";
@@ -808,7 +812,9 @@
   });
   el.wallHome.addEventListener("click", goHome);
 
-  // ---- Meine MEET-Momente: alles, was dieses Gerät festgehalten hat – bleibt lokal (localStorage), kein Ablauf ----
+  // ---- 5 · Meine MEET-Momente: die eigene Pinnwand. Alles, was dieses Gerät festgehalten hat – Momente und Fragen samt Antwort –
+  //      hängt nach Tag gruppiert an der Wand (heute oben, heutige Karten mit Lime-Rand). Von hier aus wird der Moment von heute
+  //      festgehalten. Bleibt lokal (localStorage, kein Ablauf) – nichts davon verlässt das Gerät. ----
   var MINE_KEY = "meet:moments", MINE_MAX = 300;
   function readMine() {
     try { var l = JSON.parse(localStorage.getItem(MINE_KEY) || "[]"); return Array.isArray(l) ? l.filter(function (m) { return m && m.text; }) : []; } catch (e) { return []; }
@@ -819,77 +825,70 @@
     try { localStorage.setItem(MINE_KEY, JSON.stringify(list.slice(0, MINE_MAX))); } catch (e) {}
     updateHomeMine();
   }
-  // Knopf auf der Startseite: bis heute ein Moment festgehalten ist „Meinen MEET-Moment festhalten“ (schreiben), danach
-  // „Mein MEET-Moment“ (öffnet die eigene Ansicht). Frühere Momente/Fragen ohne einen von heute: dezenter Link darunter.
-  var mineThenWrite = false;
+  // Knopf auf der Startseite „Mein MEET-Moment“: Badge, wenn seit dem letzten Blick auf die Pinnwand Antworten auf Fragen gekommen sind
   function updateHomeMine() {
-    var all = readMine(), today = all.filter(askIsToday), fresh = freshAnswers();
-    var pastAsks = readAsks().some(function (q) { return !askIsToday(q); });
-    state.mineMode = today.length ? "mine" : "write";
-    el.goMomentText.textContent = today.length ? "Mein MEET-Moment" : "Meinen MEET-Moment festhalten";
-    el.goMomentBadge.hidden = !(today.length && fresh);
+    var fresh = freshAnswers();
+    el.goMomentBadge.hidden = !fresh;
     el.goMomentBadge.textContent = fresh + " neu";
-    el.homeMine.hidden = !!today.length || !(all.length || pastAsks);
-    el.homeMineText.textContent = all.length ? "Meine früheren MEET-Momente · " + all.length : "Deine Fragen der letzten Tage";
-    el.homeMineBadge.hidden = !(!today.length && fresh);
-    el.homeMineBadge.textContent = fresh + " neu";
   }
-  function mineCard(m, big) {
-    var c = document.createElement("article"); c.className = "ask ask--mine";
-    var head = document.createElement("div"); head.className = "ask-head";
-    var lab = document.createElement("span"); lab.className = "label"; lab.textContent = big ? "Dein MEET-Moment" : "MEET-Moment";
-    head.appendChild(lab);
-    if (m.wall) { var st = document.createElement("span"); st.className = "ask-state"; st.textContent = "Auf der Wand geteilt"; head.appendChild(st); }
-    var t = document.createElement("p"); t.className = "ask-text"; t.textContent = m.text;
-    c.appendChild(head); c.appendChild(t);
-    if (m.passage) { var w = document.createElement("p"); w.className = "ask-when"; w.textContent = m.passage; c.appendChild(w); }
-    return c;
-  }
-  // Alles Eigene in einer Zeitleiste: Momente und Fragen, heute gross, davor klein und nach Tag gruppiert
+  // Alles Eigene in einer Zeitleiste: Momente und Fragen, neueste zuerst
   function mineEntries() {
     var list = readMine().map(function (m) { return { ts: m.ts, m: m }; }).concat(readAsks().map(function (q) { return { ts: q.ts, q: q }; }));
     list.sort(function (a, b) { return a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0; });
     return list;
   }
-  function renderMinePop() {
+  // Eine Karte an der Pinnwand: Moment (Text, Uhrzeit, „auf der Wand“) oder Frage (Text, Antwort, „Deine Frage · beantwortet“)
+  function mineCard(e, isToday) {
+    var text = e.m ? e.m.text : e.q.text;
+    var wide = !!e.q || text.length > 90 || text.indexOf("\n") >= 0;
+    var c = document.createElement("article");
+    c.className = "moment" + (isToday ? " moment--own" : "") + (wide ? " moment--wide" : "") + (e.q ? " moment--ask" : "");
+    var t = document.createElement("p"); t.className = "moment-text"; t.textContent = text; c.appendChild(t);
+    if (e.q && e.q.status === "beantwortet") {
+      var a = document.createElement("p"); a.className = "moment-answer";
+      var b = document.createElement("b"); b.textContent = e.q.by ? "Antwort von " + e.q.by : "Unsere Antwort";
+      a.appendChild(b); a.appendChild(document.createTextNode(e.q.answer || "Danke für deine Frage!"));
+      c.appendChild(a);
+    }
+    var m = document.createElement("div"); m.className = "moment-meta";
+    var when = timeLabel(e.ts);
+    m.textContent = e.q ? ["Deine Frage", when, e.q.status === "beantwortet" ? "beantwortet" : "noch offen"].filter(Boolean).join(" · ")
+      : [when, e.m.wall ? "auf der Wand" : ""].filter(Boolean).join(" · ");
+    c.appendChild(m);
+    return c;
+  }
+  function renderMine() {
     var entries = mineEntries(), tk = dayKey(new Date());
-    var today = entries.filter(function (e) { return dayKey(new Date(e.ts)) === tk; }), past = entries.filter(function (e) { return dayKey(new Date(e.ts)) !== tk; });
-    el.minePopToday.innerHTML = ""; el.minePopPast.innerHTML = "";
-    el.minePopTodayWrap.hidden = !today.length;
-    el.minePopTodayLabel.textContent = "Heute · " + el.passage.textContent;
-    today.forEach(function (e) { el.minePopToday.appendChild(e.m ? mineCard(e.m, true) : askCard(e.q)); });
-    el.minePopPastWrap.hidden = !past.length;
+    var todays = entries.filter(function (e) { return e.m && dayKey(new Date(e.ts)) === tk; }).length;
+    el.mineWrite.hidden = !!todays;   // noch nichts von heute: der grosse Knopf
+    el.mineAgain.hidden = !todays;    // heute schon einer: dezenter Link für einen weiteren
+    el.mineList.innerHTML = "";
+    el.mineNote.hidden = true;
+    if (!entries.length) {
+      el.mineNote.textContent = "Hier hängt noch nichts. Dein erster MEET-Moment könnte heute dran sein.";
+      el.mineNote.hidden = false;
+      return;
+    }
     var lastDay = "";
-    past.forEach(function (e) {
+    entries.forEach(function (e) {
       var k = dayKey(new Date(e.ts));
-      if (k !== lastDay) { lastDay = k; var h = document.createElement("span"); h.className = "label mine-day"; h.textContent = askDay(e.ts) + (e.m && e.m.passage ? " · " + e.m.passage : e.q && e.q.passage ? " · " + e.q.passage : ""); el.minePopPast.appendChild(h); }
-      el.minePopPast.appendChild(e.m ? mineCard(e.m, false) : askCard(e.q));
+      if (k !== lastDay) { lastDay = k; el.mineList.appendChild(groupHead(groupLabel({ ts: e.ts, passage: e.m ? e.m.passage : e.q.passage }))); }
+      el.mineList.appendChild(mineCard(e, k === tk));
     });
   }
-  function openMinePop() {
-    renderMinePop();
-    el.minePop.hidden = false;
-    document.body.style.overflow = "hidden";
-    try { history.pushState({ pop: "mine" }, ""); } catch (e) {}
+  function goMine(fromHistory) {
+    renderMine();
+    show("mine", fromHistory ? "back" : "fwd");
+    if (!fromHistory) { try { history.pushState({ screen: "mine" }, ""); } catch (e) {} }
     try { localStorage.setItem(ASK_SEEN_KEY, new Date().toISOString()); } catch (e) {}
-    el.goMomentBadge.hidden = true; el.homeMineBadge.hidden = true;
+    el.goMomentBadge.hidden = true;
   }
-  // „Noch einen MEET-Moment festhalten“: Ansicht zu, dann schreiben (bei Verlauf erst nach dem popstate)
-  function mineWrite() {
-    var viaHistory = !!(history.state && history.state.pop === "mine");
-    closeMinePop(false);
-    if (viaHistory) mineThenWrite = true; else goWrite("moment");
-  }
-  el.mineMore.addEventListener("click", mineWrite);
-  function closeMinePop(fromHistory) {
-    if (el.minePop.hidden) return;
-    if (!fromHistory && history.state && history.state.pop === "mine") { try { history.back(); return; } catch (e) {} }
-    el.minePop.hidden = true;
-    document.body.style.overflow = "";
-  }
-  el.homeMine.addEventListener("click", openMinePop);
-  el.minePopBack.addEventListener("click", function () { closeMinePop(false); });
-  el.minePopClose.addEventListener("click", function () { closeMinePop(false); });
+  el.mineWrite.addEventListener("click", function () { goWrite("moment"); });
+  el.mineAgain.addEventListener("click", function () { goWrite("moment"); });
+  el.mineBack.addEventListener("click", function () {
+    if (history.state && history.state.screen === "mine") history.back(); else goHome();
+  });
+  el.mineHome.addEventListener("click", goHome);
   updateHomeMine();
 
   // ---- MEET DAILY: die beiden Videos von heute Morgen, aus dem Studio direkt hochgeladen (Function video, Dateien bei R2) ----

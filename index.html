@@ -94,12 +94,10 @@
     <svg class="row-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
   </button>
   <div class="stack">
-    <!-- Solange heute kein Moment festgehalten ist: schreiben. Danach „Mein MEET-Moment“ → eigene Ansicht (heute, letzte Tage, Fragen) -->
-    <button type="button" class="btn btn--primary btn--full" id="goMoment"><span id="goMomentText">Meinen MEET-Moment festhalten</span><span class="row-badge btn-badge" id="goMomentBadge" hidden></span></button>
+    <!-- „Mein MEET-Moment“ führt immer in die eigene Pinnwand (Screen 5): dort den Moment von heute festhalten und die letzten Tage sehen -->
+    <button type="button" class="btn btn--primary btn--full" id="goMoment"><span id="goMomentText">Mein MEET-Moment</span><span class="row-badge btn-badge" id="goMomentBadge" hidden></span></button>
     <button type="button" class="btn btn--text" id="goQuestion">Ich habe eine Frage zum Text</button>
   </div>
-  <!-- Nur wenn heute noch kein Moment da ist, aber frühere (oder frühere Fragen): dezenter Weg in die eigene Ansicht -->
-  <button type="button" class="ask-past" id="homeMine" hidden><span id="homeMineText">Meine früheren MEET-Momente</span><span class="ask-past-badge" id="homeMineBadge" hidden></span></button>
   <!-- Heutige Fragen zum Text dieses Geräts: offen oder beantwortet (Antwort kommt von der Freigabeseite) -->
   <div class="asks" id="homeAsks" hidden></div>
   <button type="button" class="row row--wall" id="homeWall" hidden>
@@ -197,6 +195,23 @@
   <button type="button" class="btn btn--text" id="wallHome">Zurück zu heute</button>
 </section>
 
+<!-- 5 · Meine MEET-Momente: die eigene Pinnwand – alles, was dieses Gerät festgehalten hat (Momente und Fragen samt Antwort),
+     nach Tag gruppiert, heute oben. Von hier aus den Moment von heute festhalten. Bleibt nur auf diesem Gerät. -->
+<section class="screen screen--wall screen--mine" id="screen-mine" hidden aria-labelledby="mineTitle">
+  <button type="button" class="back" id="mineBack">Heute</button>
+  <div class="wall-head">
+    <div class="kicker">Nur auf diesem Handy</div>
+    <h1 id="mineTitle" class="wall-title wall-title--wrap">Meine <span class="wall-last">MEET-Momente<span class="wall-bar" aria-hidden="true"></span></span></h1>
+    <p class="hint">Was du bei MEET festgehalten hast – Tag für Tag angepinnt.</p>
+  </div>
+  <button type="button" class="btn btn--primary btn--full" id="mineWrite">Meinen MEET-Moment festhalten</button>
+  <button type="button" class="wall-past mine-again" id="mineAgain" hidden>Noch einen MEET-Moment festhalten</button>
+  <div class="wall" id="mineList" aria-live="polite"></div>
+  <p class="hint wall-note" id="mineNote" hidden></p>
+  <div class="grow"></div>
+  <button type="button" class="btn btn--text" id="mineHome">Zurück zu heute</button>
+</section>
+
 </div>
 </main>
 
@@ -231,26 +246,6 @@
         <button type="button" class="btn btn--text" id="pickClose">Schliessen</button>
       </div>
     </div>
-  </div>
-</div>
-<!-- Pop-up „Mein MEET-Moment“: der heutige Moment gross, die letzten Tage klein, gestellte Fragen samt Antworten dazwischen (alles nur auf diesem Gerät) -->
-<div class="pop" id="minePop" hidden>
-  <div class="pop-back" id="minePopBack"></div>
-  <div class="pop-sheet" role="dialog" aria-modal="true" aria-labelledby="minePopTitle">
-    <div class="pop-head">
-      <span class="label" id="minePopTitle">Mein MEET-Moment</span>
-      <button type="button" class="pop-close" id="minePopClose" aria-label="Schliessen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-    </div>
-    <div class="mine-today" id="minePopTodayWrap" hidden>
-      <span class="label" id="minePopTodayLabel">Heute</span>
-      <div class="asks" id="minePopToday"></div>
-    </div>
-    <button type="button" class="ask-past mine-more" id="mineMore"><span>Noch einen MEET-Moment festhalten</span></button>
-    <div class="mine-past" id="minePopPastWrap" hidden>
-      <span class="label">Letzte Tage</span>
-      <div class="asks asks--small" id="minePopPast"></div>
-    </div>
-    <p class="pop-note">Deine Momente und Fragen bleiben nur auf diesem Gerät.</p>
   </div>
 </div>
 </body>

@@ -96,7 +96,7 @@
   if (text) {
     text.addEventListener("input", syncCursor);
     document.addEventListener("click", function (ev) {
-      if (ev.target.closest && ev.target.closest("#reset, #send, #goMoment, #goQuestion, #back")) setTimeout(syncCursor, 0);
+      if (ev.target.closest && ev.target.closest("#reset, #send, #goMoment, #goQuestion, #back, #mineWrite, #mineAgain, #mineBack, #mineHome")) setTimeout(syncCursor, 0);
     });
     syncCursor();
   }
