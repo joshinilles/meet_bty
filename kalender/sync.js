@@ -12,7 +12,7 @@
   var ICH_KEY = "meet_kal_ich";
   var POLL_MS = 20000;
   var DEFAULT_PERSONEN = [{ id: "niklas", name: "Niklas" }, { id: "vincent", name: "Vincent" }, { id: "joel", name: "Joel" }];
-  var COLLS = ["projekte", "termine", "abwesenheiten", "einstellungen", "aufgaben", "beitraege", "wochen", "monate", "links", "kommentare"];
+  var COLLS = ["projekte", "termine", "abwesenheiten", "protokolle", "grossprojekte", "einstellungen", "aufgaben", "beitraege", "wochen", "monate", "links", "kommentare"];
 
   var pin = "", me = "", rev = "", data = {}, pullTimer = null, pollTimer = null, pulling = null;
   var collListeners = {}, docListeners = {};

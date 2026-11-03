@@ -99,7 +99,7 @@ input[type=text],input[type=date],input[type=time],select,textarea{background:va
 textarea{min-height:72px;resize:vertical}
 select option{background:var(--surface);color:var(--fg)}
 form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
-.span1{grid-column:span 1}.span2{grid-column:span 2}.span3{grid-column:span 3}.span4{grid-column:span 4}.span6{grid-column:span 6}
+.span1{grid-column:span 1}.span2{grid-column:span 2}.span3{grid-column:span 3}.span4{grid-column:span 4}.span5{grid-column:span 5}.span6{grid-column:span 6}
 .seg{display:flex;border:1px solid var(--line);border-radius:var(--r-pill);overflow:hidden;padding:3px;gap:3px}
 .seg button{flex:1;border:0;background:transparent;padding:6px 12px;cursor:pointer;border-radius:var(--r-pill);color:var(--muted);font-weight:500}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);font-weight:650}
@@ -192,6 +192,29 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 .chip::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
 .daygroup{display:flex;flex-direction:column;gap:6px}
 .daygroup h3{font-family:var(--font-num);font-weight:400;font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;color:var(--kicker);padding-top:6px}
+/* Stand-up-Protokolle und Grossprojekte */
+.tabs{overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.tag{display:inline-flex;align-items:center;font-family:var(--font-num);font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--fg);background:var(--surface-2);border:1px solid transparent;border-radius:var(--r-pill);padding:2px 9px;cursor:pointer;white-space:nowrap}
+.tag:hover,.tag[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.tag.static{cursor:default}
+textarea.prot{min-height:260px;font-size:.95rem;line-height:1.55}
+textarea.gpb{min-height:110px}
+input[type=search]{background:var(--input);border:1px solid var(--input-line);border-radius:var(--r-input);padding:9px 12px;width:100%;min-width:0}
+.ged{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start;padding:8px 10px;border-radius:var(--r-md);background:var(--surface-2);border-left:3px solid var(--accent)}
+.ged .t{overflow-wrap:anywhere;white-space:pre-wrap}
+.ged .m{font-size:.76rem;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;margin-top:2px}
+.ged .m a{color:var(--kicker);text-decoration:none;cursor:pointer}
+.ged .m a:hover{text-decoration:underline}
+.ged .x{background:none;border:0;color:var(--muted);cursor:pointer;font-size:1.1rem;line-height:1;padding:0 4px}
+.ged .x:hover{color:var(--bad)}
+.prow .ex{font-size:.82rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow.done{opacity:.6}
+.it.standup{border-left-color:var(--accent)}
+.it.standup .t{color:var(--accent)}
+.cell .ml.standup{border-left-color:var(--accent)}
+.gptitle{font-family:var(--font-display);font-weight:700;font-size:1.3rem;background:transparent;border:0;border-bottom:1px solid var(--input-line);border-radius:0;padding:4px 0;width:100%}
 /* Projektliste und Abwesenheiten */
 .prow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:var(--r-md);background:var(--surface-2);cursor:pointer;text-align:left;border:0;border-left:3px solid var(--c);width:100%;color:inherit}
 .prow:hover{filter:brightness(1.08)}
@@ -210,7 +233,7 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
   .cell .ml,.cell .more,.cell .abwdot{display:none}
   .cell .dots{display:flex}
   form.entry{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .span1{grid-column:span 1}.span2,.span3,.span4,.span6{grid-column:span 2}
+  .span1{grid-column:span 1}.span2,.span3,.span4,.span5,.span6{grid-column:span 2}
   h1{font-size:1.9rem}
   .undo-l{display:none}
 }
@@ -225,6 +248,8 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
       <button type="button" role="tab" data-view="podcast" aria-selected="false">Podcast</button>
       <button type="button" role="tab" data-view="daily" aria-selected="false">MEET DAILY</button>
       <button type="button" role="tab" data-view="social" aria-selected="false">Social Media</button>
+      <button type="button" role="tab" data-view="protokolle" aria-selected="false">Stand-up</button>
+      <button type="button" role="tab" data-view="gross" aria-selected="false">Grossprojekte</button>
     </div>
     <div class="tabright">
       <button class="btn ghost small" id="ichBtn" hidden title="Wer am Gerät sitzt – antippen zum Wechseln">Wer?</button>
@@ -324,6 +349,57 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     </section>
   </div>
 
+  <!-- Stand-up: Liste der Protokolle mit Suche, oder ein einzelnes Protokoll -->
+  <div id="viewProtList" hidden>
+    <section class="panel">
+      <div class="phead"><h2>Weekly Stand-up · Protokolle</h2><div class="pright"><span class="status" id="plStatus"></span><button type="button" class="btn small primary" id="plAdd">+ Protokoll</button></div></div>
+      <p class="hint">Jeden Dienstag 17:30–18:30. Antippen öffnet das Protokoll. Suche findet Schlagwörter, Namen und Themen aus allen Wochen.</p>
+      <input type="search" id="plSearch" placeholder="Suchen in allen Protokollen …" autocomplete="off">
+      <div class="chips" id="plTags"></div>
+      <div class="itlist" id="plList"></div>
+    </section>
+  </div>
+  <div id="viewProt" hidden>
+    <section class="panel">
+      <div class="phead"><h2 id="protTitle">Protokoll</h2><div class="pright"><span class="status" id="protStatus"></span><button type="button" class="btn small" id="protPrev">‹ Vorheriges</button><button type="button" class="btn small" id="protNext">Nächstes ›</button><button type="button" class="btn small ghost" id="protBack">Alle Protokolle</button></div></div>
+      <div class="f"><label for="protText">Protokoll – eine Zeile pro Punkt</label><textarea class="prot" id="protText" maxlength="16000" placeholder="Was besprochen wurde, Entscheide, wer was bis wann macht …"></textarea></div>
+      <div class="f"><label for="protTags">Schlagwörter (mit Komma trennen)</label><input type="text" id="protTags" maxlength="300" placeholder="z. B. Podcast, Instagram, Spender, Weihnachten" autocomplete="off"></div>
+      <div class="chips" id="protTagChips"></div>
+      <div class="formactions"><span class="status" id="protSaved"></span><button type="button" class="btn small ghost" id="protTermin" hidden>Termin der Serie bearbeiten</button><button type="button" class="btn small danger" id="protDel" hidden>Protokoll löschen</button></div>
+    </section>
+    <section class="panel">
+      <div class="phead"><h2>In ein Grossprojekt übernehmen</h2></div>
+      <p class="hint">Text im Protokoll markieren (er erscheint unten) oder direkt eintippen, Grossprojekt wählen, übernehmen. Der Gedanke landet im Projekt mit Verweis auf dieses Stand-up.</p>
+      <form class="entry" id="gedankeForm" novalidate>
+        <div class="f span4"><label for="gedankeText">Gedanke</label><input type="text" id="gedankeText" maxlength="600" autocomplete="off" placeholder="z. B. Weihnachtsaktion: Jugendliche nehmen eigene MEETmoments auf"></div>
+        <div class="f span2"><label for="gedankeGP">Grossprojekt</label><select id="gedankeGP"></select></div>
+        <div class="f span4" id="gedankeNeuWrap" hidden><label for="gedankeNeu">Name des neuen Grossprojekts</label><input type="text" id="gedankeNeu" maxlength="80" autocomplete="off"></div>
+        <div class="f span6"><div class="formactions"><span class="msg" id="gedankeMsg" role="status"></span><button type="submit" class="btn primary small">Übernehmen</button></div></div>
+      </form>
+      <div class="itlist" id="protGedanken"></div>
+    </section>
+  </div>
+
+  <!-- Grossprojekte: Liste oder ein Projekt mit seinen Gedanken -->
+  <div id="viewGross" hidden>
+    <section class="panel" id="gpListPanel">
+      <div class="phead"><h2>Grossprojekte</h2><div class="pright"><span class="status" id="gpStatus"></span><button type="button" class="btn small primary" id="gpAdd">+ Grossprojekt</button></div></div>
+      <p class="hint">Grössere Vorhaben, die über Wochen wachsen. Gedanken kommen aus den Stand-ups oder direkt hier dazu.</p>
+      <div class="itlist" id="gpList"></div>
+    </section>
+    <section class="panel" id="gpDetail" hidden>
+      <div class="phead"><input type="text" class="gptitle" id="gpTitle" maxlength="80" placeholder="Name des Grossprojekts"><div class="pright"><span class="status" id="gpSaved"></span><button type="button" class="btn small" id="gpDone">Abschliessen</button><button type="button" class="btn small ghost" id="gpBack">Alle Grossprojekte</button></div></div>
+      <div class="f"><label for="gpText">Worum geht es</label><textarea class="gpb" id="gpText" maxlength="8000" placeholder="Ziel, Idee, Stand der Dinge …"></textarea></div>
+      <div class="phead"><h3>Gedanken</h3><span class="status" id="gpGedStatus"></span></div>
+      <div class="itlist" id="gpGedanken"></div>
+      <form class="entry" id="gpGedForm" novalidate>
+        <div class="f span5"><label for="gpGedText">Neuer Gedanke</label><input type="text" id="gpGedText" maxlength="600" autocomplete="off" placeholder="… (Enter)"></div>
+        <div class="f span1"><label>&nbsp;</label><button type="submit" class="btn small">Dazu</button></div>
+      </form>
+      <div class="formactions"><button type="button" class="btn small danger" id="gpDel">Grossprojekt löschen</button></div>
+    </section>
+  </div>
+
   <div class="grid" id="belowCal">
     <div class="col">
       <section class="panel">
@@ -358,6 +434,7 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
   const dowIdx=d=>(d.getDay()+6)%7;
   const isDay=s=>typeof s==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(s);
   const el=(tag,c,text)=>{const e=document.createElement(tag);if(c)e.className=c;if(text!=null)e.textContent=text;return e;};
+  const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
   const DEFAULT_PERSONEN=[{id:"beide",name:"Alle"},{id:"niklas",name:"Niklas"},{id:"vincent",name:"Vincent"},{id:"joel",name:"Joel"}];
   let personen=DEFAULT_PERSONEN.map(p=>({...p}));
@@ -366,6 +443,7 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
   const passWer=t=>werFilter==="alle"||!t.wer||t.wer==="beide"||t.wer===werFilter;
   const whoTag=t=>{ if(!t.wer||t.wer==="beide") return null; const n=werName(t.wer); return n?el("span","who",n):null; };
   let termine=[], projekte=[], abwesenheiten=[], daily={}; // daily: Tag → {buch, stelle, sprecher, thema}
+  let protokolle=[], grossprojekte=[], protDay="", gpId=null, einst={}; // Stand-up-Protokolle (id = Tag), Grossprojekte
   let view="woche", cur=new Date(); cur.setHours(0,0,0,0);
   let db=null, canWrite=true, myId=null;
   let art="podcast", editId=null, editInst=null, fReels=[];
@@ -456,12 +534,12 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     const by={}; const push=it=>{(by[it.day]=by[it.day]||[]).push(it);};
     for(let d=parse(a);key(d)<=b;d=addDays(d,1)){ const k=key(d), dl=daily[k]; if(dl&&(dl.buch||dl.sprecher)){ const w=dailyWer(dl.sprecher); if(werFilter==="alle"||!w||w===werFilter) push({kind:"k-daily",mode:"daily",day:k,label:"MEET DAILY",titel:dl.buch||dl.stelle,meta:[dl.sprecher||"",dl.stelle&&dl.buch?dl.stelle:""].filter(Boolean),sort:0}); } }
     projekte.filter(passWer).forEach(p=>projItems(p).forEach(it=>{ if(it.day>=a&&it.day<=b) push(it); }));
-    termineBetween(a,b).filter(passWer).forEach(t=>push({kind:"k-termin",mode:"termin",day:t.inst,label:isAllDay(t)?"ganztags":t.von+(t.bis?"–"+t.bis:""),titel:t.titel||"(ohne Titel)",meta:[t.ort||"",t.notiz||""].filter(Boolean),wer:t.wer,termin:t,sort:5,von:t.von||""}));
+    termineBetween(a,b).filter(passWer).forEach(t=>push({kind:"k-termin",mode:"termin",day:t.inst,label:isAllDay(t)?"ganztags":t.von+(t.bis?"–"+t.bis:""),titel:t.titel||"(ohne Titel)",meta:t.standup?[protokolle.some(p=>p.id===t.inst)?"Protokoll ✓":"Protokoll anlegen"]:[t.ort||"",t.notiz||""].filter(Boolean),wer:t.wer,termin:t,standup:!!t.standup,sort:5,von:t.von||""}));
     Object.values(by).forEach(l=>l.sort((x,y)=>x.sort-y.sort||(x.von||"").localeCompare(y.von||"")||x.titel.localeCompare(y.titel,"de")));
     return by;
   }
   function itemRow(it,past){
-    const r=el("div","it "+it.kind+" "+it.mode+(past?" past":"")); r.tabIndex=it.mode==="daily"?-1:0; if(it.mode!=="daily") r.setAttribute("role","button");
+    const r=el("div","it "+it.kind+" "+it.mode+(past?" past":"")+(it.standup?" standup":"")); r.tabIndex=it.mode==="daily"?-1:0; if(it.mode!=="daily") r.setAttribute("role","button");
     r.appendChild(el("div","t",it.label));
     const body=el("div"); body.appendChild(el("div","n",it.titel));
     const s=el("div","s"); const wt=whoTag({wer:it.wer}); if(wt) s.appendChild(wt);
@@ -470,7 +548,7 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     if(it.proj&&it.proj.link&&it.mode!=="sub"){ const a=el("a","lnk","Link"); a.href=it.proj.link; a.target="_blank"; a.rel="noopener"; a.onclick=ev=>ev.stopPropagation(); s.appendChild(a); }
     if(s.childNodes.length) body.appendChild(s);
     r.appendChild(body);
-    if(canWrite&&it.mode!=="daily"){ const open=()=>it.proj?startEdit(it.proj.art==="reel"?"reel":"podcast",it.proj):startEdit("termin",it.termin); r.onclick=open; r.onkeydown=ev=>{ if(ev.key==="Enter"||ev.key===" "){ ev.preventDefault(); open(); } }; }
+    if(canWrite&&it.mode!=="daily"){ const open=()=>it.proj?startEdit(it.proj.art==="reel"?"reel":"podcast",it.proj):it.standup?openProtokoll(it.day):startEdit("termin",it.termin); r.onclick=open; r.onkeydown=ev=>{ if(ev.key==="Enter"||ev.key===" "){ ev.preventDefault(); open(); } }; }
     return r;
   }
 
@@ -550,6 +628,144 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     rows.forEach(r=>box.appendChild(r));
   }
 
+  // ---------- Weekly Stand-up: Serie Di 17:30–18:30, Protokoll je Tag (id = Datum), Grossprojekte mit Gedanken ----------
+  const STANDUP={titel:"Weekly Stand-up",dow:2,von:"17:30",bis:"18:30"}; // dow: 0 = Sonntag … 2 = Dienstag
+  const nextDow=(from,dow)=>{ let d=new Date(from); d.setHours(0,0,0,0); while(d.getDay()!==dow) d=addDays(d,1); return d; };
+  // Legt die Serie einmal an; der Haken dafür steht in den Einstellungen, damit sie nach einem Löschen nicht wiederkommt.
+  async function ensureStandup(){
+    if(!canWrite||!db||einst.standupAngelegt||termine.some(t=>t.standup)) return;
+    try{
+      await db.doc("einstellungen/kalender").update({standupAngelegt:Date.now()}); einst.standupAngelegt=Date.now();
+      await db.collection("termine").add({titel:STANDUP.titel,datum:key(nextDow(new Date(),STANDUP.dow)),von:STANDUP.von,bis:STANDUP.bis,ganztag:false,wer:"beide",ort:"",notiz:"Protokoll: Eintrag antippen",wiederholung:"woechentlich",wiederholungBis:"",ausnahmen:[],standup:true,erstelltAm:Date.now(),erstelltVon:myId||null});
+      showToast("Weekly Stand-up eingetragen: jeden Dienstag 17:30–18:30.",false);
+    }catch(e){}
+  }
+  const standupDow=()=>{ const t=termine.find(t=>t.standup); return t?parse(t.datum).getDay():STANDUP.dow; };
+  const protById=id=>protokolle.find(p=>p.id===id);
+  const tagsOf=p=>Array.isArray(p.schlagworte)?p.schlagworte:[];
+  const parseTags=s=>[...new Set(String(s||"").split(/[,;\n]/).map(x=>x.trim().replace(/\s+/g," ")).filter(Boolean))].slice(0,30);
+  const protTitel=day=>{ const d=parse(day); return STANDUP.titel+" · "+DOWS[dowIdx(d)]+" "+fmtDM(d); };
+  function openProtokoll(day){ protDay=day; gpId=null; setView("protokolle"); }
+  let protTimer=null, protDirty=false;
+  async function saveProt(){
+    clearTimeout(protTimer); if(!protDay||!db||!canWrite) return;
+    const old=protById(protDay)||{};
+    const doc={titel:protTitel(protDay),datum:protDay,text:$("protText").value.slice(0,16000),schlagworte:parseTags($("protTags").value),gedanken:Array.isArray(old.gedanken)?old.gedanken:[],erstelltAm:old.erstelltAm||Date.now(),erstelltVon:old.erstelltVon||myId||null,geaendertAm:Date.now(),geaendertVon:myId||null};
+    try{ await db.collection("protokolle").doc(protDay).set(doc); protDirty=false; $("protSaved").textContent="Gespeichert "+pad(new Date().getHours())+":"+pad(new Date().getMinutes()); }
+    catch(e){ $("protSaved").textContent="Speichern fehlgeschlagen – bitte nochmals tippen."; }
+  }
+  function protChanged(){ protDirty=true; $("protSaved").textContent="…"; clearTimeout(protTimer); protTimer=setTimeout(saveProt,900); }
+  $("protText").addEventListener("input",protChanged); $("protTags").addEventListener("input",protChanged);
+  $("protText").addEventListener("blur",()=>{ if(protDirty) saveProt(); }); $("protTags").addEventListener("blur",()=>{ if(protDirty) saveProt(); });
+  $("protText").addEventListener("mouseup",()=>{ const ta=$("protText"), sel=ta.value.slice(ta.selectionStart,ta.selectionEnd).trim(); if(sel) $("gedankeText").value=sel.slice(0,600); });
+  $("protText").addEventListener("keyup",ev=>{ if(ev.shiftKey){ const ta=$("protText"), sel=ta.value.slice(ta.selectionStart,ta.selectionEnd).trim(); if(sel) $("gedankeText").value=sel.slice(0,600); } });
+  function renderProtokoll(){
+    const p=protById(protDay)||{}, ta=$("protText"), tg=$("protTags");
+    $("protTitle").textContent=protTitel(protDay);
+    if(!protDirty&&document.activeElement!==ta) ta.value=p.text||"";
+    if(!protDirty&&document.activeElement!==tg) tg.value=tagsOf(p).join(", ");
+    ta.disabled=!canWrite; tg.disabled=!canWrite;
+    $("protStatus").textContent=p.geaendertAm?"zuletzt "+fmtDM(new Date(p.geaendertAm))+(p.geaendertVon?" · "+(werName(p.geaendertVon)||""):""):"neu";
+    const ch=$("protTagChips"); ch.innerHTML=""; tagsOf(p).forEach(t=>{ const b=el("button","tag",t); b.type="button"; b.onclick=()=>{ protDay=""; setView("protokolle"); $("plSearch").value=t; renderProtokolle(); }; ch.appendChild(b); });
+    $("protDel").hidden=!(canWrite&&p.id); $("protTermin").hidden=!(canWrite&&termine.some(t=>t.standup));
+    const sel=$("gedankeGP"), keep=sel.value; sel.innerHTML="";
+    grossprojekte.filter(g=>g.status!=="abgeschlossen").sort((a,b)=>(a.titel||"").localeCompare(b.titel||"","de")).forEach(g=>{ const o=document.createElement("option"); o.value=g.id; o.textContent=g.titel||"(ohne Titel)"; sel.appendChild(o); });
+    const on=document.createElement("option"); on.value="__neu"; on.textContent="+ Neues Grossprojekt …"; sel.appendChild(on);
+    sel.value=[...sel.options].some(o=>o.value===keep)?keep:sel.options[0].value; $("gedankeNeuWrap").hidden=sel.value!=="__neu";
+    const box=$("protGedanken"); box.innerHTML="";
+    const mine=[]; grossprojekte.forEach(g=>(Array.isArray(g.gedanken)?g.gedanken:[]).forEach(x=>{ if(x.ausProtokoll===protDay) mine.push({g,x}); }));
+    if(mine.length){ box.appendChild(el("div","eyebrow","Aus diesem Stand-up übernommen")); mine.forEach(({g,x})=>box.appendChild(gedRow(g,x,false))); }
+  }
+  $("gedankeGP").onchange=()=>{ $("gedankeNeuWrap").hidden=$("gedankeGP").value!=="__neu"; if($("gedankeGP").value==="__neu") $("gedankeNeu").focus(); };
+  $("gedankeForm").addEventListener("submit",async ev=>{
+    ev.preventDefault(); const text=$("gedankeText").value.trim(); if(!text){ $("gedankeMsg").textContent="Bitte einen Gedanken eintippen oder im Protokoll markieren."; return; }
+    if(!db||!canWrite) return; $("gedankeMsg").textContent="";
+    try{
+      let g=grossprojekte.find(x=>x.id===$("gedankeGP").value);
+      if($("gedankeGP").value==="__neu"||!g){ const name=$("gedankeNeu").value.trim().replace(/\s+/g," "); if(!name){ $("gedankeMsg").textContent="Bitte dem neuen Grossprojekt einen Namen geben."; $("gedankeNeu").focus(); return; }
+        const ref=await db.collection("grossprojekte").add({titel:name,text:"",status:"offen",gedanken:[],erstelltAm:Date.now(),erstelltVon:myId||null}); g={id:ref.id,titel:name,gedanken:[]}; $("gedankeNeu").value=""; }
+      const ged={id:newId(),text,am:Date.now(),von:myId||null,ausProtokoll:protDay};
+      await db.collection("grossprojekte").doc(g.id).update({gedanken:[...(Array.isArray(g.gedanken)?g.gedanken:[]),ged],geaendertAm:Date.now()});
+      $("gedankeText").value=""; showToast("In „"+(g.titel||"Grossprojekt")+"“ übernommen.",false); render();
+    }catch(e){ $("gedankeMsg").textContent="Übernehmen hat nicht geklappt."; }
+  });
+  $("protPrev").onclick=()=>{ const prev=protokolle.filter(p=>p.id<protDay).sort((a,b)=>b.id.localeCompare(a.id))[0]; let d=prev?prev.id:key(addDays(nextDow(addDays(parse(protDay),-7),standupDow()),0)); if(d>=protDay) d=key(addDays(parse(protDay),-7)); openProtokoll(d); };
+  $("protNext").onclick=()=>{ const nx=protokolle.filter(p=>p.id>protDay).sort((a,b)=>a.id.localeCompare(b.id))[0]; openProtokoll(nx?nx.id:key(nextDow(addDays(parse(protDay),1),standupDow()))); };
+  $("protBack").onclick=()=>{ protDay=""; setView("protokolle"); };
+  $("protTermin").onclick=()=>{ const t=termine.find(t=>t.standup); if(t) startEdit("termin",{...t,inst:protDay}); };
+  $("protDel").onclick=async()=>{ const b=$("protDel"); if(b.dataset.confirm!=="1"){ b.dataset.confirm="1"; b.textContent="Wirklich löschen?"; return; } const old=protById(protDay); try{ await db.collection("protokolle").doc(protDay).delete(); if(old){ const snap=strip(old); pushUndo("Protokoll vom "+fmtDM(parse(protDay))+" gelöscht",()=>db.collection("protokolle").doc(old.id).set(snap)); } b.dataset.confirm=""; b.textContent="Protokoll löschen"; protDay=""; setView("protokolle"); }catch(e){ showToast("Löschen hat nicht geklappt.",false); } };
+  function renderProtList(){
+    const q=$("plSearch").value.trim().toLowerCase(), box=$("plList"); box.innerHTML="";
+    $("plAdd").hidden=!canWrite;
+    const all=new Map(); protokolle.forEach(p=>tagsOf(p).forEach(t=>all.set(t,(all.get(t)||0)+1)));
+    const tg=$("plTags"); tg.innerHTML=""; [...all.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],"de")).slice(0,40).forEach(([t,n])=>{ const b=el("button","tag",t+(n>1?" · "+n:"")); b.type="button"; b.setAttribute("aria-pressed",q===t.toLowerCase()); b.onclick=()=>{ $("plSearch").value=q===t.toLowerCase()?"":t; renderProtList(); }; tg.appendChild(b); });
+    const hit=p=>!q||(p.text||"").toLowerCase().includes(q)||tagsOf(p).some(t=>t.toLowerCase().includes(q))||(p.titel||"").toLowerCase().includes(q)||fmtDMfull(parse(p.id)).toLowerCase().includes(q);
+    const list=protokolle.filter(hit).sort((a,b)=>b.id.localeCompare(a.id));
+    $("plStatus").textContent=q?list.length+" von "+protokolle.length:(protokolle.length?protokolle.length+(protokolle.length===1?" Protokoll":" Protokolle"):"");
+    const nx=key(nextDow(new Date(),standupDow()));
+    if(!q&&!protokolle.some(p=>p.id===nx)&&canWrite){ const row=el("button","prow k-termin"); row.type="button"; row.appendChild(el("span","d",fmtD(nx)+(nx===todayKey()?" · heute":""))); const b=el("div"); b.appendChild(el("div","n",STANDUP.titel+" – Protokoll anlegen")); b.appendChild(el("div","ex","Nächstes Stand-up, noch ohne Protokoll")); row.appendChild(b); row.appendChild(el("span",null,"")); row.onclick=()=>openProtokoll(nx); box.appendChild(row); }
+    if(!list.length){ box.appendChild(el("div","empty",q?"Nichts gefunden zu „"+$("plSearch").value.trim()+"“.":"Noch kein Protokoll. Beim nächsten Stand-up den Eintrag im Kalender antippen.")); return; }
+    list.forEach(p=>{
+      const row=el("button","prow k-termin"); row.type="button";
+      row.appendChild(el("span","d",fmtD(p.id)));
+      const b=el("div"); b.appendChild(el("div","n",p.titel||protTitel(p.id)));
+      let ex=(p.text||"").replace(/\s+/g," ").trim(); if(q&&ex.toLowerCase().indexOf(q)>120){ const i=ex.toLowerCase().indexOf(q); ex="… "+ex.slice(Math.max(0,i-60)); }
+      if(ex) b.appendChild(el("div","ex",ex.slice(0,160)));
+      const m=el("div","m"); tagsOf(p).forEach(t=>m.appendChild(el("span","tag static",t))); const ng=grossprojekte.reduce((n,g)=>n+(Array.isArray(g.gedanken)?g.gedanken.filter(x=>x.ausProtokoll===p.id).length:0),0); if(ng) m.appendChild(el("span",null,ng+(ng===1?" Gedanke übernommen":" Gedanken übernommen"))); b.appendChild(m);
+      row.appendChild(b); row.appendChild(el("span",null,"")); row.onclick=()=>openProtokoll(p.id); box.appendChild(row);
+    });
+  }
+  $("plSearch").addEventListener("input",renderProtList);
+  $("plAdd").onclick=()=>openProtokoll(key(nextDow(new Date(),standupDow())));
+  function renderProtokolle(){ if(protDay) renderProtokoll(); else renderProtList(); }
+  // Grossprojekte
+  const gpById=id=>grossprojekte.find(g=>g.id===id);
+  function gedRow(g,x,inGp){
+    const r=el("div","ged"); const b=el("div"); b.appendChild(el("div","t",x.text||""));
+    const m=el("div","m"); m.appendChild(el("span",null,fmtDM(new Date(x.am||0))+(x.von?" · "+(werName(x.von)||""):"")));
+    if(inGp&&x.ausProtokoll){ const a=el("a",null,"aus Stand-up "+fmtDM(parse(x.ausProtokoll))); a.onclick=()=>openProtokoll(x.ausProtokoll); m.appendChild(a); }
+    if(!inGp){ const a=el("a",null,"→ "+(g.titel||"Grossprojekt")); a.onclick=()=>{ gpId=g.id; setView("gross"); }; m.appendChild(a); }
+    b.appendChild(m); r.appendChild(b);
+    if(canWrite){ const xb=el("button","x","×"); xb.type="button"; xb.title="Gedanken entfernen"; xb.onclick=async()=>{ const prev=Array.isArray(g.gedanken)?g.gedanken:[]; try{ await db.collection("grossprojekte").doc(g.id).update({gedanken:prev.filter(y=>y.id!==x.id)}); pushUndo("Gedanke entfernt",()=>db.collection("grossprojekte").doc(g.id).update({gedanken:prev})); }catch(e){ showToast("Entfernen hat nicht geklappt.",false); } }; r.appendChild(xb); }
+    return r;
+  }
+  let gpTimer=null, gpDirty=false;
+  async function saveGp(){ clearTimeout(gpTimer); const g=gpById(gpId); if(!g||!db||!canWrite) return; try{ await db.collection("grossprojekte").doc(g.id).update({titel:$("gpTitle").value.trim().replace(/\s+/g," ")||g.titel||"",text:$("gpText").value.slice(0,8000),geaendertAm:Date.now()}); gpDirty=false; $("gpSaved").textContent="Gespeichert"; }catch(e){ $("gpSaved").textContent="Speichern fehlgeschlagen."; } }
+  function gpChanged(){ gpDirty=true; $("gpSaved").textContent="…"; clearTimeout(gpTimer); gpTimer=setTimeout(saveGp,900); }
+  $("gpTitle").addEventListener("input",gpChanged); $("gpText").addEventListener("input",gpChanged);
+  $("gpTitle").addEventListener("blur",()=>{ if(gpDirty) saveGp(); }); $("gpText").addEventListener("blur",()=>{ if(gpDirty) saveGp(); });
+  function renderGross(){
+    const g=gpId?gpById(gpId):null; if(gpId&&!g) gpId=null;
+    $("gpListPanel").hidden=!!g; $("gpDetail").hidden=!g;
+    if(g){
+      const ti=$("gpTitle"), tx=$("gpText");
+      if(!gpDirty&&document.activeElement!==ti) ti.value=g.titel||""; if(!gpDirty&&document.activeElement!==tx) tx.value=g.text||"";
+      ti.disabled=!canWrite; tx.disabled=!canWrite; $("gpGedForm").hidden=!canWrite; $("gpDel").hidden=!canWrite; $("gpDone").hidden=!canWrite;
+      $("gpDone").textContent=g.status==="abgeschlossen"?"Wieder öffnen":"Abschliessen";
+      const list=(Array.isArray(g.gedanken)?g.gedanken:[]).slice().sort((a,b)=>(b.am||0)-(a.am||0)), box=$("gpGedanken"); box.innerHTML="";
+      $("gpGedStatus").textContent=list.length?list.length+(list.length===1?" Gedanke":" Gedanken"):"";
+      if(!list.length) box.appendChild(el("div","empty","Noch keine Gedanken. Aus einem Stand-up übernehmen oder unten eintippen."));
+      list.forEach(x=>box.appendChild(gedRow(g,x,true)));
+      return;
+    }
+    const box=$("gpList"); box.innerHTML=""; $("gpAdd").hidden=!canWrite;
+    const list=grossprojekte.slice().sort((a,b)=>((a.status==="abgeschlossen")-(b.status==="abgeschlossen"))||(b.geaendertAm||b.erstelltAm||0)-(a.geaendertAm||a.erstelltAm||0));
+    $("gpStatus").textContent=list.length?list.filter(g=>g.status!=="abgeschlossen").length+" offen":"";
+    if(!list.length){ box.appendChild(el("div","empty","Noch kein Grossprojekt. Mit „+ Grossprojekt“ anlegen oder im Stand-up-Protokoll einen Gedanken übernehmen.")); return; }
+    list.forEach(g=>{
+      const n=(Array.isArray(g.gedanken)?g.gedanken:[]).length, row=el("button","prow k-reel"+(g.status==="abgeschlossen"?" done":"")); row.type="button";
+      row.appendChild(el("span","d",g.geaendertAm||g.erstelltAm?fmtDM(new Date(g.geaendertAm||g.erstelltAm)):""));
+      const b=el("div"); b.appendChild(el("div","n",g.titel||"(ohne Titel)")); const ex=(g.text||"").replace(/\s+/g," ").trim(); if(ex) b.appendChild(el("div","ex",ex.slice(0,160)));
+      const m=el("div","m"); m.appendChild(el("span",null,n+(n===1?" Gedanke":" Gedanken"))); if(g.status==="abgeschlossen") m.appendChild(el("span",null,"abgeschlossen")); b.appendChild(m); row.appendChild(b); row.appendChild(el("span",null,""));
+      row.onclick=()=>{ gpId=g.id; setView("gross"); }; box.appendChild(row);
+    });
+  }
+  $("gpAdd").onclick=async()=>{ if(!db||!canWrite) return; try{ const ref=await db.collection("grossprojekte").add({titel:"",text:"",status:"offen",gedanken:[],erstelltAm:Date.now(),erstelltVon:myId||null}); gpId=ref.id; setView("gross"); $("gpTitle").focus(); }catch(e){ showToast("Anlegen hat nicht geklappt.",false); } };
+  $("gpBack").onclick=()=>{ if(gpDirty) saveGp(); gpId=null; setView("gross"); };
+  $("gpDone").onclick=async()=>{ const g=gpById(gpId); if(!g) return; try{ await db.collection("grossprojekte").doc(g.id).update({status:g.status==="abgeschlossen"?"offen":"abgeschlossen",geaendertAm:Date.now()}); }catch(e){} };
+  $("gpGedForm").addEventListener("submit",async ev=>{ ev.preventDefault(); const g=gpById(gpId), text=$("gpGedText").value.trim(); if(!g||!text) return; try{ await db.collection("grossprojekte").doc(g.id).update({gedanken:[...(Array.isArray(g.gedanken)?g.gedanken:[]),{id:newId(),text,am:Date.now(),von:myId||null,ausProtokoll:""}],geaendertAm:Date.now()}); $("gpGedText").value=""; }catch(e){ showToast("Speichern hat nicht geklappt.",false); } });
+  $("gpDel").onclick=async()=>{ const b=$("gpDel"), g=gpById(gpId); if(!g) return; if(b.dataset.confirm!=="1"){ b.dataset.confirm="1"; b.textContent="Wirklich löschen – samt allen Gedanken?"; return; } try{ await db.collection("grossprojekte").doc(g.id).delete(); const snap=strip(g); pushUndo("„"+(g.titel||"Grossprojekt")+"“ gelöscht",()=>db.collection("grossprojekte").doc(g.id).set(snap)); b.dataset.confirm=""; b.textContent="Grossprojekt löschen"; gpId=null; setView("gross"); }catch(e){ showToast("Löschen hat nicht geklappt.",false); } };
+
   // ---------- Wer-Filter und Kopf ----------
   function renderWerFilter(){
     const box=$("werFilter"); box.innerHTML="";
@@ -570,6 +786,12 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     } else if(M){
       h.append(el("span","ul","Monate"));
       eb.textContent="Durchscrollen · "+MONTHS[monFrom.getMonth()]+" "+monFrom.getFullYear()+" bis "+MONTHS[monTo.getMonth()]+" "+monTo.getFullYear();
+    } else if(view==="protokolle"){
+      h.append(el("span","ul",protDay?"Stand-up":"Stand-ups"));
+      eb.textContent=protDay?DOWL[dowIdx(parse(protDay))]+", "+fmtDMfull(parse(protDay))+" "+parse(protDay).getFullYear():"Protokolle · durchsuchbar";
+    } else if(view==="gross"){
+      h.append(el("span","ul","Grossprojekte"));
+      eb.textContent=gpId?"Gedanken sammeln":"Vorhaben über Wochen und Monate";
     } else {
       h.append(el("span","ul",view==="podcast"?"Podcast":view==="social"?"Social Media":"MEET DAILY"));
       eb.textContent="Was ansteht · chronologisch";
@@ -602,7 +824,7 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
   const firstOf=d=>new Date(d.getFullYear(),d.getMonth(),1);
   let monFrom=firstOf(new Date()), monTo=new Date(new Date().getFullYear(),new Date().getMonth()+5,1);
   const monKeys=()=>{ const out=[]; for(let d=new Date(monFrom);d<=monTo;d=new Date(d.getFullYear(),d.getMonth()+1,1)) out.push(d); return out; };
-  function openItem(it){ if(!canWrite||it.mode==="daily") return; if(it.proj) startEdit(it.proj.art==="reel"?"reel":"podcast",it.proj); else startEdit("termin",it.termin); }
+  function openItem(it){ if(!canWrite||it.mode==="daily") return; if(it.proj) startEdit(it.proj.art==="reel"?"reel":"podcast",it.proj); else if(it.standup) openProtokoll(it.day); else startEdit("termin",it.termin); }
   function monthBlock(first,by){
     const y=first.getFullYear(), mo=first.getMonth(), tk=todayKey(), start=monday(first), last=new Date(y,mo+1,0);
     const cells=Math.ceil((dowIdx(first)+last.getDate())/7)*7;
@@ -618,7 +840,7 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
       const list=other?[]:(by[k]||[]), MAX=5;
       list.slice(0,MAX).forEach(it=>{
         const dl=it.mode==="daily";
-        const m=el("div","ml "+it.kind+" "+it.mode,dl?(it.titel||"DAILY")+(it.meta&&it.meta[0]?" · "+it.meta[0]:""):(it.mode==="termin"?(isAllDay(it.termin)?"":it.termin.von+" "):it.mode==="sub"?(it.label==="Reel-Schnitt"?"Schnitt: ":""):it.label+": ")+it.titel);
+        const m=el("div","ml "+it.kind+" "+it.mode+(it.standup?" standup":""),dl?(it.titel||"DAILY")+(it.meta&&it.meta[0]?" · "+it.meta[0]:""):(it.mode==="termin"?(isAllDay(it.termin)?"":it.termin.von+" "):it.mode==="sub"?(it.label==="Reel-Schnitt"?"Schnitt: ":""):it.label+": ")+it.titel);
         m.title=it.label+" · "+it.titel+(it.wer&&it.wer!=="beide"?" · "+werName(it.wer):"")+((it.meta||[]).length?" · "+it.meta.join(" · "):"");
         m.onclick=ev=>{ ev.stopPropagation(); openItem(it); }; c.appendChild(m);
       });
@@ -644,13 +866,14 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 
   function render(){
     renderHeader();
-    if(view==="woche") renderWoche(); else if(view==="monat") renderMonat(); else renderListe();
+    if(view==="woche") renderWoche(); else if(view==="monat") renderMonat(); else if(view==="protokolle") renderProtokolle(); else if(view==="gross") renderGross(); else renderListe();
     renderAbw();
   }
-  const VIEWS=["woche","monat","podcast","daily","social"];
+  const VIEWS=["woche","monat","podcast","daily","social","protokolle","gross"];
   function setView(v){
     view=v;
     $("viewWoche").hidden=v!=="woche"; $("viewMonat").hidden=v!=="monat"; $("viewListe").hidden=!(v==="podcast"||v==="daily"||v==="social");
+    $("viewProtList").hidden=!(v==="protokolle"&&!protDay); $("viewProt").hidden=!(v==="protokolle"&&protDay); $("viewGross").hidden=v!=="gross";
     document.querySelectorAll(".tabs [data-view]").forEach(b=>b.setAttribute("aria-selected",b.dataset.view===v));
     try{ localStorage.setItem("meet_kal_view",v); }catch(e){}
     render(); window.scrollTo(0,0);
@@ -665,7 +888,7 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     if((ev.metaKey||ev.ctrlKey)&&!ev.shiftKey&&ev.key.toLowerCase()==="z"){ev.preventDefault();doUndo();return;}
     if(ev.key==="ArrowLeft") step(-1); else if(ev.key==="ArrowRight") step(1);
     else if(ev.key==="t") $("todayBtn").click();
-    else if(/^[1-5]$/.test(ev.key)) setView(VIEWS[+ev.key-1]);
+    else if(/^[1-7]$/.test(ev.key)) setView(VIEWS[+ev.key-1]);
     else if(ev.key==="n"&&canWrite){ev.preventDefault();openForm(art,{});}
     else if(ev.key==="Escape"&&!$("formPanel").hidden){ $("formPanel").hidden=true; resetForm(); }
   });
@@ -707,7 +930,6 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
   // Zu jeder neuen Folge gehören vier Reels (Vincents Vorgabe 28.10.2026): Intro-Reel 2 Tage vor dem Release, Release-Reel am Release-Tag,
   // Push-Reel 1 zwei Tage und Push-Reel 2 fünf Tage danach. Ihr Release folgt dem Folgen-Release, bis man es von Hand ändert.
   const REEL_PLAN=[{titel:"Intro-Reel",offset:-2},{titel:"Release-Reel",offset:0},{titel:"Push-Reel 1",offset:2},{titel:"Push-Reel 2",offset:5}];
-  const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   function autoReels(){
     const rel=$("fRelease").value; if(!isDay(rel)) return;
     let changed=false; fReels.forEach(r=>{ if(r.auto!=null){ r.release=key(addDays(parse(rel),r.auto)); changed=true; } });
@@ -800,7 +1022,7 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
       let neuImDrive=false, projId="";
       if(editId){
         const id=editId, old=findOld(coll,id)||{};
-        if(art==="termin") body.ausnahmen=Array.isArray(old.ausnahmen)?old.ausnahmen:[];
+        if(art==="termin"){ body.ausnahmen=Array.isArray(old.ausnahmen)?old.ausnahmen:[]; if(old.standup) body.standup=true; }
         if(coll==="projekte"){ if(body.imDrive&&!old.imDrive){ body.imDriveAm=Date.now(); neuImDrive=true; } else if(body.imDrive) body.imDriveAm=old.imDriveAm||Date.now(); }
         await db.collection(coll).doc(id).set({...body,erstelltAm:old.erstelltAm||Date.now(),erstelltVon:old.erstelltVon||myId||null});
         if(old.id){ const snap=strip(old); pushUndo("Änderung an "+titel,()=>db.collection(coll).doc(id).set(snap)); }
@@ -860,7 +1082,7 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     if(!db){ canWrite=false; $("newBtn").hidden=true; $("undoBtn").hidden=true; $("eyebrow").textContent="Bitte anmelden, um den MEET-Kalender zu sehen."; render(); return; }
     if(userNs){ myId=await userNs.id(); }
     db.doc("einstellungen/kalender").onSnapshot(snap=>{
-      if(snap.exists){ const d=snap.data()||{};
+      if(snap.exists){ const d=snap.data()||{}; einst=d;
         if(Array.isArray(d.personen)&&d.personen.length){ personen=[{id:"beide",name:"Alle"},...d.personen.filter(p=>p&&p.id&&p.name&&p.id!=="beide").map(p=>({id:String(p.id),name:String(p.name)}))]; if(!personen.some(p=>p.id===werFilter)) werFilter="alle"; } }
       fillWer(); render();
     },()=>{});
@@ -868,6 +1090,9 @@ form.entry{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
     db.collection("termine").onSnapshot(snap=>{ termine=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>isDay(x.datum)); termLoaded=true; render(); },()=>{ $("eyebrow").textContent="Verbindung unterbrochen – bitte Seite neu laden."; });
     db.collection("projekte").onSnapshot(snap=>{ projekte=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>typeof x.titel==="string"); projLoaded=true; render(); },()=>{});
     db.collection("abwesenheiten").onSnapshot(snap=>{ abwesenheiten=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>isDay(x.von)); render(); updAbwWarn(); },()=>{});
+    db.collection("protokolle").onSnapshot(snap=>{ protokolle=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>isDay(x.id)); render(); },()=>{});
+    db.collection("grossprojekte").onSnapshot(snap=>{ grossprojekte=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>typeof x.titel==="string"); render(); },()=>{});
+    ensureStandup();
 
     // Einmalige Übernahme (28.10.2026): Beiträge des alten Produktions-Boards mit Datum werden Projekte.
     // Die Aufnahme (Termin mit beitragId) und der Schnitt (Aufgabe mit rolle "schnitt") wandern mit; der Aufnahme-Termin

@@ -18,7 +18,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 // projekte (Podcast-Folgen und Reels mit Release/Aufnahme/Schnitt) seit 28.10.2026; aufgaben/beitraege/wochen/monate/links/kommentare sind Altbestand des früheren Kalenders.
-const COLLS = ['projekte', 'termine', 'abwesenheiten', 'einstellungen', 'aufgaben', 'beitraege', 'wochen', 'monate', 'links', 'kommentare'];
+// protokolle (Weekly Stand-up, id = Datum) und grossprojekte (Gedanken aus den Stand-ups) seit 03.11.2026.
+const COLLS = ['projekte', 'termine', 'abwesenheiten', 'protokolle', 'grossprojekte', 'einstellungen', 'aufgaben', 'beitraege', 'wochen', 'monate', 'links', 'kommentare'];
 const KEY = 'data.json';
 const MAX_DOC_BYTES = 24 * 1024;      // ein Eintrag (Einstellungen mit Vorlagen sind die grössten)
 const MAX_DOCS_PER_COLL = 20000;
