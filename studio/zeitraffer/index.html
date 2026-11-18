@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2F1041">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex,nofollow">
+<title>Zeitraffer · MEET DAILY Studio</title>
+<link rel="icon" href="../../assets/favicon-512.png">
+<link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+/* Zeitraffer-Reel „Komm mit in meine Stille Zeit“: die Stille Zeit als Zeitraffer aufnehmen und danach das Voice-over
+   einsprechen. Beides geht kurz zu Cloudflare (functions/zeitraffer.mjs), Claude holt es am Mac ab, schneidet das Reel,
+   legt alles im Drive ab und löscht es wieder. Nutzt dieselbe Studio-PIN wie das MEET DAILY Studio. */
+.zr{gap:16px;min-height:auto;padding-top:8px}
+.zr-head{display:flex;flex-direction:column;gap:8px}
+.zr-back{align-self:flex-start;color:var(--lime);font-family:var(--head);font-weight:700;font-size:14px;text-decoration:none}
+.pin{display:flex;gap:10px;align-items:center}
+.pin[hidden]{display:none}
+.pin input[type="text"]{flex:1;font-family:var(--mono);letter-spacing:.12em}
+.card{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:18px;background:var(--field);border:1px solid rgba(255,255,255,.1)}
+.card.is-done{border-color:rgba(212,246,90,.55)}
+.card-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.card h2{font-family:var(--head);font-weight:700;font-size:19px;letter-spacing:-.01em;margin:0}
+.badge{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:right}
+.is-done .badge{color:var(--lime)}
+.stage{position:relative;width:100%;max-width:280px;align-self:center;border-radius:14px;overflow:hidden;background:#12051b}
+.stage::before{content:"";display:block;padding-top:177.78%}
+.stage[hidden]{display:none}
+.stage video,.stage canvas{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover}
+.stage video.mirror{transform:scaleX(-1)}
+.hud{position:absolute;left:10px;right:10px;top:10px;display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:12px;pointer-events:none}
+.hud span{padding:5px 9px;border-radius:999px;background:rgba(18,5,27,.72);color:#fff}
+.hud .rec{color:var(--sunl)}
+.hud .rec::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--sun);margin-right:6px;animation:blink 1.2s steps(2) infinite}
+@keyframes blink{50%{opacity:.25}}
+.bar{height:6px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden}
+.bar[hidden]{display:none}
+.bar i{display:block;height:100%;width:0;background:var(--lime);transition:width .2s}
+.meter i{background:var(--sun);transition:width .08s}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row .btn{flex:1}
+.btn[hidden],.note[hidden],audio[hidden]{display:none}
+.btn--stop{min-height:56px;border-radius:28px;font-size:17px;width:100%;background:var(--sun);color:var(--night)}
+.note{margin:0;font-size:13.5px;line-height:1.45;color:var(--soft)}
+.note.is-bad{color:var(--sunl)}
+.note.is-ok{color:var(--lime)}
+.big{font-family:var(--mono);font-size:30px;letter-spacing:.02em;text-align:center;margin:0}
+.big[hidden]{display:none}
+audio{width:100%}
+.filein{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.ready{border-color:rgba(255,138,61,.5)}
+.ready.is-done{border-color:rgba(212,246,90,.55)}
+.say{font-family:var(--head);font-weight:700;font-size:17px;color:var(--lime);margin:0}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.min.js"></script>
+</head>
+<body>
+<main class="page">
+<header class="topbar is-compact"><div class="topbar-in">
+  <a href="../" class="logo" aria-label="MEET DAILY Studio"><span class="logo-stack is-solid"><svg viewBox="200 200 3005.02 746" class="morph is-signet" role="img" aria-label="MEET"><g class="m-root"><circle class="m-circle" cx="860" cy="596" r="1000"/><path class="m-M" fill="#FFFFFF" d="M200 946V246H445L566 856H584L705 246H950V946H822V343H804L684 946H466L346 343H328V946Z"/><rect class="m-bar cursor" x="2605.02" y="819" width="600" height="127" fill="#D4F65A"/></g></svg></span></a>
+  <img src="../../assets/youth-bplus-weiss.svg" alt="YOUTH b+" class="sender">
+</div></header>
+<div class="screens">
+<section class="screen zr">
+  <div class="zr-head">
+    <a class="zr-back" href="../">← Zurück ins Studio</a>
+    <div class="kicker" id="dayLine">Zeitraffer</div>
+    <h1>Komm mit in meine Stille Zeit</h1>
+    <p class="hint">Erst die Stille Zeit als Zeitraffer aufnehmen, später das Voice-over einsprechen. Beides liegt dann für Claude bereit und wird nach dem Schneiden wieder gelöscht.</p>
+  </div>
+  <div class="pin" id="pinBox" hidden>
+    <label class="sr-only" for="pin">Studio-PIN</label>
+    <input type="text" id="pin" placeholder="Studio-PIN" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="numeric">
+    <button type="button" class="btn btn--primary btn--sm" id="pinSave" style="margin-top:0">Speichern</button>
+  </div>
+  <p class="note is-bad" id="top" hidden></p>
+
+  <!-- 1 · Stille Zeit als Zeitraffer -->
+  <div class="card" id="cardV">
+    <div class="card-head"><h2>1 · Stille Zeit</h2><span class="badge" id="badgeV">noch nichts</span></div>
+    <p class="note" id="infoV">Stell das iPhone so hin, dass man dich beim Lesen sieht, und lass diese Seite offen. Aufgenommen wird ohne Ton, alle Viertelsekunde ein Bild – zehn Minuten ergeben etwa 80 Sekunden Video.</p>
+    <div class="stage" id="stage" hidden>
+      <video id="cam" playsinline muted autoplay></video>
+      <canvas id="testView" hidden></canvas>
+      <div class="hud"><span id="hudL"></span><span id="hudR"></span></div>
+    </div>
+    <div class="bar" id="barV" hidden><i></i></div>
+    <p class="note" id="stateV" hidden></p>
+    <button type="button" class="btn btn--primary btn--full" id="camOn">Kamera öffnen</button>
+    <button type="button" class="btn btn--primary btn--full" id="recStart" hidden>Aufnahme starten</button>
+    <button type="button" class="btn btn--stop" id="recStop" hidden>Stopp und hochladen</button>
+    <div class="row">
+      <button type="button" class="btn btn--text" id="camFlip" hidden>Kamera wechseln</button>
+      <button type="button" class="btn btn--text" id="retryV" hidden>Nochmal hochladen</button>
+      <a class="btn btn--text" id="saveV" hidden download>Auf dem Gerät sichern</a>
+      <button type="button" class="btn btn--text" id="pickV">Fertiges Video auswählen</button>
+    </div>
+    <input class="filein" type="file" id="fileV" accept="video/*" tabindex="-1">
+  </div>
+
+  <!-- 2 · Voice-over -->
+  <div class="card" id="cardA">
+    <div class="card-head"><h2>2 · Voice-over</h2><span class="badge" id="badgeA">noch nichts</span></div>
+    <p class="note" id="infoA">Erzähl in etwa 30 Sekunden, was dir heute im Text begegnet ist. Halte das iPhone nah an den Mund und sprich in einem ruhigen Raum.</p>
+    <p class="big" id="clockA" hidden>0:00</p>
+    <div class="bar meter" id="meterA" hidden><i></i></div>
+    <audio id="playA" controls hidden></audio>
+    <div class="bar" id="barA" hidden><i></i></div>
+    <p class="note" id="stateA" hidden></p>
+    <button type="button" class="btn btn--primary btn--full" id="voStart">Voice-over aufnehmen</button>
+    <button type="button" class="btn btn--stop" id="voStop" hidden>Stopp</button>
+    <button type="button" class="btn btn--primary btn--full" id="voSend" hidden>Verwenden und hochladen</button>
+    <div class="row">
+      <button type="button" class="btn btn--text" id="voAgain" hidden>Nochmal aufnehmen</button>
+      <button type="button" class="btn btn--text" id="pickA">Fertige Aufnahme auswählen</button>
+    </div>
+    <input class="filein" type="file" id="fileA" accept="audio/*,.m4a,.mp3,.wav" tabindex="-1">
+  </div>
+
+  <!-- Stand: was für Claude bereitliegt -->
+  <div class="card ready" id="cardR" hidden>
+    <div class="card-head"><h2 id="readyTitle">Bereit für Claude</h2><span class="badge" id="badgeR"></span></div>
+    <p class="say" id="readySay"></p>
+    <p class="note" id="readyNote"></p>
+    <button type="button" class="btn btn--text btn--left" id="wipe" hidden>Jetzt bei Cloudflare löschen</button>
+  </div>
+</section>
+</div>
+</main>
+<script>
+(function () {
+  "use strict";
+  var API = "/.netlify/functions/zeitraffer";
+  var SETTINGS_KEY = "meetstudio:settings:v2"; // dieselbe PIN wie im Studio
+  var Q = new URLSearchParams(location.search);
+  var TEST = Q.get("test") === "1";                     // ohne Kamera/Mikrofon: Testbild und Testton (lokale Prüfung)
+  var CAP_MS = Math.max(20, Number(Q.get("ms")) || 250); // alle 250 ms ein Bild …
+  var OUT_FPS = 30;                                     // … abgespielt mit 30 Bildern/s = 7,5-fach
+  var W = 1080, H = 1920, BITRATE = 6e6, MAX_REAL_MIN = 40;
+  var SINGLE_MAX = 10 * 1048576;
+  var $ = function (id) { return document.getElementById(id); };
+  var show = function (el, on) { el.hidden = !on; };
+  var mb = function (n) { return n < 1048576 ? Math.max(1, Math.round(n / 1024)) + " kB" : (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + " MB"; };
+  var clock = function (sec) { sec = Math.max(0, Math.round(sec)); return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0"); };
+  var hhmm = function (iso) { var d = new Date(iso); return isNaN(d) ? "" : String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+  function todayKey() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+
+  var settings = {}; try { settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") || {}; } catch (e) { }
+  function pin() { return settings.studioPin || ""; }
+  function speaker() { var s = settings.speaker || ""; return s ? s.charAt(0).toUpperCase() + s.slice(1) : ""; }
+
+  var server = { video: null, vo: null, known: false, hadBoth: false };
+  var wake = null;
+  function keepAwake() { try { if (navigator.wakeLock && !wake) navigator.wakeLock.request("screen").then(function (w) { wake = w; w.addEventListener("release", function () { wake = null; }); }).catch(function () { }); } catch (e) { } }
+  function letSleep() { try { if (wake) wake.release(); } catch (e) { } wake = null; }
+
+  /* ---------- Server ---------- */
+  function call(op, body) {
+    return fetch(API + "?op=" + op, { method: "POST", headers: { "Content-Type": "application/json", "x-studio-pin": encodeURIComponent(pin()) }, body: JSON.stringify(Object.assign({ day: todayKey() }, body || {})) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(j.error || ("HTTP " + r.status)); e.status = r.status; throw e; } return j; }); });
+  }
+  function put(url, data, type, onProgress) {
+    return new Promise(function (res, rej) {
+      var x = new XMLHttpRequest(); x.open("PUT", url); x.setRequestHeader("Content-Type", type);
+      x.upload.onprogress = function (e) { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
+      x.onload = function () { if (x.status >= 200 && x.status < 300) return res(); var e = new Error("Speicher antwortet mit HTTP " + x.status); e.retry = x.status >= 500 || x.status === 429; rej(e); };
+      x.onerror = function () { var e = new Error("Verbindung zum Speicher abgebrochen"); e.retry = true; rej(e); };
+      x.ontimeout = function () { var e = new Error("Speicher antwortet nicht"); e.retry = true; rej(e); };
+      x.timeout = 180000; x.send(data);
+    });
+  }
+  /* Kleine Dateien in einem Stück, grosse in Stücken (wie im Studio: als ArrayBuffer, jedes Stück bis zu dreimal) */
+  async function upload(blob, type, kind, onProgress, onState) {
+    var total = blob.size;
+    if (total <= SINGLE_MAX) {
+      var s = await call("sign", { kind: kind, type: type, size: total });
+      await put(s.uploadUrl, await blob.arrayBuffer(), type, onProgress);
+      return s.key;
+    }
+    var mp = await call("mp-start", { kind: kind, type: type, size: total }), done = 0;
+    try {
+      for (var i = 0; i < mp.parts.length; i++) {
+        var part = mp.parts[i], start = (part.partNumber - 1) * mp.partSize, end = Math.min(total, start + mp.partSize);
+        var bytes = await blob.slice(start, end).arrayBuffer();
+        if (bytes.byteLength !== end - start) throw new Error("Stück " + part.partNumber + " liess sich nicht lesen");
+        for (var attempt = 1; ; attempt++) {
+          try { await put(part.url, bytes, type, (function (d, n) { return function (p) { onProgress((d + p * n) / total); }; })(done, bytes.byteLength)); break; }
+          catch (e) {
+            if (!e.retry || attempt >= 3) { e.message = "Stück " + part.partNumber + " von " + mp.parts.length + ": " + e.message; throw e; }
+            if (onState) onState("Stück " + part.partNumber + " wird wiederholt (" + attempt + ") …");
+            await new Promise(function (r) { setTimeout(r, 1500 * attempt); });
+          }
+        }
+        done += bytes.byteLength;
+      }
+      if (onState) onState("Wird zusammengesetzt …");
+      await call("mp-complete", { kind: kind, key: mp.key, uploadId: mp.uploadId, size: total });
+      return mp.key;
+    } catch (e) { call("mp-abort", { kind: kind, key: mp.key, uploadId: mp.uploadId }).catch(function () { }); throw e; }
+  }
+  function setBar(el, p) { el.firstElementChild.style.width = Math.round(Math.max(0, Math.min(1, p)) * 100) + "%"; }
+  function note(el, text, cls) { el.textContent = text || ""; el.className = "note" + (cls ? " " + cls : ""); show(el, !!text); }
+
+  /* ---------- Stand ---------- */
+  function apply(items) {
+    server.video = null; server.vo = null; server.known = true;
+    (items || []).forEach(function (v) { if (v.kind === "video" || v.kind === "vo") server[v.kind] = v; });
+    if (server.video && server.vo) server.hadBoth = true;
+    render();
+  }
+  function render() {
+    var v = server.video, a = server.vo;
+    $("cardV").classList.toggle("is-done", !!v); $("cardA").classList.toggle("is-done", !!a);
+    $("badgeV").textContent = v ? "✓ liegt bereit · " + hhmm(v.at) : "noch nichts";
+    $("badgeA").textContent = a ? "✓ liegt bereit · " + hhmm(a.at) : "noch nichts";
+    if (v && !tl.on) $("infoV").textContent = "Hochgeladen: " + (v.mode === "file" ? "fertiges Video" : clock(v.realSec) + " min Stille Zeit" + (v.startedAt ? " ab " + hhmm(v.startedAt) + " Uhr" : "") + " → " + clock(v.clipSec) + " min Zeitraffer") + " · " + mb(v.size) + ". Eine neue Aufnahme ersetzt diese.";
+    if (a && !vo.on && !vo.blob) $("infoA").textContent = "Hochgeladen: " + (a.clipSec ? clock(a.clipSec) + " min" : "Aufnahme") + " · " + mb(a.size) + ". Eine neue Aufnahme ersetzt diese.";
+    var any = !!(v || a), both = !!(v && a);
+    show($("cardR"), any || server.hadBoth);
+    $("cardR").classList.toggle("is-done", both);
+    $("readyTitle").textContent = both ? "Bereit für Claude" : any ? "Noch nicht vollständig" : "Abgeholt und gelöscht";
+    $("badgeR").textContent = both ? "✓ beides da" : any ? (v ? "Voice-over fehlt" : "Zeitraffer fehlt") : "✓ nichts mehr gespeichert";
+    $("readySay").textContent = both ? "Sag Claude im Chat: «Schneid den Zeitraffer von heute.»" : "";
+    show($("readySay"), both);
+    $("readyNote").textContent = both ? "Claude holt beides ab, schneidet das Reel, legt alles im Drive ab und löscht die Aufnahmen danach hier wieder."
+      : any ? "Sobald beides da ist, kann Claude das Reel schneiden."
+        : "Bei Cloudflare liegt von heute nichts mehr. Das Reel findest du im Drive im Tagesordner unter «Zeitraffer».";
+    show($("wipe"), any);
+  }
+  function refresh() {
+    if (!pin()) { show($("pinBox"), true); note($("top"), "Bitte zuerst die Studio-PIN eintragen.", "is-bad"); return Promise.resolve(); }
+    return call("status").then(function (j) {
+      show($("pinBox"), false);
+      note($("top"), j.ready === false ? "Der Video-Speicher ist auf dem Server nicht eingerichtet." : "", "is-bad");
+      apply(j.items);
+    }).catch(function (e) {
+      if (e.status === 401) { show($("pinBox"), true); note($("top"), "Die Studio-PIN stimmt nicht.", "is-bad"); }
+      else note($("top"), "Stand nicht abrufbar: " + e.message, "is-bad");
+    });
+  }
+  $("pin").value = pin();
+  $("pinSave").addEventListener("click", function () {
+    settings.studioPin = $("pin").value.trim();
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { }
+    refresh();
+  });
+  $("wipe").addEventListener("click", function () {
+    if (!confirm("Zeitraffer und Voice-over von heute bei Cloudflare löschen? Claude kann sie danach nicht mehr abholen.")) return;
+    call("remove").then(function (j) { server.hadBoth = false; apply(j.items); $("infoV").textContent = "Gelöscht. Du kannst neu aufnehmen."; $("infoA").textContent = "Gelöscht. Du kannst neu aufnehmen."; })
+      .catch(function (e) { note($("top"), "Löschen hat nicht geklappt: " + e.message, "is-bad"); });
+  });
+
+  /* ---------- 1 · Zeitraffer: alle CAP_MS ein Kamerabild → H.264 (WebCodecs) → MP4 ---------- */
+  var cam = $("cam"), stream = null, facing = "user";
+  var tl = { on: false, frames: 0, startedAt: "", t0: 0, nextAt: 0, timer: null, enc: null, muxer: null, err: null, blob: null, meta: null, canvas: null, ctx: null, codec: "" };
+  var testView = $("testView");
+  function camOpen() {
+    if (TEST) { testView.width = 270; testView.height = 480; show(testView, true); show(cam, false); return Promise.resolve(); }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.reject(new Error("Dieser Browser gibt die Kamera nicht frei. Öffne das Studio in Safari über meet-bty.com/studio."));
+    camClose();
+    return navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }, audio: false }).then(function (s) {
+      stream = s; cam.srcObject = s; cam.classList.toggle("mirror", facing === "user");
+      var tr = s.getVideoTracks()[0];
+      if (tr) tr.addEventListener("ended", function () { if (tl.on) camOpen().catch(function () { }); });
+      return cam.play().catch(function () { });
+    });
+  }
+  function camClose() { if (stream) { stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) { } }); stream = null; cam.srcObject = null; } }
+  function drawTest(ctx, w, h, n) {
+    ctx.fillStyle = "hsl(" + (n * 7 % 360) + ",45%,22%)"; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#D4F65A"; ctx.fillRect((n * 13) % w, h * 0.45, w * 0.12, h * 0.1);
+    ctx.fillStyle = "#fff"; ctx.font = "700 " + Math.round(w / 9) + "px sans-serif"; ctx.fillText("Bild " + n, w * 0.08, h * 0.3);
+  }
+  function drawCover(ctx, src, sw, sh) {
+    var k = Math.max(W / sw, H / sh), dw = sw * k, dh = sh * k;
+    ctx.drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  }
+  async function pickCodec() {
+    if (!window.VideoEncoder || !window.Mp4Muxer) return "";
+    var list = ["avc1.640028", "avc1.4D0028", "avc1.42E028", "avc1.42001F"];
+    for (var i = 0; i < list.length; i++) {
+      try { var r = await VideoEncoder.isConfigSupported({ codec: list[i], width: W, height: H, bitrate: BITRATE, framerate: OUT_FPS, avc: { format: "avc" } }); if (r.supported) return list[i]; } catch (e) { }
+    }
+    return "";
+  }
+  async function recStart() {
+    tl.codec = tl.codec || await pickCodec();
+    if (!tl.codec) { note($("stateV"), "Dieser Browser kann hier nicht aufnehmen. Nimm mit der Kamera-App im Zeitraffer auf und wähle das Video unten aus.", "is-bad"); return; }
+    tl.canvas = document.createElement("canvas"); tl.canvas.width = W; tl.canvas.height = H; tl.ctx = tl.canvas.getContext("2d", { alpha: false });
+    tl.muxer = new Mp4Muxer.Muxer({ target: new Mp4Muxer.ArrayBufferTarget(), video: { codec: "avc", width: W, height: H, frameRate: OUT_FPS }, fastStart: "in-memory", firstTimestampBehavior: "offset" });
+    tl.err = null;
+    tl.enc = new VideoEncoder({ output: function (c, m) { try { tl.muxer.addVideoChunk(c, m); } catch (e) { tl.err = e; } }, error: function (e) { tl.err = e; } });
+    tl.enc.configure({ codec: tl.codec, width: W, height: H, bitrate: BITRATE, framerate: OUT_FPS, avc: { format: "avc" } });
+    tl.frames = 0; tl.blob = null; tl.meta = null; tl.t0 = Date.now(); tl.startedAt = new Date().toISOString(); tl.nextAt = tl.t0; tl.on = true;
+    keepAwake();
+    show($("recStart"), false); show($("recStop"), true); show($("camFlip"), false); show($("pickV"), false); show($("retryV"), false); show($("saveV"), false); show($("barV"), false);
+    note($("stateV"), "Läuft. Lass diese Seite offen und den Bildschirm an – wechselst du die App, pausiert die Aufnahme.", "");
+    tl.timer = setInterval(tick, Math.min(100, CAP_MS));
+    tick();
+  }
+  function tick() {
+    if (!tl.on) return;
+    var now = Date.now();
+    hud();
+    if (tl.err) { recStop(); return; }
+    if (now < tl.nextAt) return;
+    if ((now - tl.t0) / 60000 > MAX_REAL_MIN) { recStop(); return; }
+    if (tl.enc.encodeQueueSize > 6) return; // Encoder kommt nicht nach: dieses Bild auslassen
+    try {
+      if (TEST) { drawTest(tl.ctx, W, H, tl.frames); drawTest(testView.getContext("2d"), testView.width, testView.height, tl.frames); }
+      else {
+        if (cam.readyState < 2 || !cam.videoWidth) { if (cam.paused) cam.play().catch(function () { }); return; }
+        drawCover(tl.ctx, cam, cam.videoWidth, cam.videoHeight);
+      }
+      var f = new VideoFrame(tl.canvas, { timestamp: Math.round(tl.frames * 1e6 / OUT_FPS), duration: Math.round(1e6 / OUT_FPS) });
+      try { tl.enc.encode(f, { keyFrame: tl.frames % OUT_FPS === 0 }); } finally { f.close(); }
+      tl.frames++;
+    } catch (e) { tl.err = e; }
+    tl.nextAt += CAP_MS; if (tl.nextAt < now) tl.nextAt = now + CAP_MS;
+  }
+  function hud() {
+    $("hudL").className = tl.on ? "rec" : ""; $("hudL").textContent = tl.on ? clock((Date.now() - tl.t0) / 1000) : "bereit";
+    $("hudR").textContent = tl.on ? "→ " + clock(tl.frames / OUT_FPS) + " Zeitraffer" : "";
+  }
+  async function recStop() {
+    if (!tl.on) return;
+    tl.on = false; clearInterval(tl.timer);
+    show($("recStop"), false);
+    note($("stateV"), "Zeitraffer wird fertiggestellt …", "");
+    try {
+      if (tl.err) throw tl.err;
+      if (tl.frames < OUT_FPS) throw new Error("zu kurz – es sind erst " + tl.frames + " Bilder");
+      await tl.enc.flush(); tl.muxer.finalize();
+      tl.blob = new Blob([tl.muxer.target.buffer], { type: "video/mp4" });
+      tl.meta = { startedAt: tl.startedAt, realSec: tl.frames * CAP_MS / 1000, clipSec: tl.frames / OUT_FPS, speed: OUT_FPS * CAP_MS / 1000, mode: "timelapse", name: speaker() };
+      try { tl.enc.close(); } catch (e) { }
+      camClose(); show($("stage"), false);
+      $("saveV").href = URL.createObjectURL(tl.blob); $("saveV").download = "Zeitraffer_" + todayKey() + ".mp4";
+      await sendVideo();
+    } catch (e) {
+      letSleep();
+      note($("stateV"), "Die Aufnahme liess sich nicht fertigstellen: " + (e && e.message ? e.message : e), "is-bad");
+      show($("camOn"), true); show($("pickV"), true);
+    }
+  }
+  async function sendVideo() {
+    var blob = tl.blob, meta = tl.meta;
+    if (!blob) return;
+    keepAwake(); show($("retryV"), false); show($("saveV"), false); show($("barV"), true); setBar($("barV"), 0);
+    note($("stateV"), "Wird hochgeladen (" + mb(blob.size) + ") …", "");
+    try {
+      var type = (blob.type || "video/mp4").split(";")[0];
+      var key = await upload(blob, type, "video", function (p) { setBar($("barV"), p); }, function (t) { note($("stateV"), t, ""); });
+      var j = await call("publish", Object.assign({ kind: "video", key: key, size: blob.size, type: type }, meta));
+      tl.blob = null; show($("barV"), false);
+      note($("stateV"), "Hochgeladen ✓", "is-ok");
+      show($("camOn"), true); $("camOn").textContent = "Neu aufnehmen"; show($("pickV"), true);
+      apply(j.items);
+    } catch (e) {
+      show($("barV"), false);
+      note($("stateV"), "Hochladen hat nicht geklappt: " + e.message + " Die Aufnahme ist noch hier – versuch es noch einmal oder sichere sie auf dem Gerät.", "is-bad");
+      show($("retryV"), true); show($("saveV"), true);
+    } finally { letSleep(); }
+  }
+  $("camOn").addEventListener("click", function () {
+    camOpen().then(function () {
+      show($("stage"), true); show($("camOn"), false); show($("recStart"), true); show($("camFlip"), !TEST); note($("stateV"), "", ""); hud();
+    }).catch(function (e) {
+      note($("stateV"), e && e.name === "NotAllowedError" ? "Die Kamera ist für diese Seite gesperrt. Erlaube sie in Safari (aA → Website-Einstellungen → Kamera)." : "Kamera lässt sich nicht öffnen: " + (e && e.message ? e.message : e), "is-bad");
+    });
+  });
+  $("camFlip").addEventListener("click", function () { facing = facing === "user" ? "environment" : "user"; camOpen().catch(function (e) { note($("stateV"), "Kamera lässt sich nicht wechseln: " + e.message, "is-bad"); }); });
+  $("recStart").addEventListener("click", function () { recStart().catch(function (e) { tl.on = false; note($("stateV"), "Aufnahme startet nicht: " + (e && e.message ? e.message : e), "is-bad"); show($("recStart"), true); show($("recStop"), false); }); });
+  $("recStop").addEventListener("click", function () { recStop(); });
+  $("retryV").addEventListener("click", function () { sendVideo(); });
+  $("pickV").addEventListener("click", function () { $("fileV").click(); });
+  $("fileV").addEventListener("change", function () {
+    var f = $("fileV").files && $("fileV").files[0]; $("fileV").value = "";
+    if (!f) return;
+    var type = (f.type || "").split(";")[0] || (/\.mov$/i.test(f.name) ? "video/quicktime" : "video/mp4");
+    tl.blob = f.slice(0, f.size, type); tl.meta = { startedAt: "", realSec: 0, clipSec: 0, speed: 0, mode: "file", name: speaker() };
+    sendVideo();
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) return;
+    if (tl.on) { keepAwake(); if (!TEST && cam.paused) cam.play().catch(function () { }); }
+    else if (!vo.on) refresh();
+  });
+  window.addEventListener("beforeunload", function (e) { if (tl.on || tl.blob || vo.on || vo.blob) { e.preventDefault(); e.returnValue = ""; } });
+
+  /* ---------- 2 · Voice-over: Tonaufnahme (MediaRecorder), anhören, hochladen ---------- */
+  var vo = { on: false, rec: null, chunks: [], stream: null, t0: 0, timer: null, blob: null, sec: 0, ctx: null, an: null, url: "" };
+  function voType() {
+    var list = ["audio/mp4;codecs=mp4a.40.2", "audio/mp4", "audio/webm;codecs=opus", "audio/webm"];
+    for (var i = 0; i < list.length; i++) { try { if (window.MediaRecorder && MediaRecorder.isTypeSupported(list[i])) return list[i]; } catch (e) { } }
+    return "";
+  }
+  function voStream() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (TEST) {
+      var c = new AC(), o = c.createOscillator(), g = c.createGain(), d = c.createMediaStreamDestination();
+      o.frequency.value = 330; g.gain.value = 0.2; o.connect(g); g.connect(d); o.start(); vo.ctx = c;
+      return Promise.resolve(d.stream);
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) return Promise.reject(new Error("Dieser Browser gibt das Mikrofon nicht frei. Öffne das Studio in Safari über meet-bty.com/studio."));
+    return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+  }
+  function voReset() {
+    if (vo.url) { try { URL.revokeObjectURL(vo.url); } catch (e) { } vo.url = ""; }
+    vo.blob = null; $("playA").removeAttribute("src"); show($("playA"), false); show($("voSend"), false); show($("voAgain"), false);
+  }
+  function voBegin() {
+    voReset(); note($("stateA"), "", "");
+    voStream().then(function (s) {
+      vo.stream = s; vo.chunks = [];
+      var mt = voType();
+      vo.rec = new MediaRecorder(s, mt ? { mimeType: mt, audioBitsPerSecond: 192000 } : undefined);
+      vo.rec.ondataavailable = function (e) { if (e.data && e.data.size) vo.chunks.push(e.data); };
+      vo.rec.onstop = voDone;
+      vo.rec.start();
+      vo.on = true; vo.t0 = Date.now(); keepAwake();
+      try {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        vo.ctx = vo.ctx || new AC(); vo.an = vo.ctx.createAnalyser(); vo.an.fftSize = 1024; vo.ctx.createMediaStreamSource(s).connect(vo.an);
+      } catch (e) { vo.an = null; }
+      show($("voStart"), false); show($("pickA"), false); show($("voStop"), true); show($("clockA"), true); show($("meterA"), !!vo.an);
+      $("infoA").textContent = "Aufnahme läuft. Etwa 30 Sekunden sind ideal.";
+      var buf = vo.an ? new Float32Array(vo.an.fftSize) : null;
+      vo.timer = setInterval(function () {
+        $("clockA").textContent = clock((Date.now() - vo.t0) / 1000);
+        if (vo.an) { vo.an.getFloatTimeDomainData(buf); var s2 = 0; for (var i = 0; i < buf.length; i++) s2 += buf[i] * buf[i]; setBar($("meterA"), Math.min(1, Math.sqrt(s2 / buf.length) * 6)); }
+      }, 80);
+    }).catch(function (e) {
+      note($("stateA"), e && e.name === "NotAllowedError" ? "Das Mikrofon ist für diese Seite gesperrt. Erlaube es in Safari (aA → Website-Einstellungen → Mikrofon)." : "Mikrofon lässt sich nicht öffnen: " + (e && e.message ? e.message : e), "is-bad");
+    });
+  }
+  function voEnd() { if (!vo.on) return; vo.on = false; clearInterval(vo.timer); vo.sec = (Date.now() - vo.t0) / 1000; try { vo.rec.stop(); } catch (e) { voDone(); } }
+  function voDone() {
+    letSleep();
+    if (vo.stream) { vo.stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) { } }); vo.stream = null; }
+    if (vo.ctx) { try { vo.ctx.close(); } catch (e) { } vo.ctx = null; vo.an = null; }
+    show($("voStop"), false); show($("clockA"), false); show($("meterA"), false);
+    var type = (vo.rec && vo.rec.mimeType) || voType() || "audio/mp4";
+    vo.blob = new Blob(vo.chunks, { type: type }); vo.chunks = [];
+    if (!vo.blob.size) { vo.blob = null; note($("stateA"), "Es ist kein Ton angekommen. Bitte noch einmal aufnehmen.", "is-bad"); show($("voStart"), true); show($("pickA"), true); return; }
+    vo.url = URL.createObjectURL(vo.blob); $("playA").src = vo.url; show($("playA"), true);
+    $("infoA").textContent = "Hör kurz rein (" + clock(vo.sec) + " min). Passt es, dann lade es hoch.";
+    show($("voSend"), true); show($("voAgain"), true);
+  }
+  async function voSend() {
+    var blob = vo.blob; if (!blob) return;
+    var type = (blob.type || "audio/mp4").split(";")[0];
+    show($("voSend"), false); show($("voAgain"), false); show($("barA"), true); setBar($("barA"), 0);
+    note($("stateA"), "Wird hochgeladen (" + mb(blob.size) + ") …", "");
+    try {
+      var key = await upload(blob, type, "vo", function (p) { setBar($("barA"), p); }, function (t) { note($("stateA"), t, ""); });
+      var j = await call("publish", { kind: "vo", key: key, size: blob.size, type: type, clipSec: vo.sec, mode: vo.sec ? "studio" : "file", name: speaker() });
+      show($("barA"), false); voReset();
+      note($("stateA"), "Hochgeladen ✓", "is-ok");
+      show($("voStart"), true); $("voStart").textContent = "Neu aufnehmen"; show($("pickA"), true);
+      apply(j.items);
+    } catch (e) {
+      show($("barA"), false);
+      note($("stateA"), "Hochladen hat nicht geklappt: " + e.message + " Die Aufnahme ist noch hier – versuch es noch einmal.", "is-bad");
+      show($("voSend"), true); show($("voAgain"), true);
+    }
+  }
+  $("voStart").addEventListener("click", voBegin);
+  $("voStop").addEventListener("click", voEnd);
+  $("voSend").addEventListener("click", function () { voSend(); });
+  $("voAgain").addEventListener("click", function () { voReset(); show($("voStart"), true); show($("pickA"), true); voBegin(); });
+  $("pickA").addEventListener("click", function () { $("fileA").click(); });
+  $("fileA").addEventListener("change", function () {
+    var f = $("fileA").files && $("fileA").files[0]; $("fileA").value = "";
+    if (!f) return;
+    var type = (f.type || "").split(";")[0] || (/\.mp3$/i.test(f.name) ? "audio/mpeg" : /\.wav$/i.test(f.name) ? "audio/wav" : "audio/mp4");
+    voReset(); vo.sec = 0; vo.blob = f.slice(0, f.size, type); voSend();
+  });
+
+  /* ---------- Start ---------- */
+  var d = new Date();
+  $("dayLine").textContent = "Zeitraffer · " + ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"][d.getDay()] + " · " + String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear();
+  refresh();
+  window.ZR = { tl: tl, vo: vo, server: server, refresh: refresh, recStart: recStart, recStop: recStop, tick: tick, sendVideo: sendVideo };
+})();
+</script>
+</body>
+</html>

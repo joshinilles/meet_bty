@@ -28,6 +28,8 @@ Gestaltung nach dem Claude-Design-Entwurf „MEET Impuls“ und dem MEET-Brand-K
 | `netlify/functions/kalender.mjs` | Speicher des Kalenders: Netlify Blobs (Store `meet-kalender`, ein Eintrag `data.json`, Schreiben nur bei unverändertem ETag), POST mit Studio-PIN |
 | `studio/wall/index.html` | **Freigabeseite der MEET WALL** (Studio-PIN): wartende Momente freigeben oder ablehnen, freigegebene wieder von der Wand nehmen |
 | `netlify/functions/video.mjs` | **MEET DAILY Videos**: vorsignierte Upload-Adressen für das Studio (PIN), Tagesverzeichnis der beiden Morgen-Videos (GET für die Startseite) |
+| `studio/zeitraffer/index.html` | **Zeitraffer-Reel „Komm mit in meine Stille Zeit“** (Studio-PIN): die Stille Zeit als Zeitraffer aufnehmen (alle 250 ms ein Bild → H.264/MP4 im Browser, ohne Ton) und das Voice-over einsprechen; beides geht kurz zu Cloudflare R2 und wird nach dem Schneiden wieder gelöscht. `?test=1` = Testbild/Testton ohne Kamera |
+| `netlify/functions/zeitraffer.mjs` | Rohmaterial fürs Zeitraffer-Reel: vorsignierte Upload-Adressen (PIN), Stand des Tages mit vorsignierten Abruf-Adressen, **Löschen** (`op=remove`). Kein öffentlicher Abruf, nichts davon erscheint auf der Startseite; der Skill `meet-tiktok` (`scripts/studio_zeitraffer.py`) holt ab, schneidet, legt im Drive ab und löscht. Liegengebliebenes räumt jedes `publish` nach 6 Tagen weg |
 | `netlify/lib/r2.mjs` | Cloudflare R2 ohne SDK: AWS-Signature-V4-Adressen für PUT/HEAD/DELETE, öffentliche Adresse |
 | `netlify/lib/video-store.mjs` | Verzeichnis der Videos: Netlify Blobs (Store `meet-video`), lokal ersatzweise Dateien |
 | `netlify/functions/wall.mjs` | Liefert die freigegebenen Momente an die Seite (GET, anonym) und nimmt die Freigabe-Entscheidungen entgegen (POST mit PIN) |
