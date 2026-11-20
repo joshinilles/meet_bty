@@ -11,8 +11,8 @@
 <link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png">
 <link rel="stylesheet" href="../../styles.css">
 <style>
-/* Zeitraffer-Reel „Komm mit in meine Stille Zeit“: die Stille Zeit als Zeitraffer aufnehmen und danach das Voice-over
-   einsprechen. Beides geht kurz zu Cloudflare (functions/zeitraffer.mjs), Claude holt es am Mac ab, schneidet das Reel,
+/* Zeitraffer-Reel „Komm mit in meine Stille Zeit“: die Stille Zeit als normales Video aufnehmen (den Zeitraffer macht
+   der Schnitt) und danach das Voice-over einsprechen. Beides geht kurz zu Cloudflare (functions/zeitraffer.mjs), Claude holt es am Mac ab, schneidet das Reel,
    legt alles im Drive ab und löscht es wieder. Nutzt dieselbe Studio-PIN wie das MEET DAILY Studio. */
 .zr{gap:16px;min-height:auto;padding-top:8px}
 .zr-head{display:flex;flex-direction:column;gap:8px}
@@ -69,7 +69,7 @@ audio{width:100%}
     <a class="zr-back" href="../">← Zurück ins Studio</a>
     <div class="kicker" id="dayLine">Zeitraffer</div>
     <h1>Komm mit in meine Stille Zeit</h1>
-    <p class="hint">Erst die Stille Zeit als Zeitraffer aufnehmen, später das Voice-over einsprechen. Beides liegt dann für Claude bereit und wird nach dem Schneiden wieder gelöscht.</p>
+    <p class="hint">Erst die Stille Zeit als Video aufnehmen, später das Voice-over einsprechen. Beides liegt dann für Claude bereit und wird nach dem Schneiden wieder gelöscht.</p>
   </div>
   <div class="pin" id="pinBox" hidden>
     <label class="sr-only" for="pin">Studio-PIN</label>
@@ -81,7 +81,7 @@ audio{width:100%}
   <!-- 1 · Stille Zeit als Zeitraffer -->
   <div class="card" id="cardV">
     <div class="card-head"><h2>1 · Stille Zeit</h2><span class="badge" id="badgeV">noch nichts</span></div>
-    <p class="note" id="infoV">Stell das iPhone so hin, dass man dich beim Lesen sieht, und lass diese Seite offen. Aufgenommen wird ohne Ton, alle Viertelsekunde ein Bild – zehn Minuten ergeben etwa 80 Sekunden Video.</p>
+    <p class="note" id="infoV">Stell das iPhone so hin, dass man dich beim Lesen sieht, und lass diese Seite offen. Aufgenommen wird ein normales Video ohne Ton. Es wird schon während der Aufnahme hochgeladen; den Zeitraffer schneidet Claude danach.</p>
     <div class="stage" id="stage" hidden>
       <video id="cam" playsinline muted autoplay></video>
       <canvas id="testView" hidden></canvas>
@@ -95,7 +95,6 @@ audio{width:100%}
     <div class="row">
       <button type="button" class="btn btn--text" id="camFlip" hidden>Kamera wechseln</button>
       <button type="button" class="btn btn--text" id="retryV" hidden>Nochmal hochladen</button>
-      <a class="btn btn--text" id="saveV" hidden download>Auf dem Gerät sichern</a>
       <button type="button" class="btn btn--text" id="pickV">Fertiges Video auswählen</button>
     </div>
     <input class="filein" type="file" id="fileV" accept="video/*" tabindex="-1">
@@ -137,9 +136,7 @@ audio{width:100%}
   var SETTINGS_KEY = "meetstudio:settings:v2"; // dieselbe PIN wie im Studio
   var Q = new URLSearchParams(location.search);
   var TEST = Q.get("test") === "1";                     // ohne Kamera/Mikrofon: Testbild und Testton (lokale Prüfung)
-  var CAP_MS = Math.max(20, Number(Q.get("ms")) || 250); // alle 250 ms ein Bild …
-  var OUT_FPS = 30;                                     // … abgespielt mit 30 Bildern/s = 7,5-fach
-  var W = 1080, H = 1920, BITRATE = 6e6, MAX_REAL_MIN = 40;
+  var FPS = 30, W = 1080, H = 1920, BITRATE = 5e6, MAX_REAL_MIN = 45;  // normales Video: 30 Bilder/s, ~37 MB je Minute
   var SINGLE_MAX = 10 * 1048576;
   var $ = function (id) { return document.getElementById(id); };
   var show = function (el, on) { el.hidden = !on; };
@@ -216,13 +213,13 @@ audio{width:100%}
     $("cardV").classList.toggle("is-done", !!v); $("cardA").classList.toggle("is-done", !!a);
     $("badgeV").textContent = v ? "✓ liegt bereit · " + hhmm(v.at) : "noch nichts";
     $("badgeA").textContent = a ? "✓ liegt bereit · " + hhmm(a.at) : "noch nichts";
-    if (v && !tl.on) $("infoV").textContent = "Hochgeladen: " + (v.mode === "file" ? "fertiges Video" : clock(v.realSec) + " min Stille Zeit" + (v.startedAt ? " ab " + hhmm(v.startedAt) + " Uhr" : "") + " → " + clock(v.clipSec) + " min Zeitraffer") + " · " + mb(v.size) + ". Eine neue Aufnahme ersetzt diese.";
+    if (v && !rec.on && !rec.up) $("infoV").textContent = "Hochgeladen: " + (v.mode === "file" ? "fertiges Video" : clock(v.realSec) + " min Video" + (v.startedAt ? " ab " + hhmm(v.startedAt) + " Uhr" : "")) + " · " + mb(v.size) + ". Eine neue Aufnahme ersetzt diese.";
     if (a && !vo.on && !vo.blob) $("infoA").textContent = "Hochgeladen: " + (a.clipSec ? clock(a.clipSec) + " min" : "Aufnahme") + " · " + mb(a.size) + ". Eine neue Aufnahme ersetzt diese.";
     var any = !!(v || a), both = !!(v && a);
     show($("cardR"), any || server.hadBoth);
     $("cardR").classList.toggle("is-done", both);
     $("readyTitle").textContent = both ? "Bereit für Claude" : any ? "Noch nicht vollständig" : "Abgeholt und gelöscht";
-    $("badgeR").textContent = both ? "✓ beides da" : any ? (v ? "Voice-over fehlt" : "Zeitraffer fehlt") : "✓ nichts mehr gespeichert";
+    $("badgeR").textContent = both ? "✓ beides da" : any ? (v ? "Voice-over fehlt" : "Video fehlt") : "✓ nichts mehr gespeichert";
     $("readySay").textContent = both ? "Sag Claude im Chat: «Schneid den Zeitraffer von heute.»" : "";
     show($("readySay"), both);
     $("readyNote").textContent = both ? "Claude holt beides ab, schneidet das Reel, legt alles im Drive ab und löscht die Aufnahmen danach hier wieder."
@@ -248,31 +245,93 @@ audio{width:100%}
     refresh();
   });
   $("wipe").addEventListener("click", function () {
-    if (!confirm("Zeitraffer und Voice-over von heute bei Cloudflare löschen? Claude kann sie danach nicht mehr abholen.")) return;
+    if (!confirm("Video und Voice-over von heute bei Cloudflare löschen? Claude kann sie danach nicht mehr abholen.")) return;
     call("remove").then(function (j) { server.hadBoth = false; apply(j.items); $("infoV").textContent = "Gelöscht. Du kannst neu aufnehmen."; $("infoA").textContent = "Gelöscht. Du kannst neu aufnehmen."; })
       .catch(function (e) { note($("top"), "Löschen hat nicht geklappt: " + e.message, "is-bad"); });
   });
 
-  /* ---------- 1 · Zeitraffer: alle CAP_MS ein Kamerabild → H.264 (WebCodecs) → MP4 ---------- */
+  /* ---------- 1 · Stille Zeit: ein normales Video (30 Bilder/s, ohne Ton) → H.264 (WebCodecs) → MP4 in Fragmenten.
+     Die Datei wird schon WÄHREND der Aufnahme in Stücken hochgeladen (zehn Minuten sind ~375 MB – am Stück wäre das
+     nach dem Stopp eine lange Wartezeit und viel Speicher im Browser). Den Zeitraffer macht erst der Schnitt am Mac. ---------- */
   var cam = $("cam"), stream = null, facing = "user";
-  var tl = { on: false, frames: 0, startedAt: "", t0: 0, nextAt: 0, timer: null, enc: null, muxer: null, err: null, blob: null, meta: null, canvas: null, ctx: null, codec: "" };
+  var rec = { on: false, frames: 0, startedAt: "", ts: 0, last: 0, lastKey: -1e9, t0: 0, timer: null, enc: null, muxer: null, err: null, codec: "", canvas: null, ctx: null, up: null, mode: "", lastFrameAt: 0 };
+  var file = { blob: null, meta: null }; // „Fertiges Video auswählen“
   var testView = $("testView");
+
+  /* Nimmt die Bytes des Muxers der Reihe nach an, schneidet sie in Stücke von partSize und lädt Stück für Stück hoch */
+  function Streamer(kind, type) {
+    this.kind = kind; this.type = type; this.key = ""; this.uploadId = ""; this.partSize = 0;
+    this.cur = null; this.fill = 0; this.total = 0; this.sent = 0; this.next = 1;
+    this.queue = []; this.urls = {}; this.busy = false; this.err = null; this.closed = false; this.onChange = null;
+  }
+  Streamer.prototype.start = async function () {
+    var mp = await call("mp-start", { kind: this.kind, type: this.type, stream: true });
+    this.key = mp.key; this.uploadId = mp.uploadId; this.partSize = mp.partSize; this.cur = new Uint8Array(mp.partSize);
+  };
+  Streamer.prototype.write = function (data, position) {
+    if (position !== this.total) { this.err = new Error("Der Muxer schreibt nicht fortlaufend (" + position + " statt " + this.total + ")"); this.fatal = true; return; }
+    var off = 0;
+    while (off < data.byteLength) {
+      var n = Math.min(this.partSize - this.fill, data.byteLength - off);
+      this.cur.set(data.subarray(off, off + n), this.fill); this.fill += n; off += n;
+      if (this.fill === this.partSize) { this.queue.push({ n: this.next++, bytes: this.cur.buffer }); this.cur = new Uint8Array(this.partSize); this.fill = 0; }
+    }
+    this.total += data.byteLength;
+    if (this.queue.length > 60) { this.err = new Error("Die Verbindung ist zu langsam – es warten schon " + this.queue.length + " Stücke"); this.fatal = true; }
+    this.pump();
+  };
+  Streamer.prototype.close = function () {
+    if (!this.closed) { this.closed = true; if (this.fill) { this.queue.push({ n: this.next++, bytes: this.cur.buffer.slice(0, this.fill) }); this.fill = 0; } this.cur = null; }
+    this.pump();
+  };
+  Streamer.prototype.urlFor = async function (n) {
+    if (!this.urls[n]) {
+      var j = await call("mp-parts", { kind: this.kind, key: this.key, uploadId: this.uploadId, from: n, count: 8 });
+      for (var i = 0; i < j.parts.length; i++) this.urls[j.parts[i].partNumber] = j.parts[i].url;
+    }
+    return this.urls[n];
+  };
+  Streamer.prototype.pump = async function () {
+    if (this.busy || this.fatal) return;
+    this.busy = true;
+    try {
+      while (this.queue.length) {
+        var part = this.queue[0], self = this;
+        for (var attempt = 1; ; attempt++) {
+          try { await put(await this.urlFor(part.n), part.bytes, this.type, null); break; }
+          catch (e) {
+            delete this.urls[part.n];
+            if (attempt >= 5) throw e;
+            await new Promise(function (r) { setTimeout(r, 2000 * attempt); });
+          }
+        }
+        this.queue.shift(); this.sent += part.bytes.byteLength; this.err = null;
+        if (this.onChange) this.onChange();
+      }
+    } catch (e) { this.err = e; if (this.onChange) this.onChange(); }
+    finally { this.busy = false; }
+  };
+  Streamer.prototype.idle = function () { return !this.busy && !this.queue.length; };
+  Streamer.prototype.abort = function () { if (this.uploadId) call("mp-abort", { kind: this.kind, key: this.key, uploadId: this.uploadId }).catch(function () { }); };
+
   function camOpen() {
     if (TEST) { testView.width = 270; testView.height = 480; show(testView, true); show(cam, false); return Promise.resolve(); }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.reject(new Error("Dieser Browser gibt die Kamera nicht frei. Öffne das Studio in Safari über meet-bty.com/studio."));
     camClose();
-    return navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }, audio: false }).then(function (s) {
+    return navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: FPS } }, audio: false }).then(function (s) {
       stream = s; cam.srcObject = s; cam.classList.toggle("mirror", facing === "user");
       var tr = s.getVideoTracks()[0];
-      if (tr) tr.addEventListener("ended", function () { if (tl.on) camOpen().catch(function () { }); });
+      if (tr) tr.addEventListener("ended", function () { if (rec.on) camOpen().then(arm).catch(function () { }); });
       return cam.play().catch(function () { });
     });
   }
   function camClose() { if (stream) { stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) { } }); stream = null; cam.srcObject = null; } }
   function drawTest(ctx, w, h, n) {
-    ctx.fillStyle = "hsl(" + (n * 7 % 360) + ",45%,22%)"; ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = "#D4F65A"; ctx.fillRect((n * 13) % w, h * 0.45, w * 0.12, h * 0.1);
+    ctx.fillStyle = "hsl(" + (n * 3 % 360) + ",45%,22%)"; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#D4F65A"; ctx.fillRect((n * 7) % w, h * 0.45, w * 0.12, h * 0.1);
     ctx.fillStyle = "#fff"; ctx.font = "700 " + Math.round(w / 9) + "px sans-serif"; ctx.fillText("Bild " + n, w * 0.08, h * 0.3);
+    // Rauschen, damit das Testvideo so gross wird wie ein echtes (sonst käme nie ein zweites Stück zustande)
+    if (w >= 1000) for (var i = 0; i < 2500; i++) { ctx.fillStyle = "hsl(" + Math.random() * 360 + ",70%," + (20 + Math.random() * 60) + "%)"; ctx.fillRect(Math.random() * w, h * 0.6 + Math.random() * h * 0.4, 14, 14); }
   }
   function drawCover(ctx, src, sw, sh) {
     var k = Math.max(W / sw, H / sh), dw = sw * k, dh = sh * k;
@@ -282,87 +341,138 @@ audio{width:100%}
     if (!window.VideoEncoder || !window.Mp4Muxer) return "";
     var list = ["avc1.640028", "avc1.4D0028", "avc1.42E028", "avc1.42001F"];
     for (var i = 0; i < list.length; i++) {
-      try { var r = await VideoEncoder.isConfigSupported({ codec: list[i], width: W, height: H, bitrate: BITRATE, framerate: OUT_FPS, avc: { format: "avc" } }); if (r.supported) return list[i]; } catch (e) { }
+      try { var r = await VideoEncoder.isConfigSupported({ codec: list[i], width: W, height: H, bitrate: BITRATE, framerate: FPS, avc: { format: "avc" } }); if (r.supported) return list[i]; } catch (e) { }
     }
     return "";
   }
   async function recStart() {
-    tl.codec = tl.codec || await pickCodec();
-    if (!tl.codec) { note($("stateV"), "Dieser Browser kann hier nicht aufnehmen. Nimm mit der Kamera-App im Zeitraffer auf und wähle das Video unten aus.", "is-bad"); return; }
-    tl.canvas = document.createElement("canvas"); tl.canvas.width = W; tl.canvas.height = H; tl.ctx = tl.canvas.getContext("2d", { alpha: false });
-    tl.muxer = new Mp4Muxer.Muxer({ target: new Mp4Muxer.ArrayBufferTarget(), video: { codec: "avc", width: W, height: H, frameRate: OUT_FPS }, fastStart: "in-memory", firstTimestampBehavior: "offset" });
-    tl.err = null;
-    tl.enc = new VideoEncoder({ output: function (c, m) { try { tl.muxer.addVideoChunk(c, m); } catch (e) { tl.err = e; } }, error: function (e) { tl.err = e; } });
-    tl.enc.configure({ codec: tl.codec, width: W, height: H, bitrate: BITRATE, framerate: OUT_FPS, avc: { format: "avc" } });
-    tl.frames = 0; tl.blob = null; tl.meta = null; tl.t0 = Date.now(); tl.startedAt = new Date().toISOString(); tl.nextAt = tl.t0; tl.on = true;
+    rec.codec = rec.codec || await pickCodec();
+    if (!rec.codec) { note($("stateV"), "Dieser Browser kann hier nicht aufnehmen. Nimm mit der Kamera-App auf und wähle das Video unten aus.", "is-bad"); return; }
+    show($("recStart"), false);
+    note($("stateV"), "Aufnahme wird vorbereitet …", "");
+    var up = new Streamer("video", "video/mp4");
+    await up.start();
+    up.onChange = hud;
+    rec.up = up; rec.err = null;
+    rec.canvas = document.createElement("canvas"); rec.canvas.width = W; rec.canvas.height = H; rec.ctx = rec.canvas.getContext("2d", { alpha: false });
+    rec.muxer = new Mp4Muxer.Muxer({
+      target: new Mp4Muxer.StreamTarget({ onData: function (data, position) { up.write(data, position); } }),
+      video: { codec: "avc", width: W, height: H, frameRate: FPS }, fastStart: "fragmented", firstTimestampBehavior: "offset"
+    });
+    rec.enc = new VideoEncoder({ output: function (c, m) { try { rec.muxer.addVideoChunk(c, m); } catch (e) { rec.err = e; } }, error: function (e) { rec.err = e; } });
+    rec.enc.configure({ codec: rec.codec, width: W, height: H, bitrate: BITRATE, framerate: FPS, avc: { format: "avc" } });
+    rec.frames = 0; rec.ts = 0; rec.last = 0; rec.lastKey = -1e9; rec.t0 = Date.now(); rec.lastFrameAt = Date.now(); rec.startedAt = new Date().toISOString(); rec.on = true; rec.mode = ""; rec.armed = false;
     keepAwake();
-    show($("recStart"), false); show($("recStop"), true); show($("camFlip"), false); show($("pickV"), false); show($("retryV"), false); show($("saveV"), false); show($("barV"), false);
-    note($("stateV"), "Läuft. Lass diese Seite offen und den Bildschirm an – wechselst du die App, pausiert die Aufnahme.", "");
-    tl.timer = setInterval(tick, Math.min(100, CAP_MS));
-    tick();
+    show($("recStop"), true); show($("camFlip"), false); show($("pickV"), false); show($("retryV"), false); show($("barV"), false);
+    note($("stateV"), "Läuft. Lass diese Seite offen und den Bildschirm an – wechselst du die App, pausiert die Aufnahme. Hochgeladen wird nebenbei.", "");
+    rec.timer = setInterval(watch, 250);
+    arm();
   }
-  function tick() {
-    if (!tl.on) return;
-    var now = Date.now();
-    hud();
-    if (tl.err) { recStop(); return; }
-    if (now < tl.nextAt) return;
-    if ((now - tl.t0) / 60000 > MAX_REAL_MIN) { recStop(); return; }
-    if (tl.enc.encodeQueueSize > 6) return; // Encoder kommt nicht nach: dieses Bild auslassen
+  /* Bildtakt: wenn möglich genau die Kamerabilder (requestVideoFrameCallback), sonst ein 30er-Takt */
+  function arm() {
+    if (!rec.on) return;
+    if (!TEST && cam.requestVideoFrameCallback && rec.mode !== "takt" && rec.mode !== "takt-an") {
+      rec.mode = "rvfc";
+      if (!rec.armed) { rec.armed = true; cam.requestVideoFrameCallback(function () { rec.armed = false; frame(); arm(); }); }
+    } else if (rec.mode !== "takt-an") { rec.mode = "takt-an"; rec.takt = setInterval(frame, 1000 / FPS); }
+  }
+  function frame() {
+    if (!rec.on || rec.err) return;
+    var now = performance.now(), dt = rec.last ? now - rec.last : 0;
+    if (rec.frames && dt < 1000 / FPS * 0.6) return;          // Kamera liefert schneller als 30 Bilder/s: auslassen
+    if (rec.enc.encodeQueueSize > 4) return;                   // Encoder kommt nicht nach: dieses Bild auslassen
     try {
-      if (TEST) { drawTest(tl.ctx, W, H, tl.frames); drawTest(testView.getContext("2d"), testView.width, testView.height, tl.frames); }
+      if (TEST) { drawTest(rec.ctx, W, H, rec.frames); if (rec.frames % 5 === 0) drawTest(testView.getContext("2d"), testView.width, testView.height, rec.frames); }
       else {
-        if (cam.readyState < 2 || !cam.videoWidth) { if (cam.paused) cam.play().catch(function () { }); return; }
-        drawCover(tl.ctx, cam, cam.videoWidth, cam.videoHeight);
+        if (cam.readyState < 2 || !cam.videoWidth) return;
+        drawCover(rec.ctx, cam, cam.videoWidth, cam.videoHeight);
       }
-      var f = new VideoFrame(tl.canvas, { timestamp: Math.round(tl.frames * 1e6 / OUT_FPS), duration: Math.round(1e6 / OUT_FPS) });
-      try { tl.enc.encode(f, { keyFrame: tl.frames % OUT_FPS === 0 }); } finally { f.close(); }
-      tl.frames++;
-    } catch (e) { tl.err = e; }
-    tl.nextAt += CAP_MS; if (tl.nextAt < now) tl.nextAt = now + CAP_MS;
+      if (rec.frames) rec.ts += dt > 500 ? 1000 / FPS : dt;    // Pausen (App gewechselt) fallen aus dem Video heraus
+      rec.last = now; rec.lastFrameAt = Date.now();
+      var key = rec.ts - rec.lastKey >= 2000; if (key) rec.lastKey = rec.ts;
+      var f = new VideoFrame(rec.canvas, { timestamp: Math.round(rec.ts * 1000), duration: Math.round(1e6 / FPS) });
+      try { rec.enc.encode(f, { keyFrame: key }); } finally { f.close(); }
+      rec.frames++;
+    } catch (e) { rec.err = e; }
+  }
+  function watch() {
+    if (!rec.on) return;
+    hud();
+    if (rec.err || (rec.up && rec.up.fatal)) { recStop(); return; }
+    if ((Date.now() - rec.t0) / 60000 > MAX_REAL_MIN) { recStop(); return; }
+    if (!TEST && !document.hidden && Date.now() - rec.lastFrameAt > 1500) {       // Kamerabilder bleiben aus: Kamera anstossen, notfalls auf den Takt wechseln
+      if (cam.paused) cam.play().catch(function () { });
+      if (rec.mode === "rvfc" && Date.now() - rec.lastFrameAt > 4000) { rec.mode = "takt"; arm(); }
+    }
   }
   function hud() {
-    $("hudL").className = tl.on ? "rec" : ""; $("hudL").textContent = tl.on ? clock((Date.now() - tl.t0) / 1000) : "bereit";
-    $("hudR").textContent = tl.on ? "→ " + clock(tl.frames / OUT_FPS) + " Zeitraffer" : "";
+    $("hudL").className = rec.on ? "rec" : ""; $("hudL").textContent = rec.on ? clock(rec.ts / 1000) : "bereit";
+    $("hudR").textContent = rec.on && rec.up ? "↑ " + mb(rec.up.sent) + (rec.up.err ? " · wartet" : "") : "";
   }
   async function recStop() {
-    if (!tl.on) return;
-    tl.on = false; clearInterval(tl.timer);
+    if (!rec.on) return;
+    rec.on = false; clearInterval(rec.timer); clearInterval(rec.takt);
     show($("recStop"), false);
-    note($("stateV"), "Zeitraffer wird fertiggestellt …", "");
+    note($("stateV"), "Video wird fertiggestellt …", "");
     try {
-      if (tl.err) throw tl.err;
-      if (tl.frames < OUT_FPS) throw new Error("zu kurz – es sind erst " + tl.frames + " Bilder");
-      await tl.enc.flush(); tl.muxer.finalize();
-      tl.blob = new Blob([tl.muxer.target.buffer], { type: "video/mp4" });
-      tl.meta = { startedAt: tl.startedAt, realSec: tl.frames * CAP_MS / 1000, clipSec: tl.frames / OUT_FPS, speed: OUT_FPS * CAP_MS / 1000, mode: "timelapse", name: speaker() };
-      try { tl.enc.close(); } catch (e) { }
+      if (rec.err) throw rec.err;
+      if (rec.up.fatal) throw rec.up.err;
+      if (rec.frames < FPS) throw new Error("zu kurz – es sind erst " + rec.frames + " Bilder");
+      await rec.enc.flush(); rec.muxer.finalize();
+      try { rec.enc.close(); } catch (e) { }
+      if (rec.up.fatal) throw rec.up.err;
+      rec.up.close();
       camClose(); show($("stage"), false);
-      $("saveV").href = URL.createObjectURL(tl.blob); $("saveV").download = "Zeitraffer_" + todayKey() + ".mp4";
-      await sendVideo();
+      await finishVideo();
     } catch (e) {
-      letSleep();
+      letSleep(); if (rec.up) rec.up.abort(); rec.up = null;
+      camClose(); show($("stage"), false);
       note($("stateV"), "Die Aufnahme liess sich nicht fertigstellen: " + (e && e.message ? e.message : e), "is-bad");
       show($("camOn"), true); show($("pickV"), true);
     }
   }
-  async function sendVideo() {
-    var blob = tl.blob, meta = tl.meta;
-    if (!blob) return;
-    keepAwake(); show($("retryV"), false); show($("saveV"), false); show($("barV"), true); setBar($("barV"), 0);
-    note($("stateV"), "Wird hochgeladen (" + mb(blob.size) + ") …", "");
+  /* Rest hochladen, zusammensetzen, eintragen – nach einem Netzfehler mit „Nochmal versuchen“ wiederholbar */
+  async function finishVideo() {
+    var up = rec.up; if (!up) return;
+    keepAwake(); show($("retryV"), false); show($("barV"), true);
+    var paint = function () { setBar($("barV"), up.total ? up.sent / up.total : 0); note($("stateV"), "Rest wird hochgeladen (" + mb(up.sent) + " von " + mb(up.total) + ") …", ""); };
+    up.onChange = paint; paint();
     try {
-      var type = (blob.type || "video/mp4").split(";")[0];
-      var key = await upload(blob, type, "video", function (p) { setBar($("barV"), p); }, function (t) { note($("stateV"), t, ""); });
-      var j = await call("publish", Object.assign({ kind: "video", key: key, size: blob.size, type: type }, meta));
-      tl.blob = null; show($("barV"), false);
+      up.err = null; up.pump();
+      while (!up.idle()) await new Promise(function (r) { setTimeout(r, 200); });
+      if (up.err) throw up.err;
+      note($("stateV"), "Wird zusammengesetzt …", "");
+      await call("mp-complete", { kind: "video", key: up.key, uploadId: up.uploadId, size: up.total });
+      var sec = Math.round(rec.ts / 1000);
+      var j = await call("publish", { kind: "video", key: up.key, size: up.total, type: "video/mp4", startedAt: rec.startedAt, realSec: sec, clipSec: sec, speed: 1, mode: "video", name: speaker() });
+      rec.up = null; show($("barV"), false);
       note($("stateV"), "Hochgeladen ✓", "is-ok");
       show($("camOn"), true); $("camOn").textContent = "Neu aufnehmen"; show($("pickV"), true);
       apply(j.items);
     } catch (e) {
       show($("barV"), false);
-      note($("stateV"), "Hochladen hat nicht geklappt: " + e.message + " Die Aufnahme ist noch hier – versuch es noch einmal oder sichere sie auf dem Gerät.", "is-bad");
-      show($("retryV"), true); show($("saveV"), true);
+      note($("stateV"), "Hochladen hat nicht geklappt: " + e.message + " Die Aufnahme ist noch hier – lass die Seite offen und versuch es noch einmal.", "is-bad");
+      show($("retryV"), true);
+    } finally { letSleep(); }
+  }
+  /* „Fertiges Video auswählen“: eine Datei aus der Kamera-App am Stück hochladen */
+  async function sendFile() {
+    var blob = file.blob, meta = file.meta;
+    if (!blob) return;
+    keepAwake(); show($("retryV"), false); show($("barV"), true); setBar($("barV"), 0);
+    note($("stateV"), "Wird hochgeladen (" + mb(blob.size) + ") …", "");
+    try {
+      var type = (blob.type || "video/mp4").split(";")[0];
+      var key = await upload(blob, type, "video", function (p) { setBar($("barV"), p); }, function (t) { note($("stateV"), t, ""); });
+      var j = await call("publish", Object.assign({ kind: "video", key: key, size: blob.size, type: type }, meta));
+      file.blob = null; show($("barV"), false);
+      note($("stateV"), "Hochgeladen ✓", "is-ok");
+      show($("camOn"), true); show($("pickV"), true);
+      apply(j.items);
+    } catch (e) {
+      show($("barV"), false);
+      note($("stateV"), "Hochladen hat nicht geklappt: " + e.message + " Versuch es noch einmal.", "is-bad");
+      show($("retryV"), true);
     } finally { letSleep(); }
   }
   $("camOn").addEventListener("click", function () {
@@ -373,23 +483,23 @@ audio{width:100%}
     });
   });
   $("camFlip").addEventListener("click", function () { facing = facing === "user" ? "environment" : "user"; camOpen().catch(function (e) { note($("stateV"), "Kamera lässt sich nicht wechseln: " + e.message, "is-bad"); }); });
-  $("recStart").addEventListener("click", function () { recStart().catch(function (e) { tl.on = false; note($("stateV"), "Aufnahme startet nicht: " + (e && e.message ? e.message : e), "is-bad"); show($("recStart"), true); show($("recStop"), false); }); });
+  $("recStart").addEventListener("click", function () { recStart().catch(function (e) { rec.on = false; if (rec.up) rec.up.abort(); rec.up = null; note($("stateV"), "Aufnahme startet nicht: " + (e && e.message ? e.message : e), "is-bad"); show($("recStart"), true); show($("recStop"), false); }); });
   $("recStop").addEventListener("click", function () { recStop(); });
-  $("retryV").addEventListener("click", function () { sendVideo(); });
+  $("retryV").addEventListener("click", function () { if (rec.up) finishVideo(); else sendFile(); });
   $("pickV").addEventListener("click", function () { $("fileV").click(); });
   $("fileV").addEventListener("change", function () {
     var f = $("fileV").files && $("fileV").files[0]; $("fileV").value = "";
     if (!f) return;
     var type = (f.type || "").split(";")[0] || (/\.mov$/i.test(f.name) ? "video/quicktime" : "video/mp4");
-    tl.blob = f.slice(0, f.size, type); tl.meta = { startedAt: "", realSec: 0, clipSec: 0, speed: 0, mode: "file", name: speaker() };
-    sendVideo();
+    file.blob = f.slice(0, f.size, type); file.meta = { startedAt: "", realSec: 0, clipSec: 0, speed: 0, mode: "file", name: speaker() };
+    sendFile();
   });
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) return;
-    if (tl.on) { keepAwake(); if (!TEST && cam.paused) cam.play().catch(function () { }); }
-    else if (!vo.on) refresh();
+    if (rec.on) { keepAwake(); if (!TEST && cam.paused) cam.play().catch(function () { }); arm(); }
+    else if (!vo.on && !rec.up) refresh();
   });
-  window.addEventListener("beforeunload", function (e) { if (tl.on || tl.blob || vo.on || vo.blob) { e.preventDefault(); e.returnValue = ""; } });
+  window.addEventListener("beforeunload", function (e) { if (rec.on || rec.up || file.blob || vo.on || vo.blob) { e.preventDefault(); e.returnValue = ""; } });
 
   /* ---------- 2 · Voice-over: Tonaufnahme (MediaRecorder), anhören, hochladen ---------- */
   var vo = { on: false, rec: null, chunks: [], stream: null, t0: 0, timer: null, blob: null, sec: 0, ctx: null, an: null, url: "" };
@@ -484,7 +594,7 @@ audio{width:100%}
   var d = new Date();
   $("dayLine").textContent = "Zeitraffer · " + ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"][d.getDay()] + " · " + String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear();
   refresh();
-  window.ZR = { tl: tl, vo: vo, server: server, refresh: refresh, recStart: recStart, recStop: recStop, tick: tick, sendVideo: sendVideo };
+  window.ZR = { rec: rec, file: file, vo: vo, server: server, refresh: refresh, recStart: recStart, recStop: recStop, sendFile: sendFile };
 })();
 </script>
 </body>

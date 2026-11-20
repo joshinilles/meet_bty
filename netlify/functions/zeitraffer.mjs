@@ -7,6 +7,9 @@
 //   ?op=pending,     Body {}                             → { days:[{day, kinds:[…]}] }  alle Tage, an denen noch etwas liegt
 //   ?op=sign,        Body {day, kind, type, size}        → { uploadUrl, key }           kind = video | vo (kleine Dateien in einem Stück)
 //   ?op=mp-start,    Body {day, kind, type, size}        → { key, uploadId, partSize, parts:[{partNumber,url}] }
+//        mit stream:true (ohne size): Upload schon WÄHREND der Aufnahme – die Grösse steht erst am Ende fest, die Adressen
+//        der Stücke kommen nach und nach über op=mp-parts; jedes Stück ausser dem letzten ist genau partSize gross
+//   ?op=mp-parts,    Body {day, kind, key, uploadId, from, count} → { parts:[{partNumber,url}] }  Adressen für die nächsten Stücke
 //   ?op=mp-complete, Body {day, kind, key, uploadId, size} → { ok, size }
 //   ?op=mp-abort,    Body {day, kind, key, uploadId}     → { ok }
 //   ?op=publish,     Body {day, kind, key, size, type, startedAt, realSec, clipSec, speed, mode, name} → { ok, items }
@@ -92,13 +95,14 @@ export default async (req) => {
 
     if (op === 'sign' || op === 'mp-start') {
       if (!kind) return json({ error: 'kind muss video oder vo sein' }, 400);
-      const type = baseType(body.type), ext = TYPES[kind][type], size = Number(body.size) || 0;
+      const type = baseType(body.type), ext = TYPES[kind][type], stream = op === 'mp-start' && body.stream === true;
+      const size = stream ? 1 : Number(body.size) || 0;
       if (!ext) return json({ error: (kind === 'video' ? 'Nur MP4-, MOV- oder WebM-Videos' : 'Nur Tonaufnahmen (M4A, MP3, WAV, WebM)') + ' – bekommen: ' + (type || 'unbekannt') }, 400);
       if (size <= 0) return json({ error: 'Dateigrösse fehlt' }, 400);
       if (size > MAX[kind]) return json({ error: 'Datei zu gross (' + (size / 1e6).toFixed(0) + ' MB)' }, 413);
       const key = prefix + kind + '-' + crypto.randomBytes(9).toString('hex') + '.' + ext;
       if (op === 'sign') return json({ uploadUrl: local ? '/__media/' + key : presign(cfg, 'PUT', key, 1800), key, expires: 1800, method: 'PUT' });
-      const count = Math.max(1, Math.ceil(size / PART_SIZE)), expires = 3600;
+      const count = stream ? 0 : Math.max(1, Math.ceil(size / PART_SIZE)), expires = 3600;
       let uploadId;
       if (local) {
         const r = await fetch(localBase + '/__media/' + key + '?uploads', { method: 'POST' });
@@ -108,6 +112,16 @@ export default async (req) => {
       const parts = [];
       for (let i = 1; i <= count; i++) parts.push({ partNumber: i, url: local ? '/__media/' + key + '?partNumber=' + i + '&uploadId=' + encodeURIComponent(uploadId) : multipartPartUrl(cfg, key, uploadId, i, expires) });
       return json({ key, uploadId, partSize: PART_SIZE, parts, expires });
+    }
+
+    if (op === 'mp-parts') {
+      const key = clean(body.key, 200), uploadId = clean(body.uploadId, 400);
+      if (!kind || !keyOk(key) || !uploadId) return json({ error: 'Schlüssel passt nicht zu Tag und Art' }, 400);
+      const from = Math.max(1, Math.floor(Number(body.from) || 1)), count = Math.max(1, Math.min(16, Math.floor(Number(body.count) || 1)));
+      if (from + count - 1 > 10000 || (from + count - 1) * PART_SIZE > MAX[kind] + PART_SIZE) return json({ error: 'Aufnahme zu lang' }, 413);
+      const parts = [];
+      for (let i = from; i < from + count; i++) parts.push({ partNumber: i, url: local ? '/__media/' + key + '?partNumber=' + i + '&uploadId=' + encodeURIComponent(uploadId) : multipartPartUrl(cfg, key, uploadId, i, 3600) });
+      return json({ parts, partSize: PART_SIZE });
     }
 
     if (op === 'mp-complete' || op === 'mp-abort') {
